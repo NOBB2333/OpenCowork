@@ -18,6 +18,7 @@ import {
   type EditableUserMessageDraft,
   type ImageAttachment
 } from '@renderer/lib/image-attachments'
+import { SystemCommandCard } from './SystemCommandCard'
 
 interface UserMessageProps {
   content: string | ContentBlock[]
@@ -30,6 +31,8 @@ export function UserMessage({ content, isLast, onEdit }: UserMessageProps): Reac
   const currentDraft = useMemo(() => extractEditableUserMessageDraft(content), [content])
   const plainText = currentDraft.text
   const allImages = currentDraft.images
+  const command = currentDraft.command
+  const copyText = command ? `/${command.name}${plainText ? ` ${plainText}` : ''}` : plainText
 
   const fullText =
     typeof content === 'string'
@@ -74,9 +77,10 @@ export function UserMessage({ content, isLast, onEdit }: UserMessageProps): Reac
   const nextDraft = useMemo<EditableUserMessageDraft>(
     () => ({
       text: editText.trim(),
-      images: cloneImageAttachments(editImages)
+      images: cloneImageAttachments(editImages),
+      command
     }),
-    [editImages, editText]
+    [command, editImages, editText]
   )
   const canSave =
     hasEditableDraftContent(nextDraft) &&
@@ -136,7 +140,7 @@ export function UserMessage({ content, isLast, onEdit }: UserMessageProps): Reac
             <span className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover/user:opacity-100">
               <button
                 onClick={() => {
-                  navigator.clipboard.writeText(plainText)
+                  navigator.clipboard.writeText(copyText)
                   setCopied(true)
                   setTimeout(() => setCopied(false), 1500)
                 }}
@@ -159,6 +163,11 @@ export function UserMessage({ content, isLast, onEdit }: UserMessageProps): Reac
         </div>
         {editing ? (
           <div className="space-y-2">
+            {command && (
+              <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-2 text-xs text-violet-700 dark:text-violet-300">
+                <span className="font-medium">/{command.name}</span>
+              </div>
+            )}
             <textarea
               ref={textareaRef}
               value={editText}
@@ -235,8 +244,10 @@ export function UserMessage({ content, isLast, onEdit }: UserMessageProps): Reac
           </div>
         ) : (
           <>
+            {command && <SystemCommandCard command={command} />}
+            {plainText && <div className="text-sm whitespace-pre-wrap leading-relaxed">{plainText}</div>}
             {allImages.length > 0 && (
-              <div className="mb-2 flex flex-wrap gap-2">
+              <div className="mt-2 flex flex-wrap gap-2">
                 {allImages.map((img) => (
                   <img
                     key={img.id}
@@ -249,9 +260,6 @@ export function UserMessage({ content, isLast, onEdit }: UserMessageProps): Reac
                   />
                 ))}
               </div>
-            )}
-            {plainText && (
-              <div className="text-sm whitespace-pre-wrap leading-relaxed">{plainText}</div>
             )}
 
             <Dialog

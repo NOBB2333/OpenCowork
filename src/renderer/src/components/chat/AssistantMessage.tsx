@@ -40,7 +40,13 @@ import { TASK_TOOL_NAME } from '@renderer/lib/agent/sub-agents/create-tool'
 import { TEAM_TOOL_NAMES } from '@renderer/lib/agent/teams/register'
 import { useProviderStore } from '@renderer/stores/provider-store'
 import { ModelIcon } from '@renderer/components/settings/provider-icons'
-import { formatTokens, calculateCost, formatCost } from '@renderer/lib/format-tokens'
+import {
+  formatTokens,
+  calculateCost,
+  formatCost,
+  getBillableInputTokens,
+  getBillableTotalTokens
+} from '@renderer/lib/format-tokens'
 import { useMemoizedTokens } from '@renderer/hooks/use-estimated-tokens'
 import { getLastDebugInfo } from '@renderer/lib/debug-store'
 import { MONO_FONT } from '@renderer/lib/constants'
@@ -1195,12 +1201,13 @@ export function AssistantMessage({
             {usage
               ? (() => {
                   const u = usage!
-                  const total = u.inputTokens + u.outputTokens
                   const modelCfg = useProviderStore.getState().getActiveModelConfig()
+                  const total = getBillableTotalTokens(u, modelCfg?.type)
+                  const billableInput = getBillableInputTokens(u, modelCfg?.type)
                   const cost = calculateCost(u, modelCfg)
                   return (
                     <>
-                      {`${formatTokens(total)} ${t('unit.tokens', { ns: 'common' })} (${formatTokens(u.inputTokens)}↓ ${formatTokens(u.outputTokens)}↑`}
+                      {`${formatTokens(total)} ${t('unit.tokens', { ns: 'common' })} (${formatTokens(billableInput)}↓ ${formatTokens(u.outputTokens)}↑`}
                       {u.cacheReadTokens
                         ? ` · ${formatTokens(u.cacheReadTokens)} ${t('unit.cached', { ns: 'common' })}`
                         : ''}

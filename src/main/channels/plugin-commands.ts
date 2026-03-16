@@ -523,13 +523,14 @@ function handleStats(ctx: CommandContext, args: string): CommandResult {
         const usage = JSON.parse(row.usage) as {
           inputTokens?: number
           outputTokens?: number
+          billableInputTokens?: number
           cacheCreationTokens?: number
           cacheReadTokens?: number
           reasoningTokens?: number
           totalDurationMs?: number
           requestTimings?: Array<unknown>
         }
-        totalInput += usage.inputTokens ?? 0
+        totalInput += usage.billableInputTokens ?? usage.inputTokens ?? 0
         totalOutput += usage.outputTokens ?? 0
         totalCacheCreation += usage.cacheCreationTokens ?? 0
         totalCacheRead += usage.cacheReadTokens ?? 0

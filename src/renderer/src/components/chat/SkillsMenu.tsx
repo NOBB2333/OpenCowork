@@ -20,15 +20,23 @@ import { useSkillsStore } from '@renderer/stores/skills-store'
 import { useChannelStore } from '@renderer/stores/channel-store'
 import { useMcpStore } from '@renderer/stores/mcp-store'
 import { useUIStore } from '@renderer/stores/ui-store'
+import { listCommands, type CommandCatalogItem } from '@renderer/lib/commands/command-loader'
 
 interface SkillsMenuProps {
   onSelectSkill: (skillName: string) => void
+  onSelectCommand?: (commandName: string) => void
   disabled?: boolean
 }
 
-export function SkillsMenu({ onSelectSkill, disabled = false }: SkillsMenuProps): React.JSX.Element {
+export function SkillsMenu({
+  onSelectSkill,
+  onSelectCommand,
+  disabled = false
+}: SkillsMenuProps): React.JSX.Element {
   const { t } = useTranslation('chat')
   const [open, setOpen] = React.useState(false)
+  const [commands, setCommands] = React.useState<CommandCatalogItem[]>([])
+  const [commandsLoading, setCommandsLoading] = React.useState(false)
   const skills = useSkillsStore((s) => s.skills)
   const loading = useSkillsStore((s) => s.loading)
   const loadSkills = useSkillsStore((s) => s.loadSkills)
@@ -54,13 +62,29 @@ export function SkillsMenu({ onSelectSkill, disabled = false }: SkillsMenuProps)
     [mcpServers, mcpStatuses]
   )
 
-  // Load skills, channels, and MCP servers when menu opens
+  // Load skills, channels, MCP servers, and commands when menu opens
   React.useEffect(() => {
-    if (open) {
-      loadSkills()
-      loadProviders()
-      loadChannels()
-      loadMcpServers()
+    if (!open) return
+
+    loadSkills()
+    loadProviders()
+    loadChannels()
+    loadMcpServers()
+
+    let cancelled = false
+    setCommandsLoading(true)
+    void listCommands()
+      .then((items) => {
+        if (cancelled) return
+        setCommands(items)
+      })
+      .finally(() => {
+        if (cancelled) return
+        setCommandsLoading(false)
+      })
+
+    return () => {
+      cancelled = true
     }
   }, [open, loadSkills, loadChannels, loadProviders, loadMcpServers])
 
@@ -89,12 +113,47 @@ export function SkillsMenu({ onSelectSkill, disabled = false }: SkillsMenuProps)
         <DropdownMenuSeparator />
         
         <DropdownMenuGroup>
-          <DropdownMenuItem disabled>
-            <Command className="mr-2 size-4" />
-            <span>{t('skills.commandsLabel')}</span>
-            <DropdownMenuSeparator className="ml-auto" />
-          </DropdownMenuItem>
-          {/* Placeholder for future commands */}
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <Command className="mr-2 size-4" />
+              <span>{t('skills.commandsLabel')}</span>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuPortal>
+              <DropdownMenuSubContent className="w-64 max-h-80 overflow-y-auto">
+                <DropdownMenuLabel>{t('skills.availableCommands', { defaultValue: '可用命令' })}</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {commandsLoading ? (
+                  <div className="flex items-center justify-center py-4 text-xs text-muted-foreground">
+                    <Loader2 className="size-3.5 animate-spin mr-1.5" />
+                    {t('skills.loadingCommands', { defaultValue: '加载命令中...' })}
+                  </div>
+                ) : commands.length === 0 ? (
+                  <div className="px-2 py-4 text-center text-xs text-muted-foreground">
+                    <p>{t('skills.noCommands', { defaultValue: '未发现命令' })}</p>
+                    <p className="mt-1 text-[10px] opacity-70">~/.open-cowork/commands/</p>
+                  </div>
+                ) : (
+                  commands.map((command) => (
+                    <DropdownMenuItem
+                      key={command.name}
+                      onClick={() => {
+                        onSelectCommand?.(command.name)
+                        setOpen(false)
+                      }}
+                      className="flex flex-col items-start gap-1 py-2"
+                    >
+                      <span className="font-medium">/{command.name}</span>
+                      {command.summary && (
+                        <span className="text-xs text-muted-foreground line-clamp-2">
+                          {command.summary}
+                        </span>
+                      )}
+                    </DropdownMenuItem>
+                  ))
+                )}
+              </DropdownMenuSubContent>
+            </DropdownMenuPortal>
+          </DropdownMenuSub>
         </DropdownMenuGroup>
 
         <DropdownMenuSeparator />

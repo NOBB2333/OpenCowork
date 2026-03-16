@@ -101,6 +101,10 @@ export async function runSubAgent(config: SubAgentRunConfig): Promise<SubAgentRe
           if (event.usage) {
             totalUsage.inputTokens += event.usage.inputTokens
             totalUsage.outputTokens += event.usage.outputTokens
+            if (event.usage.billableInputTokens != null) {
+              totalUsage.billableInputTokens =
+                (totalUsage.billableInputTokens ?? 0) + event.usage.billableInputTokens
+            }
             if (event.usage.cacheCreationTokens) {
               totalUsage.cacheCreationTokens =
                 (totalUsage.cacheCreationTokens ?? 0) + event.usage.cacheCreationTokens
@@ -127,7 +131,7 @@ export async function runSubAgent(config: SubAgentRunConfig): Promise<SubAgentRe
           })
           break
 
-        case 'error':
+        case 'error': {
           // Abort inner streams BEFORE return triggers .return() on the generator.
           // This ensures ipcStreamRequest's waitForItem() resolves immediately,
           // preventing the cleanup chain from hanging up to 30-60s.
@@ -142,6 +146,7 @@ export async function runSubAgent(config: SubAgentRunConfig): Promise<SubAgentRe
           }
           onEvent?.({ type: 'sub_agent_end', subAgentName: definition.name, toolUseId, result })
           return result
+        }
       }
     }
   } catch (err) {

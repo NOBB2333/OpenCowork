@@ -29,6 +29,7 @@ import { teamEvents } from '@renderer/lib/agent/teams/events'
 import { ToolCallCard } from '@renderer/components/chat/ToolCallCard'
 import { cn } from '@renderer/lib/utils'
 import { nanoid } from 'nanoid'
+import { getBillableTotalTokens } from '@renderer/lib/format-tokens'
 import type { TeamMember, TeamTask, TeamMessage } from '@renderer/lib/agent/teams/types'
 import { useTranslation } from 'react-i18next'
 import * as React from 'react'
@@ -209,10 +210,10 @@ const MemberDetailRow = React.memo(function MemberDetailRow({
             {member.iteration > 0 && <span>Iter {member.iteration}</span>}
             <span>{member.toolCalls.length} tool calls</span>
             <span>{formatElapsed(elapsed)}</span>
-            {member.usage && member.usage.inputTokens + member.usage.outputTokens > 0 && (
+            {member.usage && getBillableTotalTokens(member.usage) > 0 && (
               <span className="flex items-center gap-0.5">
                 <Zap className="size-2.5" />
-                {formatTokenCount(member.usage.inputTokens + member.usage.outputTokens)} tokens
+                {formatTokenCount(getBillableTotalTokens(member.usage))} tokens
               </span>
             )}
           </div>

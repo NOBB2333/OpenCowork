@@ -642,6 +642,10 @@ function buildTeammateSystemPrompt(options: {
 function mergeTeammateUsage(target: TokenUsage, incoming: TokenUsage): void {
   target.inputTokens += incoming.inputTokens
   target.outputTokens += incoming.outputTokens
+  if (incoming.billableInputTokens != null) {
+    target.billableInputTokens =
+      (target.billableInputTokens ?? 0) + incoming.billableInputTokens
+  }
   if (incoming.cacheCreationTokens) {
     target.cacheCreationTokens = (target.cacheCreationTokens ?? 0) + incoming.cacheCreationTokens
   }

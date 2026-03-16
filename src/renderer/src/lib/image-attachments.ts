@@ -1,5 +1,10 @@
 import { nanoid } from 'nanoid'
 import type { ContentBlock, ImageBlock, UnifiedMessage } from './api/types'
+import {
+  parseSystemCommandTag,
+  stripSystemCommandTag,
+  type SystemCommandSnapshot
+} from './commands/system-command'
 
 export interface ImageAttachment {
   id: string
@@ -10,6 +15,7 @@ export interface ImageAttachment {
 export interface EditableUserMessageDraft {
   text: string
   images: ImageAttachment[]
+  command: SystemCommandSnapshot | null
 }
 
 export const ACCEPTED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
@@ -24,6 +30,24 @@ export function cloneImageAttachments(images?: ImageAttachment[] | null): ImageA
 
 function normalizeImageMediaType(image: ImageBlock): string {
   return image.source.mediaType || 'image/png'
+}
+
+function stripSystemRemindersOnly(text: string): string {
+  return text.replace(SYSTEM_REMINDER_PATTERN, '').trim()
+}
+
+function extractTextBlocks(content: string | ContentBlock[]): string[] {
+  if (typeof content === 'string') {
+    return [content]
+  }
+
+  if (!Array.isArray(content)) {
+    return []
+  }
+
+  return content
+    .filter((block): block is Extract<ContentBlock, { type: 'text' }> => block.type === 'text')
+    .map((block) => block.text)
 }
 
 export function imageBlockToAttachment(image: ImageBlock): ImageAttachment | null {
@@ -78,25 +102,53 @@ export function stripSystemReminders(text: string): string {
 }
 
 export function normalizeEditableText(text: string): string {
-  const normalized = stripSystemReminders(text)
+  const withoutCommand = stripSystemCommandTag(text)
+  const normalized = stripSystemReminders(withoutCommand).trim()
   return normalized === QUEUED_IMAGE_ONLY_TEXT ? '' : normalized
 }
 
-export function extractEditableText(content: string | ContentBlock[]): string {
-  if (typeof content === 'string') {
-    return normalizeEditableText(content)
+export function extractEditableCommand(
+  content: string | ContentBlock[]
+): SystemCommandSnapshot | null {
+  const textBlocks = extractTextBlocks(content)
+
+  for (const blockText of textBlocks) {
+    const parsed = parseSystemCommandTag(blockText)
+    if (parsed) {
+      return parsed.command
+    }
   }
 
-  const text = content
-    .filter((block): block is Extract<ContentBlock, { type: 'text' }> => block.type === 'text')
-    .map((block) => block.text)
-    .join('\n')
+  return null
+}
 
-  return normalizeEditableText(text)
+export function extractEditableText(content: string | ContentBlock[]): string {
+  const textBlocks = extractTextBlocks(content)
+  const textParts: string[] = []
+  let commandExtracted = false
+
+  for (const blockText of textBlocks) {
+    let normalized = blockText
+
+    if (!commandExtracted) {
+      const parsed = parseSystemCommandTag(normalized)
+      if (parsed) {
+        commandExtracted = true
+        normalized = parsed.remainingText
+      }
+    }
+
+    normalized = stripSystemRemindersOnly(normalized)
+    if (!normalized) continue
+    textParts.push(normalized)
+  }
+
+  const merged = textParts.join('\n').trim()
+  return merged === QUEUED_IMAGE_ONLY_TEXT ? '' : merged
 }
 
 export function extractEditableImages(content: string | ContentBlock[]): ImageAttachment[] {
-  if (typeof content === 'string') {
+  if (typeof content === 'string' || !Array.isArray(content)) {
     return []
   }
 
@@ -111,7 +163,8 @@ export function extractEditableUserMessageDraft(
 ): EditableUserMessageDraft {
   return {
     text: extractEditableText(content),
-    images: extractEditableImages(content)
+    images: extractEditableImages(content),
+    command: extractEditableCommand(content)
   }
 }
 
@@ -120,17 +173,14 @@ export function isEditableUserMessage(message: UnifiedMessage): boolean {
     return false
   }
 
-  if (typeof message.content === 'string') {
-    return message.content.trim().length > 0
-  }
-
-  return message.content.some((block) => block.type === 'text' || block.type === 'image')
+  const draft = extractEditableUserMessageDraft(message.content)
+  return hasEditableDraftContent(draft)
 }
 
 export function hasEditableDraftContent(
-  draft: Pick<EditableUserMessageDraft, 'text' | 'images'>
+  draft: Pick<EditableUserMessageDraft, 'text' | 'images' | 'command'>
 ): boolean {
-  return draft.text.trim().length > 0 || draft.images.length > 0
+  return draft.text.trim().length > 0 || draft.images.length > 0 || Boolean(draft.command)
 }
 
 export function areImageAttachmentsEqual(
@@ -155,11 +205,24 @@ export function areImageAttachmentsEqual(
   return true
 }
 
+function areSystemCommandsEqual(
+  left: SystemCommandSnapshot | null,
+  right: SystemCommandSnapshot | null
+): boolean {
+  if (left === right) return true
+  if (!left || !right) return !left && !right
+  return left.name === right.name && left.content === right.content
+}
+
 export function areEditableUserMessageDraftsEqual(
   left: EditableUserMessageDraft,
   right: EditableUserMessageDraft
 ): boolean {
-  return left.text === right.text && areImageAttachmentsEqual(left.images, right.images)
+  return (
+    left.text === right.text &&
+    areImageAttachmentsEqual(left.images, right.images) &&
+    areSystemCommandsEqual(left.command, right.command)
+  )
 }
 
 export function fileToImageAttachment(file: File): Promise<ImageAttachment | null> {

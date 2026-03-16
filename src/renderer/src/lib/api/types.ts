@@ -14,6 +14,8 @@ export interface RequestTiming {
 export interface TokenUsage {
   inputTokens: number
   outputTokens: number
+  /** Normalized non-cached input tokens used for pricing/display when available. */
+  billableInputTokens?: number
   /** Anthropic prompt caching: tokens written to cache */
   cacheCreationTokens?: number
   /** Anthropic prompt caching: tokens read from cache */

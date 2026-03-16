@@ -431,6 +431,7 @@ class OpenAIResponsesProvider implements APIProvider {
             }
             const cachedTokens = data.response?.usage?.input_tokens_details?.cached_tokens ?? 0
             const rawInputTokens = data.response?.usage?.input_tokens ?? 0
+            const billableInputTokens = Math.max(0, rawInputTokens - cachedTokens)
             yield {
               type: 'message_end',
               stopReason: data.response.status,
@@ -439,6 +440,7 @@ class OpenAIResponsesProvider implements APIProvider {
                 ? {
                     inputTokens: rawInputTokens,
                     outputTokens: data.response.usage.output_tokens ?? 0,
+                    billableInputTokens,
                     contextTokens: rawInputTokens,
                     ...(cachedTokens > 0 ? { cacheReadTokens: cachedTokens } : {}),
                     ...(data.response.usage.output_tokens_details?.reasoning_tokens

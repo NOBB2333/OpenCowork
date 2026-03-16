@@ -352,7 +352,14 @@ function rowToSession(row: SessionRow, messages: UnifiedMessage[] = []): Session
 function rowToMessage(row: MessageRow): UnifiedMessage {
   let content: string | ContentBlock[]
   try {
-    content = JSON.parse(row.content)
+    const parsed = JSON.parse(row.content)
+    if (typeof parsed === 'string' || Array.isArray(parsed)) {
+      content = parsed
+    } else if (parsed == null) {
+      content = ''
+    } else {
+      content = row.content
+    }
   } catch {
     content = row.content
   }
@@ -386,7 +393,7 @@ function sanitizeToolBlocksForResend(messages: UnifiedMessage[]): {
   const erroredToolIds = new Set<string>()
 
   for (const msg of messages) {
-    if (typeof msg.content === 'string') continue
+    if (typeof msg.content === 'string' || !Array.isArray(msg.content)) continue
     for (const block of msg.content as ContentBlock[]) {
       if (block.type === 'tool_use') {
         toolUseIds.add(block.id)
@@ -415,7 +422,7 @@ function sanitizeToolBlocksForResend(messages: UnifiedMessage[]): {
 
   let changed = false
   const sanitized = messages.flatMap((msg) => {
-    if (typeof msg.content === 'string') return [msg]
+    if (typeof msg.content === 'string' || !Array.isArray(msg.content)) return [msg]
 
     const blocks = msg.content as ContentBlock[]
     const filtered = blocks.filter((block) => {
@@ -894,8 +901,8 @@ export const useChatStore = create<ChatStore>()(
       const sessionProviderId = targetProject?.providerId
         ? targetProject.providerId
         : newSessionDefaultModel?.useGlobalActiveModel
-          ? activeProviderId ?? undefined
-          : newSessionDefaultModel?.providerId ?? activeProviderId ?? undefined
+          ? (activeProviderId ?? undefined)
+          : (newSessionDefaultModel?.providerId ?? activeProviderId ?? undefined)
       const sessionModelId = targetProject?.providerId
         ? targetProject.modelId
         : newSessionDefaultModel?.useGlobalActiveModel

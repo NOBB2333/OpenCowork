@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useMemo, useEffect, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
-import { formatTokens } from '@renderer/lib/format-tokens'
+import { formatTokens, getBillableTotalTokens } from '@renderer/lib/format-tokens'
 import {
   Plus,
   MessageSquare,
@@ -55,6 +55,7 @@ import {
 } from '@renderer/components/ui/dialog'
 import { toast } from 'sonner'
 import { useChatStore, type SessionMode } from '@renderer/stores/chat-store'
+import type { ProviderType } from '@renderer/lib/api/types'
 import { useProviderStore } from '@renderer/stores/provider-store'
 import { ModelIcon } from '@renderer/components/settings/provider-icons'
 import { useUIStore } from '@renderer/stores/ui-store'
@@ -1019,11 +1020,25 @@ export function SessionListPanel(): React.JSX.Element {
             {sessions.reduce((sum, session) => sum + session.messageCount, 0)} {t('sidebar.msgs')}
             {(() => {
               const rawSessions = useChatStore.getState().sessions
+              const providerState = useProviderStore.getState()
+              const getSessionRequestType = (
+                session: (typeof rawSessions)[number]
+              ): ProviderType | undefined => {
+                const provider = session.providerId
+                  ? providerState.providers.find((item) => item.id === session.providerId)
+                  : null
+                const model = session.modelId
+                  ? provider?.models.find((item) => item.id === session.modelId)
+                  : null
+                return model?.type ?? provider?.type
+              }
               let total = rawSessions.reduce(
                 (a, s) =>
                   a +
                   s.messages.reduce(
-                    (b, m) => b + (m.usage ? m.usage.inputTokens + m.usage.outputTokens : 0),
+                    (b, m) =>
+                      b +
+                      (m.usage ? getBillableTotalTokens(m.usage, getSessionRequestType(s)) : 0),
                     0
                   ),
                 0
@@ -1034,7 +1049,7 @@ export function SessionListPanel(): React.JSX.Element {
                 ...teamState.teamHistory.flatMap((t) => t.members)
               ]
               for (const m of allMembers) {
-                if (m.usage) total += m.usage.inputTokens + m.usage.outputTokens
+                if (m.usage) total += getBillableTotalTokens(m.usage)
               }
               return total > 0 ? ` · ${formatTokens(total)} tokens` : ''
             })()}

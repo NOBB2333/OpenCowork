@@ -1,5 +1,5 @@
 import { encode } from 'gpt-tokenizer'
-import type { TokenUsage, AIModelConfig } from './api/types'
+import type { TokenUsage, AIModelConfig, ProviderType } from './api/types'
 
 /**
  * Format a token count into a compact, human-readable string.
@@ -29,6 +29,24 @@ export function formatTokensDecimal(n: number): string {
   return `${m.toFixed(2)}M`
 }
 
+export function getBillableInputTokens(
+  usage: TokenUsage,
+  requestType?: ProviderType | AIModelConfig['type']
+): number {
+  if (usage.billableInputTokens != null) return usage.billableInputTokens
+  if (requestType === 'openai-responses') {
+    return Math.max(0, usage.inputTokens - (usage.cacheReadTokens ?? 0))
+  }
+  return usage.inputTokens ?? 0
+}
+
+export function getBillableTotalTokens(
+  usage: TokenUsage,
+  requestType?: ProviderType | AIModelConfig['type']
+): number {
+  return getBillableInputTokens(usage, requestType) + (usage.outputTokens ?? 0)
+}
+
 /**
  * Calculate the USD cost of a request based on token usage and model pricing.
  * Prices in AIModelConfig are per **million** tokens.
@@ -39,14 +57,16 @@ export function calculateCost(usage: TokenUsage, model: AIModelConfig | null | u
 
   const cacheRead = usage.cacheReadTokens ?? 0
   const cacheCreation = usage.cacheCreationTokens ?? 0
-  const inputTokens = usage.inputTokens ?? 0
-  const rawInputTokens = usage.contextTokens ?? (cacheRead > inputTokens ? inputTokens + cacheRead : inputTokens)
-  const normalInput = Math.max(0, rawInputTokens - cacheRead)
+  const billableInput = getBillableInputTokens(usage, model.type)
   const cacheReadPrice = model.cacheHitPrice ?? model.inputPrice * 0.1
   const cacheCreationPriceVal = model.cacheCreationPrice ?? model.inputPrice * 1.25
-  const inputCost = (normalInput * model.inputPrice + cacheRead * cacheReadPrice + cacheCreation * cacheCreationPriceVal) / 1_000_000
+  const inputCost =
+    (billableInput * model.inputPrice +
+      cacheRead * cacheReadPrice +
+      cacheCreation * cacheCreationPriceVal) /
+    1_000_000
 
-  const outputCost = (usage.outputTokens * model.outputPrice) / 1_000_000
+  const outputCost = ((usage.outputTokens ?? 0) * model.outputPrice) / 1_000_000
   return inputCost + outputCost
 }
 

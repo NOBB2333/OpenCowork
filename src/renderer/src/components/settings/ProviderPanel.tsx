@@ -754,15 +754,30 @@ function ProviderConfigPanel({ provider }: { provider: AIProvider }): React.JSX.
   }
   const formatResetAt = (value?: string): string | null => {
     if (!value) return null
-    const parsed = new Date(value)
-    if (Number.isNaN(parsed.getTime())) return value
-    return parsed.toLocaleString([], {
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    })
+    const trimmed = value.trim()
+    let parsed: Date | null = null
+
+    if (/^\d+(?:\.\d+)?$/.test(trimmed)) {
+      const numericValue = Number(trimmed)
+      if (Number.isFinite(numericValue)) {
+        const timestamp = numericValue < 1e12 ? numericValue * 1000 : numericValue
+        const candidate = new Date(timestamp)
+        if (!Number.isNaN(candidate.getTime())) {
+          parsed = candidate
+        }
+      }
+    }
+
+    if (!parsed) {
+      const candidate = new Date(trimmed)
+      if (Number.isNaN(candidate.getTime())) return value
+      parsed = candidate
+    }
+
+    const year = parsed.getFullYear()
+    const month = String(parsed.getMonth() + 1).padStart(2, '0')
+    const day = String(parsed.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
   }
 
   const QuotaProgressBar = ({
@@ -815,29 +830,6 @@ function ProviderConfigPanel({ provider }: { provider: AIProvider }): React.JSX.
         )}
       </div>
     )
-  }
-  const formatQuotaWindow = (window?: CodexQuotaWindow): string => {
-    if (!window) return '-'
-    const parts: string[] = []
-    const percent = formatPercent(window.usedPercent)
-    if (percent) parts.push(percent)
-    const windowMinutes = formatDurationMinutes(window.windowMinutes)
-    if (windowMinutes) {
-      parts.push(t('provider.codexQuotaWindow', { time: windowMinutes }))
-    }
-    if (window.resetAfterSeconds !== undefined && Number.isFinite(window.resetAfterSeconds)) {
-      const minutes = Math.max(1, Math.ceil(window.resetAfterSeconds / 60))
-      const remaining = formatDurationMinutes(minutes)
-      if (remaining) {
-        parts.push(t('provider.codexQuotaResetIn', { time: remaining }))
-      }
-    } else {
-      const resetAt = formatResetAt(window.resetAt)
-      if (resetAt) {
-        parts.push(t('provider.codexQuotaResetAt', { time: resetAt }))
-      }
-    }
-    return parts.length > 0 ? parts.join(' · ') : '-'
   }
   const formatBalance = (value?: number): string | null => {
     if (value === undefined || Number.isNaN(value)) return null
@@ -1575,7 +1567,8 @@ function ProviderConfigPanel({ provider }: { provider: AIProvider }): React.JSX.
                       {codexQuota.primaryOverSecondaryLimitPercent !== undefined && (
                         <div className="text-[10px] text-muted-foreground border-t pt-2">
                           {t('provider.codexQuotaLimitOver', {
-                            percent: formatPercent(codexQuota.primaryOverSecondaryLimitPercent) ?? '-'
+                            percent:
+                              formatPercent(codexQuota.primaryOverSecondaryLimitPercent) ?? '-'
                           })}
                         </div>
                       )}

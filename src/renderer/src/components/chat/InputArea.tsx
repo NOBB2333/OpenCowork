@@ -15,7 +15,8 @@ import {
   Wand2,
   ChevronDown,
   ChevronRight,
-  Pencil
+  Pencil,
+  Command
 } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { Textarea } from '@renderer/components/ui/textarea'
@@ -42,6 +43,7 @@ import {
 } from '@renderer/lib/image-attachments'
 import { SkillsMenu } from './SkillsMenu'
 import { ModelSwitcher } from './ModelSwitcher'
+import { listCommands, type CommandCatalogItem } from '@renderer/lib/commands/command-loader'
 import { useMcpStore } from '@renderer/stores/mcp-store'
 import {
   clearPendingSessionMessages,
@@ -215,6 +217,36 @@ const MIN_INPUT_HEIGHT = 120
 const MAX_INPUT_HEIGHT = 500
 const MIN_MESSAGE_LIST_HEIGHT = 120
 const FALLBACK_MAX_VIEWPORT_RATIO = 0.6
+const MAX_SLASH_COMMAND_RESULTS = 8
+
+function getSlashCommandQuery(text: string): string | null {
+  const normalized = text.trimStart()
+  const match = normalized.match(/^\/([^\s]*)$/)
+  return match ? match[1] ?? '' : null
+}
+
+function scoreSlashCommand(name: string, query: string): number {
+  const normalizedName = name.toLowerCase()
+  const normalizedQuery = query.trim().toLowerCase()
+
+  if (!normalizedQuery) return 0
+  if (normalizedName === normalizedQuery) return 0
+  if (normalizedName.startsWith(normalizedQuery)) return 1
+
+  const containsIndex = normalizedName.indexOf(normalizedQuery)
+  if (containsIndex >= 0) return 10 + containsIndex
+
+  let cursor = 0
+  let gapScore = 0
+  for (const char of normalizedQuery) {
+    const nextIndex = normalizedName.indexOf(char, cursor)
+    if (nextIndex < 0) return Number.POSITIVE_INFINITY
+    gapScore += nextIndex - cursor
+    cursor = nextIndex + 1
+  }
+
+  return 100 + gapScore
+}
 
 function areQueuedMessagesEqual(
   left: PendingSessionMessageItem[],
@@ -265,6 +297,9 @@ export function InputArea({
   const [text, setText] = React.useState('')
   const debouncedTokens = useDebouncedTokens(text)
   const [selectedSkill, setSelectedSkill] = React.useState<string | null>(null)
+  const [slashCommands, setSlashCommands] = React.useState<CommandCatalogItem[]>([])
+  const [slashCommandsLoading, setSlashCommandsLoading] = React.useState(false)
+  const [selectedSlashIndex, setSelectedSlashIndex] = React.useState(0)
   const [attachedImages, setAttachedImages] = React.useState<ImageAttachment[]>([])
   const [isOptimizing, setIsOptimizing] = React.useState(false)
   const [, setOptimizingText] = React.useState('')
@@ -475,7 +510,8 @@ export function InputArea({
 
       const nextDraft: EditableUserMessageDraft = {
         text: editingQueueText.trim(),
-        images: cloneImageAttachments(editingQueueImages)
+        images: cloneImageAttachments(editingQueueImages),
+        command: null
       }
 
       if (!hasEditableDraftContent(nextDraft)) {
@@ -597,6 +633,65 @@ export function InputArea({
     const cursor = el.value.length
     el.setSelectionRange(cursor, cursor)
   }, [])
+  const slashQuery = React.useMemo(() => getSlashCommandQuery(text), [text])
+  const filteredSlashCommands = React.useMemo(() => {
+    const query = slashQuery ?? ''
+    return slashCommands
+      .map((command) => ({ command, score: scoreSlashCommand(command.name, query) }))
+      .filter((item) => Number.isFinite(item.score))
+      .sort((left, right) => {
+        if (left.score !== right.score) return left.score - right.score
+        return left.command.name.localeCompare(right.command.name, undefined, {
+          sensitivity: 'base'
+        })
+      })
+      .slice(0, MAX_SLASH_COMMAND_RESULTS)
+      .map((item) => item.command)
+  }, [slashCommands, slashQuery])
+  const slashMenuOpen = slashQuery !== null
+
+  React.useEffect(() => {
+    if (!slashMenuOpen) {
+      setSelectedSlashIndex(0)
+      setSlashCommandsLoading(false)
+      return
+    }
+
+    let cancelled = false
+    setSlashCommandsLoading(true)
+
+    void listCommands()
+      .then((commands) => {
+        if (cancelled) return
+        setSlashCommands(commands)
+      })
+      .finally(() => {
+        if (cancelled) return
+        setSlashCommandsLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [slashMenuOpen, slashQuery])
+
+  React.useEffect(() => {
+    setSelectedSlashIndex(0)
+  }, [slashQuery])
+
+  const insertSlashCommand = React.useCallback(
+    (commandName: string) => {
+      clearHistoryNavigation()
+      setSelectedSkill(null)
+      setText(`/${commandName} `)
+      requestAnimationFrame(() => {
+        resizeTextarea()
+        focusInputAtEnd()
+      })
+    },
+    [clearHistoryNavigation, focusInputAtEnd, resizeTextarea]
+  )
+
   const applyHistoryEntry = React.useCallback(
     (entry: InputHistoryEntry) => {
       setText(entry.text)
@@ -850,7 +945,9 @@ export function InputArea({
     const trimmed = text.trim()
     if (!trimmed && attachedImages.length === 0) return
     if (disabled || needsWorkingFolder) return
-    const message = selectedSkill ? `[Skill: ${selectedSkill}]\n${trimmed}` : trimmed
+    const hasLeadingSlashCommand = text.trimStart().startsWith('/')
+    const message =
+      selectedSkill && !hasLeadingSlashCommand ? `[Skill: ${selectedSkill}]\n${trimmed}` : trimmed
 
     onSend(message, attachedImages.length > 0 ? attachedImages : undefined)
     updateSessionHistory((prevHistory) => {
@@ -883,6 +980,34 @@ export function InputArea({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>): void => {
     if (e.nativeEvent.isComposing) return
     if (isOptimizing) return // Disable input during optimization
+
+    if (slashMenuOpen) {
+      if (!e.altKey && !e.ctrlKey && !e.metaKey && e.key === 'ArrowDown') {
+        e.preventDefault()
+        setSelectedSlashIndex((prev) =>
+          filteredSlashCommands.length === 0 ? 0 : (prev + 1) % filteredSlashCommands.length
+        )
+        return
+      }
+      if (!e.altKey && !e.ctrlKey && !e.metaKey && e.key === 'ArrowUp') {
+        e.preventDefault()
+        setSelectedSlashIndex((prev) =>
+          filteredSlashCommands.length === 0
+            ? 0
+            : (prev - 1 + filteredSlashCommands.length) % filteredSlashCommands.length
+        )
+        return
+      }
+      if (!e.altKey && !e.ctrlKey && !e.metaKey && (e.key === 'Tab' || e.key === 'Enter')) {
+        const selectedCommand = filteredSlashCommands[selectedSlashIndex]
+        if (selectedCommand) {
+          e.preventDefault()
+          insertSlashCommand(selectedCommand.name)
+          return
+        }
+      }
+    }
+
     if (!e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && e.key === 'Tab') {
       const acceptedSuggestion = acceptSuggestion()
       if (acceptedSuggestion) {
@@ -1595,6 +1720,58 @@ export function InputArea({
                 rows={1}
                 disabled={disabled || isOptimizing}
               />
+              {slashMenuOpen && (
+                <div className="absolute inset-x-0 top-full z-30 mt-2 overflow-hidden rounded-xl border border-border/70 bg-popover shadow-xl">
+                  <div className="flex items-center gap-2 border-b border-border/60 px-3 py-2 text-[11px] text-muted-foreground">
+                    <Command className="size-3.5" />
+                    <span>{t('input.commandSuggestions', { defaultValue: '命令建议' })}</span>
+                    <span className="ml-auto rounded-full border border-border/60 bg-background/80 px-1.5 py-0.5 text-[10px]">
+                      /{slashQuery ?? ''}
+                    </span>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto p-1.5">
+                    {slashCommandsLoading ? (
+                      <div className="flex items-center gap-2 px-2 py-3 text-xs text-muted-foreground">
+                        <Spinner className="size-3.5" />
+                        <span>{t('input.loadingCommands', { defaultValue: '加载命令中...' })}</span>
+                      </div>
+                    ) : filteredSlashCommands.length === 0 ? (
+                      <div className="px-2 py-3 text-xs text-muted-foreground">
+                        {t('input.noCommandsFound', { defaultValue: '没有匹配的命令' })}
+                      </div>
+                    ) : (
+                      filteredSlashCommands.map((command, index) => {
+                        const isSelected = index === selectedSlashIndex
+                        return (
+                          <button
+                            key={command.name}
+                            type="button"
+                            className={`flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left transition-colors ${
+                              isSelected
+                                ? 'bg-accent text-accent-foreground'
+                                : 'hover:bg-muted/50 text-foreground'
+                            }`}
+                            onMouseDown={(event) => {
+                              event.preventDefault()
+                              insertSlashCommand(command.name)
+                            }}
+                          >
+                            <Command className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate text-sm font-medium">/{command.name}</div>
+                              {command.summary && (
+                                <div className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">
+                                  {command.summary}
+                                </div>
+                              )}
+                            </div>
+                          </button>
+                        )
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1664,6 +1841,9 @@ export function InputArea({
                     onSelectSkill={(name) => {
                       setSelectedSkill(name)
                       textareaRef.current?.focus()
+                    }}
+                    onSelectCommand={(name) => {
+                      insertSlashCommand(name)
                     }}
                     disabled={disabled || isStreaming}
                   />

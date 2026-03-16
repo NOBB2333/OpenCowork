@@ -35,6 +35,7 @@ import { registerSettingsHandlers } from './ipc/settings-handlers'
 import { registerSkillsHandlers } from './ipc/skills-handlers'
 import { registerAgentsHandlers } from './ipc/agents-handlers'
 import { registerPromptsHandlers } from './ipc/prompts-handlers'
+import { registerCommandsHandlers } from './ipc/commands-handlers'
 import { registerProcessManagerHandlers, killAllManagedProcesses } from './ipc/process-manager'
 import { registerDbHandlers } from './ipc/db-handlers'
 import { registerConfigHandlers } from './ipc/secure-key-store'
@@ -450,6 +451,7 @@ if (gotSingleInstanceLock) {
     registerSkillsHandlers()
     registerAgentsHandlers()
     registerPromptsHandlers()
+    registerCommandsHandlers()
     registerProcessManagerHandlers()
     registerDbHandlers()
     registerConfigHandlers()

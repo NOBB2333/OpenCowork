@@ -162,6 +162,10 @@ export const IPC = {
   PROMPTS_LIST: 'prompts:list',
   PROMPTS_LOAD: 'prompts:load',
 
+  // Commands
+  COMMANDS_LIST: 'commands:list',
+  COMMANDS_LOAD: 'commands:load',
+
   // Clipboard
   CLIPBOARD_WRITE_IMAGE: 'clipboard:write-image',
 

@@ -47,6 +47,12 @@ import {
   type EditableUserMessageDraft,
   type ImageAttachment
 } from '@renderer/lib/image-attachments'
+import { loadCommandSnapshot } from '@renderer/lib/commands/command-loader'
+import {
+  parseSlashCommandInput,
+  serializeSystemCommand,
+  type SystemCommandSnapshot
+} from '@renderer/lib/commands/system-command'
 import type { AgentLoopConfig } from '@renderer/lib/agent/types'
 import { ApiStreamError } from '@renderer/lib/ipc/api-stream'
 import { compressMessages } from '@renderer/lib/agent/context-compression'
@@ -102,6 +108,7 @@ interface QueuedSessionMessage {
   id: string
   text: string
   images?: ImageAttachment[]
+  command?: SystemCommandSnapshot | null
   source?: MessageSource
   createdAt: number
 }
@@ -177,6 +184,7 @@ export interface PendingSessionMessageItem {
   id: string
   text: string
   images: ImageAttachment[]
+  command: SystemCommandSnapshot | null
   createdAt: number
 }
 
@@ -187,6 +195,7 @@ function toPendingItem(msg: QueuedSessionMessage): PendingSessionMessageItem {
     id: msg.id,
     text: msg.text,
     images: cloneImageAttachments(msg.images),
+    command: msg.command ?? null,
     createdAt: msg.createdAt
   }
 }
@@ -234,7 +243,8 @@ export function updatePendingSessionMessageDraft(
     return {
       ...msg,
       text: draft.text,
-      images: cloneOptionalImageAttachments(draft.images)
+      images: cloneOptionalImageAttachments(draft.images),
+      command: draft.command
     }
   })
   if (!changed) return false
@@ -273,6 +283,7 @@ function enqueuePendingSessionMessage(
       createdAt: Date.now(),
       text: msg.text,
       images: cloneOptionalImageAttachments(msg.images),
+      command: msg.command ?? null,
       source: msg.source
     }
   ]
@@ -288,7 +299,8 @@ function dequeuePendingSessionMessage(sessionId: string): QueuedSessionMessage |
   return {
     ...head,
     text: head.text,
-    images: cloneOptionalImageAttachments(head.images)
+    images: cloneOptionalImageAttachments(head.images),
+    command: head.command ?? null
   }
 }
 
@@ -304,6 +316,55 @@ export function hasPendingSessionMessagesForSession(sessionId: string): boolean 
 interface EditableUserMessageTarget {
   index: number
   draft: EditableUserMessageDraft
+}
+
+interface ResolvedUserCommand {
+  command: SystemCommandSnapshot | null
+  userText: string
+  titleInput: string
+}
+
+async function resolveUserCommand(
+  rawText: string,
+  commandOverride?: SystemCommandSnapshot | null
+): Promise<ResolvedUserCommand | { error: string }> {
+  if (commandOverride) {
+    const userText = rawText.trim()
+    return {
+      command: commandOverride,
+      userText,
+      titleInput: userText ? `${commandOverride.name} ${userText}` : commandOverride.name
+    }
+  }
+
+  const parsed = parseSlashCommandInput(rawText)
+  if (!parsed) {
+    const userText = rawText.trim()
+    return {
+      command: null,
+      userText,
+      titleInput: userText
+    }
+  }
+
+  const loaded = await loadCommandSnapshot(parsed.commandName)
+  if ('error' in loaded) {
+    if (loaded.notFound) {
+      return {
+        command: null,
+        userText: rawText.trim(),
+        titleInput: rawText.trim()
+      }
+    }
+
+    return { error: loaded.error }
+  }
+
+  return {
+    command: loaded.command,
+    userText: parsed.userText,
+    titleInput: parsed.userText ? `${loaded.command.name} ${parsed.userText}` : loaded.command.name
+  }
 }
 
 function findLastEditableUserMessage(messages: UnifiedMessage[]): EditableUserMessageTarget | null {
@@ -330,7 +391,8 @@ let _sendMessageFn:
       text: string,
       images?: ImageAttachment[],
       source?: MessageSource,
-      targetSessionId?: string
+      targetSessionId?: string,
+      commandOverride?: SystemCommandSnapshot | null
     ) => Promise<void>)
   | null = null
 
@@ -467,7 +529,7 @@ function dispatchNextQueuedMessage(sessionId: string): boolean {
 
   setPendingSessionDispatchPaused(sessionId, false)
   setTimeout(() => {
-    void _sendMessageFn?.(next.text, next.images, next.source ?? 'queued', sessionId)
+    void _sendMessageFn?.(next.text, next.images, next.source ?? 'queued', sessionId, next.command)
   }, 0)
   return true
 }
@@ -705,7 +767,8 @@ export function useChatActions(): {
     text: string,
     images?: ImageAttachment[],
     source?: MessageSource,
-    targetSessionId?: string
+    targetSessionId?: string,
+    commandOverride?: SystemCommandSnapshot | null
   ) => Promise<void>
   stopStreaming: () => void
   retryLastMessage: () => Promise<void>
@@ -717,7 +780,8 @@ export function useChatActions(): {
       text: string,
       images?: ImageAttachment[],
       source?: MessageSource,
-      targetSessionId?: string
+      targetSessionId?: string,
+      commandOverride?: SystemCommandSnapshot | null
     ): Promise<void> => {
       // Reset auto-trigger counter and unpause when user manually sends a message
       if (source !== 'team') {
@@ -819,6 +883,14 @@ export function useChatActions(): {
       }
       await chatStore.loadSessionMessages(sessionId)
 
+      const resolvedCommand = await resolveUserCommand(text, commandOverride)
+      if ('error' in resolvedCommand) {
+        toast.error('Command unavailable', {
+          description: resolvedCommand.error
+        })
+        return
+      }
+
       const sessionForSsh = chatStore.sessions.find((s) => s.id === sessionId)
       if (sessionForSsh?.sshConnectionId) {
         const sshStore = useSshStore.getState()
@@ -859,7 +931,12 @@ export function useChatActions(): {
       const isQueueDispatchPaused = isPendingSessionDispatchPaused(sessionId)
 
       if (isQueueDispatchPaused && hasPendingQueue && source !== 'queued') {
-        enqueuePendingSessionMessage(sessionId, { text, images, source })
+        enqueuePendingSessionMessage(sessionId, {
+          text: resolvedCommand.command ? resolvedCommand.userText : text,
+          images,
+          command: resolvedCommand.command,
+          source
+        })
         if (source === undefined) {
           setPendingSessionDispatchPaused(sessionId, false)
           dispatchNextQueuedMessage(sessionId)
@@ -874,7 +951,12 @@ export function useChatActions(): {
       const shouldQueue = hasActiveRun || (statusIsRunning && source !== 'queued')
 
       if (shouldQueue) {
-        enqueuePendingSessionMessage(sessionId, { text, images, source })
+        enqueuePendingSessionMessage(sessionId, {
+          text: resolvedCommand.command ? resolvedCommand.userText : text,
+          images,
+          command: resolvedCommand.command,
+          source
+        })
         return
       }
 
@@ -952,28 +1034,33 @@ export function useChatActions(): {
       // Add user message (multi-modal when images attached)
       let userContent: string | ContentBlock[]
       const isQueuedInsertion = source === 'queued'
-      const normalizedText = text.trim()
+      const textBlocks: Array<Extract<ContentBlock, { type: 'text' }>> = []
+      const hasImages = Boolean(images && images.length > 0)
       const textForUserBlock =
-        normalizedText || (images && images.length > 0 ? QUEUED_IMAGE_ONLY_TEXT : '')
+        resolvedCommand.userText ||
+        (isQueuedInsertion && hasImages && !resolvedCommand.command ? QUEUED_IMAGE_ONLY_TEXT : '')
 
       if (isQueuedInsertion) {
-        const queuedBlocks: ContentBlock[] = [
-          { type: 'text', text: QUEUED_MESSAGE_SYSTEM_REMIND },
-          { type: 'text', text: textForUserBlock || text }
-        ]
-        if (images && images.length > 0) {
-          queuedBlocks.push(...images.map(imageAttachmentToContentBlock))
-        }
-        userContent = queuedBlocks
-      } else if (images && images.length > 0) {
-        // Images present: always use ContentBlock[] format
-        userContent = [
-          ...images.map(imageAttachmentToContentBlock),
-          ...(text ? [{ type: 'text' as const, text }] : [])
-        ]
+        textBlocks.push({ type: 'text', text: QUEUED_MESSAGE_SYSTEM_REMIND })
+      }
+
+      if (resolvedCommand.command) {
+        textBlocks.push({
+          type: 'text',
+          text: serializeSystemCommand(resolvedCommand.command)
+        })
+      }
+
+      if (textForUserBlock) {
+        textBlocks.push({ type: 'text', text: textForUserBlock })
+      }
+
+      if (hasImages) {
+        userContent = [...textBlocks, ...(images ?? []).map(imageAttachmentToContentBlock)]
+      } else if (textBlocks.length === 1 && textBlocks[0]?.type === 'text') {
+        userContent = textBlocks[0].text
       } else {
-        // No images: use simple string
-        userContent = text
+        userContent = textBlocks
       }
 
       const userMsg: UnifiedMessage = {
@@ -989,7 +1076,7 @@ export function useChatActions(): {
       const session = useChatStore.getState().sessions.find((s) => s.id === sessionId)
       if (session && session.title === 'New Conversation') {
         const capturedSessionId = sessionId
-        generateSessionTitle(text)
+        generateSessionTitle(resolvedCommand.titleInput)
           .then((result) => {
             if (result) {
               const store = useChatStore.getState()
@@ -1967,7 +2054,10 @@ export function useChatActions(): {
       lastEditable.draft.text,
       lastEditable.draft.images.length > 0
         ? cloneImageAttachments(lastEditable.draft.images)
-        : undefined
+        : undefined,
+      undefined,
+      undefined,
+      lastEditable.draft.command
     )
   }, [sendMessage, stopStreaming])
 
@@ -1985,13 +2075,20 @@ export function useChatActions(): {
 
       const nextDraft: EditableUserMessageDraft = {
         text: draft.text.trim(),
-        images: cloneImageAttachments(draft.images)
+        images: cloneImageAttachments(draft.images),
+        command: draft.command
       }
       if (!hasEditableDraftContent(nextDraft)) return
 
       // Truncate from the edited message onward (removes it + all subsequent messages)
       chatStore.truncateMessagesFrom(sessionId, target.index)
-      await sendMessage(nextDraft.text, nextDraft.images.length > 0 ? nextDraft.images : undefined)
+      await sendMessage(
+        nextDraft.text,
+        nextDraft.images.length > 0 ? nextDraft.images : undefined,
+        undefined,
+        undefined,
+        nextDraft.command
+      )
     },
     [sendMessage, stopStreaming]
   )
@@ -2353,6 +2450,10 @@ export function triggerSendMessage(
 function mergeUsage(target: TokenUsage, incoming: TokenUsage): void {
   target.inputTokens += incoming.inputTokens
   target.outputTokens += incoming.outputTokens
+  if (incoming.billableInputTokens != null) {
+    target.billableInputTokens =
+      (target.billableInputTokens ?? 0) + incoming.billableInputTokens
+  }
   if (incoming.cacheCreationTokens) {
     target.cacheCreationTokens = (target.cacheCreationTokens ?? 0) + incoming.cacheCreationTokens
   }

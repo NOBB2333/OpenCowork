@@ -21,7 +21,7 @@ import {
 } from '@renderer/components/ui/collapsible'
 import { useAgentStore } from '@renderer/stores/agent-store'
 import { useUIStore } from '@renderer/stores/ui-store'
-import { formatTokens } from '@renderer/lib/format-tokens'
+import { formatTokens, getBillableTotalTokens } from '@renderer/lib/format-tokens'
 import { cn } from '@renderer/lib/utils'
 import { parseSubAgentMeta } from '@renderer/lib/agent/sub-agents/create-tool'
 import { subAgentRegistry } from '@renderer/lib/agent/sub-agents/registry'
@@ -232,7 +232,7 @@ function SubAgentCardInner({
               <>
                 <span>·</span>
                 <span className="tabular-nums">
-                  {formatTokens(histMeta.usage.inputTokens + histMeta.usage.outputTokens)} tok
+                  {formatTokens(getBillableTotalTokens(histMeta.usage))} tok
                 </span>
               </>
             )}

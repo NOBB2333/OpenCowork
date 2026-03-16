@@ -1,14 +1,30 @@
 import type { ContentBlock } from '../api/types'
 import type { Session } from '../../stores/chat-store'
+import { getBillableInputTokens, getBillableTotalTokens } from '../format-tokens'
+import { parseSystemCommandTag } from '../commands/system-command'
+
+function formatTextContent(text: string): string {
+  const parsed = parseSystemCommandTag(text)
+  if (!parsed) return text
+
+  const parts = [`**System Command: \`/${parsed.command.name}\`**`]
+  if (parsed.command.content) {
+    parts.push(parsed.command.content)
+  }
+  if (parsed.remainingText) {
+    parts.push(parsed.remainingText)
+  }
+  return parts.join('\n\n')
+}
 
 function contentToMarkdown(content: string | ContentBlock[]): string {
-  if (typeof content === 'string') return content
+  if (typeof content === 'string') return formatTextContent(content)
 
   return content
     .map((block) => {
       switch (block.type) {
         case 'text':
-          return block.text
+          return formatTextContent(block.text)
         case 'tool_use': {
           if (block.name === 'Task') {
             const inp = block.input as Record<string, unknown>
@@ -76,7 +92,7 @@ export function sessionToMarkdown(session: Session): string {
       if (msg.usage.cacheReadTokens) extras.push(`${msg.usage.cacheReadTokens} cached`)
       if (msg.usage.reasoningTokens) extras.push(`${msg.usage.reasoningTokens} reasoning`)
       lines.push(
-        `<sub>Tokens: ${msg.usage.inputTokens} in / ${msg.usage.outputTokens} out${extras.length > 0 ? ` / ${extras.join(' / ')}` : ''}</sub>`
+        `<sub>Tokens: ${getBillableInputTokens(msg.usage)} in / ${msg.usage.outputTokens} out${extras.length > 0 ? ` / ${extras.join(' / ')}` : ''}</sub>`
       )
     }
     lines.push('')
@@ -86,7 +102,7 @@ export function sessionToMarkdown(session: Session): string {
   const totals = session.messages.reduce(
     (acc, m) => {
       if (m.usage) {
-        acc.input += m.usage.inputTokens
+        acc.input += getBillableInputTokens(m.usage)
         acc.output += m.usage.outputTokens
         if (m.usage.cacheReadTokens) acc.cacheRead += m.usage.cacheReadTokens
         if (m.usage.cacheCreationTokens) acc.cacheCreation += m.usage.cacheCreationTokens
@@ -104,7 +120,7 @@ export function sessionToMarkdown(session: Session): string {
     if (totals.cacheCreation > 0) totalExtras.push(`${totals.cacheCreation} cache write`)
     if (totals.reasoning > 0) totalExtras.push(`${totals.reasoning} reasoning`)
     lines.push(
-      `**Total tokens**: ${totals.input + totals.output} (${totals.input} input + ${totals.output} output${totalExtras.length > 0 ? ` | ${totalExtras.join(', ')}` : ''})`
+      `**Total tokens**: ${getBillableTotalTokens({ inputTokens: totals.input, outputTokens: totals.output, billableInputTokens: totals.input })} (${totals.input} input + ${totals.output} output${totalExtras.length > 0 ? ` | ${totalExtras.join(', ')}` : ''})`
     )
     lines.push('')
   }

@@ -26,7 +26,13 @@ import { useAgentStore } from '@renderer/stores/agent-store'
 import { useProviderStore } from '@renderer/stores/provider-store'
 import { useTeamStore } from '@renderer/stores/team-store'
 import { useUIStore } from '@renderer/stores/ui-store'
-import { formatTokens, calculateCost, formatCost } from '@renderer/lib/format-tokens'
+import {
+  formatTokens,
+  calculateCost,
+  formatCost,
+  getBillableInputTokens,
+  getBillableTotalTokens
+} from '@renderer/lib/format-tokens'
 import { ipcClient } from '@renderer/lib/ipc/ipc-client'
 import { useChatActions } from '@renderer/hooks/use-chat-actions'
 
@@ -300,7 +306,7 @@ export function ContextPanel(): React.JSX.Element {
                 const totals = activeSession.messages.reduce(
                   (acc, m) => {
                     if (m.usage) {
-                      acc.input += m.usage.inputTokens
+                      acc.input += getBillableInputTokens(m.usage, activeModelCfg?.type)
                       acc.output += m.usage.outputTokens
                       if (m.usage.cacheCreationTokens)
                         acc.cacheCreation += m.usage.cacheCreationTokens
@@ -323,7 +329,7 @@ export function ContextPanel(): React.JSX.Element {
                 ]
                 for (const member of allTeamMembers) {
                   if (member.usage) {
-                    totals.input += member.usage.inputTokens
+                    totals.input += getBillableInputTokens(member.usage, activeModelCfg?.type)
                     totals.output += member.usage.outputTokens
                     if (member.usage.cacheCreationTokens)
                       totals.cacheCreation += member.usage.cacheCreationTokens
@@ -337,11 +343,12 @@ export function ContextPanel(): React.JSX.Element {
                 const totalUsage = {
                   inputTokens: totals.input,
                   outputTokens: totals.output,
+                  billableInputTokens: totals.input,
                   cacheCreationTokens: totals.cacheCreation || undefined,
                   cacheReadTokens: totals.cacheRead || undefined
                 }
                 const cost = calculateCost(totalUsage, activeModelCfg)
-                const totalTokens = totals.input + totals.output
+                const totalTokens = getBillableTotalTokens(totalUsage, activeModelCfg?.type)
                 const ctxLimit = activeModelCfg?.contextLength ?? null
                 // Context window = last API call's input tokens (stored as contextTokens, not accumulated)
                 // Fallback to inputTokens for older messages that don't have contextTokens

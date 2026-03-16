@@ -188,10 +188,10 @@ function areToolResultsEqual(
 
 function areEqual(prev: MessageItemProps, next: MessageItemProps): boolean {
   const prevUsageSignal = prev.message.usage
-    ? `${prev.message.usage.inputTokens}:${prev.message.usage.outputTokens}:${prev.message.usage.totalDurationMs ?? 0}`
+    ? `${prev.message.usage.inputTokens}:${prev.message.usage.billableInputTokens ?? ''}:${prev.message.usage.outputTokens}:${prev.message.usage.cacheReadTokens ?? 0}:${prev.message.usage.totalDurationMs ?? 0}`
     : ''
   const nextUsageSignal = next.message.usage
-    ? `${next.message.usage.inputTokens}:${next.message.usage.outputTokens}:${next.message.usage.totalDurationMs ?? 0}`
+    ? `${next.message.usage.inputTokens}:${next.message.usage.billableInputTokens ?? ''}:${next.message.usage.outputTokens}:${next.message.usage.cacheReadTokens ?? 0}:${next.message.usage.totalDurationMs ?? 0}`
     : ''
 
   return (
