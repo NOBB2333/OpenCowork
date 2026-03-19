@@ -1270,13 +1270,12 @@ export const useChatStore = create<ChatStore>()(
           session.messages = []
           session.messageCount = 0
           session.messagesLoaded = true
-          session.title = 'New Conversation'
           delete session.promptSnapshot
           session.updatedAt = now
         }
       })
       dbClearMessages(sessionId)
-      dbUpdateSession(sessionId, { title: 'New Conversation', updatedAt: now })
+      dbUpdateSession(sessionId, { updatedAt: now })
       useAgentStore.getState().setSessionStatus(sessionId, null)
       useAgentStore.getState().clearSessionData(sessionId)
       useAgentStore.getState().clearToolCalls()

@@ -167,9 +167,9 @@ export function MessageList({
   )
   const mode = useUIStore((s) => s.mode)
   const scrollContainerRef = React.useRef<HTMLDivElement>(null)
-  const bottomRef = React.useRef<HTMLDivElement>(null)
   const [isAtBottom, setIsAtBottom] = React.useState(true)
   const pendingInitialScrollSessionIdRef = React.useRef<string | null>(null)
+  const shouldStickToBottomRef = React.useRef(true)
 
   const activeSessionLoaded = activeSession?.messagesLoaded ?? true
   const activeSessionMessageCount = activeSession?.messageCount ?? 0
@@ -216,10 +216,17 @@ export function MessageList({
   const contentRef = React.useRef<HTMLDivElement>(null)
   const hasAssistantMessages = renderableMeta.hasAssistantMessages
 
+  const scrollToBottomImmediate = React.useCallback(() => {
+    const container = scrollContainerRef.current
+    if (!container) return
+    container.scrollTop = container.scrollHeight
+  }, [])
+
   React.useEffect(() => {
     setVisibleCount(INITIAL_VISIBLE_MESSAGE_COUNT)
     setIsAtBottom(true)
     pendingInitialScrollSessionIdRef.current = activeSessionId ?? null
+    shouldStickToBottomRef.current = true
   }, [activeSessionId])
 
   React.useLayoutEffect(() => {
@@ -229,7 +236,7 @@ export function MessageList({
     if (pendingInitialScrollSessionIdRef.current !== activeSessionId) return
 
     const scroll = (): void => {
-      container.scrollTop = container.scrollHeight
+      scrollToBottomImmediate()
     }
 
     scroll()
@@ -260,7 +267,7 @@ export function MessageList({
     }
 
     return () => clearTimeout(id)
-  }, [activeSessionId, messageIds.length, streamingMessageId])
+  }, [activeSessionId, messageIds.length, scrollToBottomImmediate, streamingMessageId])
 
   // Track if user is near the bottom via scroll position
   // Use larger threshold during streaming so rapid content growth doesn't break auto-scroll
@@ -275,6 +282,7 @@ export function MessageList({
         ? STREAMING_AUTO_SCROLL_BOTTOM_THRESHOLD
         : AUTO_SCROLL_BOTTOM_THRESHOLD
       const nextAtBottom = distanceFromBottom <= threshold
+      shouldStickToBottomRef.current = nextAtBottom
       setIsAtBottom((prev) => (prev === nextAtBottom ? prev : nextAtBottom))
     }
 
@@ -285,39 +293,39 @@ export function MessageList({
 
   // Auto-scroll to bottom on new messages, streaming content, and tool call state changes
   React.useEffect(() => {
-    if (!isAtBottom) return
-    const container = scrollContainerRef.current
-    if (!container) return
-
-    if (streamingMessageId) {
-      container.scrollTop = container.scrollHeight
-    } else {
-      bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-    }
-  }, [messageIds.length, streamingMessageId, isAtBottom])
+    if (!shouldStickToBottomRef.current) return
+    scrollToBottomImmediate()
+  }, [messageIds.length, scrollToBottomImmediate, streamingMessageId])
 
   React.useEffect(() => {
-    if (!streamingMessageId) return
-    const container = scrollContainerRef.current
     const content = contentRef.current
-    if (!container || !content) return
+    if (!content) return
 
-    const observer = new ResizeObserver(() => {
-      const distanceFromBottom =
-        container.scrollHeight - container.scrollTop - container.clientHeight
-      if (distanceFromBottom <= STREAMING_AUTO_SCROLL_BOTTOM_THRESHOLD) {
-        container.scrollTop = container.scrollHeight
-      }
-    })
+    let frameId: number | null = null
+    const alignBottom = (): void => {
+      if (!shouldStickToBottomRef.current) return
+      scrollToBottomImmediate()
+      if (frameId !== null) window.cancelAnimationFrame(frameId)
+      frameId = window.requestAnimationFrame(() => {
+        frameId = null
+        if (shouldStickToBottomRef.current) {
+          scrollToBottomImmediate()
+        }
+      })
+    }
 
+    const observer = new ResizeObserver(alignBottom)
     observer.observe(content)
-    return () => observer.disconnect()
-  }, [streamingMessageId])
+    return () => {
+      observer.disconnect()
+      if (frameId !== null) window.cancelAnimationFrame(frameId)
+    }
+  }, [activeSessionId, scrollToBottomImmediate])
 
   const scrollToBottom = React.useCallback(() => {
-    const container = scrollContainerRef.current
-    if (container) container.scrollTop = container.scrollHeight
-  }, [])
+    shouldStickToBottomRef.current = true
+    scrollToBottomImmediate()
+  }, [scrollToBottomImmediate])
 
   if (!activeSessionLoaded && activeSessionMessageCount > 0) {
     return (
@@ -501,7 +509,6 @@ export function MessageList({
               </Button>
             </div>
           )}
-          <div ref={bottomRef} />
         </div>
       </div>
 
