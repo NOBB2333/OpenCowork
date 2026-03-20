@@ -328,8 +328,40 @@ class AnthropicProvider implements APIProvider {
     return tools.map((t) => ({
       name: t.name,
       description: t.description,
-      input_schema: t.inputSchema
+      input_schema: this.normalizeToolSchema(t.inputSchema)
     }))
+  }
+
+  private normalizeToolSchema(schema: ToolDefinition['inputSchema']): Record<string, unknown> {
+    if ('properties' in schema) return schema
+
+    const mergedProperties: Record<string, unknown> = {}
+    let requiredIntersection: string[] | null = null
+
+    for (const variant of schema.oneOf) {
+      for (const [key, value] of Object.entries(variant.properties ?? {})) {
+        if (!(key in mergedProperties)) mergedProperties[key] = value
+      }
+
+      const required = variant.required ?? []
+      if (requiredIntersection === null) {
+        requiredIntersection = [...required]
+      } else {
+        requiredIntersection = requiredIntersection.filter((key) => required.includes(key))
+      }
+    }
+
+    const normalized: Record<string, unknown> = {
+      type: 'object',
+      properties: mergedProperties,
+      additionalProperties: false
+    }
+
+    if (requiredIntersection && requiredIntersection.length > 0) {
+      normalized.required = requiredIntersection
+    }
+
+    return normalized
   }
 }
 
