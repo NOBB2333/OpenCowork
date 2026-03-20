@@ -1,5 +1,5 @@
-import { useEffect, useMemo } from 'react'
-import { ArrowLeft, Brain, Command, Eye, Loader2, Pencil, Save, Search } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { ArrowLeft, Brain, Command, Eye, Loader2, Pencil, Plus, Save, Search } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { cn } from '@renderer/lib/utils'
@@ -11,6 +11,14 @@ import {
 } from '@renderer/stores/resources-store'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from '@renderer/components/ui/dialog'
 import { Input } from '@renderer/components/ui/input'
 
 type ResourceKindOption = {
@@ -51,7 +59,10 @@ export function ResourcesPage(): React.JSX.Element {
   const selectResource = useResourcesStore((s) => s.selectResource)
   const setEditing = useResourcesStore((s) => s.setEditing)
   const setDraftContent = useResourcesStore((s) => s.setDraftContent)
+  const createCommand = useResourcesStore((s) => s.createCommand)
   const saveSelected = useResourcesStore((s) => s.saveSelected)
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [newCommandName, setNewCommandName] = useState('')
 
   const currentItems = activeKind === 'agents' ? agents : commands
   const currentSelectedId = selectedIds[activeKind]
@@ -99,6 +110,20 @@ export function ResourcesPage(): React.JSX.Element {
     )
   }
 
+  const handleCreateCommand = async (): Promise<void> => {
+    const result = await createCommand(newCommandName)
+    toast[result.success ? 'success' : 'error'](
+      result.success
+        ? t('resourcesPage.commandCreated', { defaultValue: '命令已创建' })
+        : result.error || t('resourcesPage.commandCreateFailed', { defaultValue: '创建命令失败' })
+    )
+
+    if (!result.success) return
+
+    setCreateDialogOpen(false)
+    setNewCommandName('')
+  }
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-3 border-b px-4 py-2.5 shrink-0">
@@ -119,6 +144,17 @@ export function ResourcesPage(): React.JSX.Element {
           </p>
         </div>
         <div className="flex-1" />
+        {activeKind === 'commands' ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5 text-xs"
+            onClick={() => setCreateDialogOpen(true)}
+          >
+            <Plus className="size-3.5" />
+            {t('resourcesPage.addCommand', { defaultValue: '新增命令' })}
+          </Button>
+        ) : null}
         <div className="relative w-64">
           <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -131,6 +167,58 @@ export function ResourcesPage(): React.JSX.Element {
           />
         </div>
       </div>
+
+      <Dialog
+        open={createDialogOpen}
+        onOpenChange={(open) => {
+          setCreateDialogOpen(open)
+          if (!open) setNewCommandName('')
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('resourcesPage.addCommand', { defaultValue: '新增命令' })}</DialogTitle>
+            <DialogDescription>
+              {t('resourcesPage.addCommandDesc', {
+                defaultValue: '请输入 kebab-case 命令名，创建后会写入用户命令目录并进入编辑状态。'
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-foreground/80">
+              {t('resourcesPage.commandName', { defaultValue: '命令名' })}
+            </label>
+            <Input
+              value={newCommandName}
+              onChange={(event) => setNewCommandName(event.target.value)}
+              placeholder={t('resourcesPage.commandNamePlaceholder', {
+                defaultValue: '例如：project-review'
+              })}
+              className="text-sm"
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !saving) {
+                  event.preventDefault()
+                  void handleCreateCommand()
+                }
+              }}
+            />
+            <p className="text-[11px] text-muted-foreground">
+              {t('resourcesPage.commandNameHint', {
+                defaultValue: '仅允许小写字母、数字和连字符，例如 release-note。'
+              })}
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
+              {t('resourcesPage.cancel', { defaultValue: '取消' })}
+            </Button>
+            <Button onClick={() => void handleCreateCommand()} disabled={saving}>
+              {saving ? <Loader2 className="size-4 animate-spin" /> : null}
+              {t('resourcesPage.create', { defaultValue: '创建' })}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="flex flex-1 overflow-hidden">
         <div className="flex w-36 shrink-0 flex-col border-r bg-muted/10 p-2 gap-1">

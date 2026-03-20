@@ -102,6 +102,44 @@ function resolveCommandPath(name: string): string | null {
   return resolveBundledCommandPath(name) ?? resolveUserCommandPath(name)
 }
 
+function validateCommandName(name: string): string | null {
+  if (!name.trim()) return 'Command name is required'
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(name.trim())) {
+    return 'Command name must be kebab-case (lowercase letters, numbers, hyphens)'
+  }
+  return null
+}
+
+function validateCommandContent(content: string): string | null {
+  const normalized = content.replace(/\r\n/g, '\n').trim()
+  if (!normalized) return 'Command content cannot be empty'
+  if (/^---\s*\n/.test(normalized)) {
+    return 'Commands must be plain Markdown without YAML frontmatter'
+  }
+  if (/<\/?system-command\b/i.test(normalized)) {
+    return 'Commands cannot contain <system-command> tags'
+  }
+
+  const lines = normalized
+    .split(/\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+  const firstMeaningfulLine = lines.find((line) => !line.startsWith('```'))
+  if (!firstMeaningfulLine) {
+    return 'Command markdown must include at least one non-code text line'
+  }
+
+  return null
+}
+
+function buildUserCommandPath(name: string): string {
+  return path.join(USER_COMMANDS_DIR, `${name}.md`)
+}
+
+function buildNewCommandTemplate(name: string): string {
+  return `Describe what /${name} should make the agent do.\n\n- Goal:\n- Constraints:\n- Output format:`
+}
+
 function collectManageCommands(): CommandManageItem[] {
   const bundledDir = getBundledCommandsDir()
   const userDir = USER_COMMANDS_DIR
@@ -273,6 +311,37 @@ export function registerCommandsHandlers(): void {
   )
 
   ipcMain.handle(
+    'commands:manage-create',
+    async (
+      _event,
+      args: { name: string; content?: string }
+    ): Promise<{ success: boolean; path?: string; error?: string }> => {
+      try {
+        const name = args?.name?.trim()
+        if (!name) return { success: false, error: 'Command name is required' }
+
+        const nameError = validateCommandName(name)
+        if (nameError) return { success: false, error: nameError }
+
+        ensureUserCommandsDir()
+        const targetPath = buildUserCommandPath(name)
+        if (fs.existsSync(targetPath)) {
+          return { success: false, error: `Command "${name}" already exists` }
+        }
+
+        const content = args?.content?.trim() || buildNewCommandTemplate(name)
+        const contentError = validateCommandContent(content)
+        if (contentError) return { success: false, error: contentError }
+
+        fs.writeFileSync(targetPath, content, 'utf-8')
+        return { success: true, path: targetPath }
+      } catch (err) {
+        return { success: false, error: String(err) }
+      }
+    }
+  )
+
+  ipcMain.handle(
     'commands:manage-save',
     async (
       _event,
@@ -283,6 +352,11 @@ export function registerCommandsHandlers(): void {
         if (!targetPath) return { success: false, error: 'Command path is required' }
         if (!isPathInsideDir(targetPath, USER_COMMANDS_DIR)) {
           return { success: false, error: 'Only user commands can be edited' }
+        }
+
+        const contentError = validateCommandContent(args.content)
+        if (contentError) {
+          return { success: false, error: contentError }
         }
 
         fs.writeFileSync(targetPath, args.content, 'utf-8')

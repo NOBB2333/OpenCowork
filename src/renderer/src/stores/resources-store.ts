@@ -41,6 +41,7 @@ interface ResourcesStore {
   selectResource: (id: string | null, kind?: ResourceKind) => Promise<void>
   setEditing: (editing: boolean) => void
   setDraftContent: (content: string) => void
+  createCommand: (name: string) => Promise<{ success: boolean; error?: string }>
   saveSelected: () => Promise<{ success: boolean; error?: string }>
 }
 
@@ -244,6 +245,36 @@ export const useResourcesStore = create<ResourcesStore>((set, get) => ({
   },
 
   setDraftContent: (content) => set({ draftContent: content }),
+
+  createCommand: async (name) => {
+    const normalizedName = name.trim()
+    if (!normalizedName) {
+      return { success: false, error: 'Command name is required' }
+    }
+
+    set({ saving: true, error: null })
+    try {
+      const result = (await ipcClient.invoke(IPC.COMMANDS_MANAGE_CREATE, {
+        name: normalizedName
+      })) as { success?: boolean; path?: string; error?: string }
+
+      if (!result?.success || !result.path) {
+        const error = result?.error || 'Create command failed'
+        set({ saving: false, error })
+        return { success: false, error }
+      }
+
+      await get().loadItems('commands')
+      await get().selectResource(`user:${result.path}`, 'commands')
+      set({ saving: false })
+      get().setEditing(true)
+      return { success: true }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      set({ saving: false, error: message })
+      return { success: false, error: message }
+    }
+  },
 
   saveSelected: async () => {
     const { selectedResource, draftContent } = get()

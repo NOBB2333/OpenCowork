@@ -172,6 +172,7 @@ export const IPC = {
   COMMANDS_LOAD: 'commands:load',
   COMMANDS_MANAGE_LIST: 'commands:manage-list',
   COMMANDS_MANAGE_READ: 'commands:manage-read',
+  COMMANDS_MANAGE_CREATE: 'commands:manage-create',
   COMMANDS_MANAGE_SAVE: 'commands:manage-save',
 
   // Clipboard
