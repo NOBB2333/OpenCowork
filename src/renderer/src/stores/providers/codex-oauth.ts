@@ -227,8 +227,8 @@ export const codexOAuthPreset: BuiltinProviderPreset = {
       type: 'openai-responses'
     },
     {
-      id: "gpt-5.4",
-      name: "GPT 5.4",
+      id: 'gpt-5.4',
+      name: 'GPT 5.4',
       icon: 'openai',
       enabled: true,
       serviceTier: 'priority',
@@ -241,10 +241,9 @@ export const codexOAuthPreset: BuiltinProviderPreset = {
       cacheHitPrice: 0.25,
       supportsThinking: true,
       thinkingConfig: {
-        bodyParams: {
-
-        },
-        reasoningEffortLevels: ['low', 'medium', 'high', 'xhigh'], defaultReasoningEffort: 'medium'
+        bodyParams: {},
+        reasoningEffortLevels: ['low', 'medium', 'high', 'xhigh'],
+        defaultReasoningEffort: 'medium'
       },
       responseSummary: 'detailed',
       enablePromptCache: true,

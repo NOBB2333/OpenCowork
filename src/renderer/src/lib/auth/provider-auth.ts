@@ -11,7 +11,8 @@ function getProviderById(providerId: string): AIProvider | null {
 }
 
 function resolveOAuthConfig(provider: AIProvider): OAuthConfig | null {
-  if (provider.oauthConfig?.authorizeUrl && provider.oauthConfig?.tokenUrl) return provider.oauthConfig
+  if (provider.oauthConfig?.authorizeUrl && provider.oauthConfig?.tokenUrl)
+    return provider.oauthConfig
   return provider.oauthConfig ?? null
 }
 
@@ -71,28 +72,35 @@ function parseManualOAuthPayload(raw: string): AIProvider['oauth'] {
         : undefined
 
   const scope = typeof payload.scope === 'string' ? payload.scope.trim() : undefined
-  const tokenType = typeof payload.token_type === 'string'
-    ? payload.token_type.trim()
-    : typeof payload.tokenType === 'string'
-      ? payload.tokenType.trim()
-      : undefined
-  const accountId = typeof payload.account_id === 'string'
-    ? payload.account_id.trim()
-    : typeof payload.accountId === 'string'
-      ? payload.accountId.trim()
-      : undefined
+  const tokenType =
+    typeof payload.token_type === 'string'
+      ? payload.token_type.trim()
+      : typeof payload.tokenType === 'string'
+        ? payload.tokenType.trim()
+        : undefined
+  const accountId =
+    typeof payload.account_id === 'string'
+      ? payload.account_id.trim()
+      : typeof payload.accountId === 'string'
+        ? payload.accountId.trim()
+        : undefined
 
   const expiresAt =
     parseExpiryTimestamp(
-      payload.expires_at ?? payload.expiresAt ?? payload.expired ?? payload.expireAt ?? payload.expire_at
-    )
-    ?? (() => {
+      payload.expires_at ??
+        payload.expiresAt ??
+        payload.expired ??
+        payload.expireAt ??
+        payload.expire_at
+    ) ??
+    (() => {
       const expiresInRaw = payload.expires_in ?? payload.expiresIn
-      const expiresIn = typeof expiresInRaw === 'number'
-        ? expiresInRaw
-        : typeof expiresInRaw === 'string'
-          ? Number(expiresInRaw)
-          : NaN
+      const expiresIn =
+        typeof expiresInRaw === 'number'
+          ? expiresInRaw
+          : typeof expiresInRaw === 'string'
+            ? Number(expiresInRaw)
+            : NaN
       return Number.isFinite(expiresIn) ? Date.now() + (expiresIn as number) * 1000 : undefined
     })()
 
@@ -102,7 +110,7 @@ function parseManualOAuthPayload(raw: string): AIProvider['oauth'] {
     ...(expiresAt ? { expiresAt } : {}),
     ...(scope ? { scope } : {}),
     ...(tokenType ? { tokenType } : {}),
-    ...(accountId ? { accountId } : {}),
+    ...(accountId ? { accountId } : {})
   }
 }
 
@@ -110,10 +118,7 @@ function setProviderAuth(providerId: string, patch: Partial<AIProvider>): void {
   useProviderStore.getState().updateProvider(providerId, patch)
 }
 
-export async function startProviderOAuth(
-  providerId: string,
-  signal?: AbortSignal
-): Promise<void> {
+export async function startProviderOAuth(providerId: string, signal?: AbortSignal): Promise<void> {
   const provider = getProviderById(providerId)
   if (!provider) throw new Error('Provider not found')
   const config = resolveOAuthConfig(provider)
@@ -125,7 +130,7 @@ export async function startProviderOAuth(
   setProviderAuth(providerId, {
     authMode: 'oauth',
     oauth: token,
-    apiKey: token.accessToken,
+    apiKey: token.accessToken
   })
 }
 
@@ -141,7 +146,7 @@ export function applyManualProviderOAuth(providerId: string, rawJson: string): v
   setProviderAuth(providerId, {
     authMode: 'oauth',
     oauth: token,
-    apiKey: token.accessToken,
+    apiKey: token.accessToken
   })
 }
 
@@ -163,9 +168,9 @@ export async function refreshProviderOAuth(providerId: string, force = false): P
     oauth: {
       ...current,
       ...next,
-      refreshToken: next.refreshToken ?? current.refreshToken,
+      refreshToken: next.refreshToken ?? current.refreshToken
     },
-    apiKey: next.accessToken,
+    apiKey: next.accessToken
   })
   return true
 }
@@ -233,7 +238,7 @@ export async function sendProviderChannelCode(args: {
     appToken,
     channelType: args.channelType,
     mobile: args.mobile,
-    email: args.email,
+    email: args.email
   })
 }
 
@@ -258,7 +263,7 @@ export async function verifyProviderChannelCode(args: {
     channelType: args.channelType,
     code: args.code,
     mobile: args.mobile,
-    email: args.email,
+    email: args.email
   })
 
   let userInfo: Record<string, unknown> | undefined
@@ -275,9 +280,9 @@ export async function verifyProviderChannelCode(args: {
       appToken,
       accessToken,
       channelType: args.channelType,
-      userInfo,
+      userInfo
     },
-    apiKey: accessToken,
+    apiKey: accessToken
   })
 }
 
@@ -288,8 +293,8 @@ export async function refreshProviderChannelUserInfo(providerId: string): Promis
   setProviderAuth(providerId, {
     channel: {
       ...(provider.channel ?? { appId: '', appToken: '' }),
-      userInfo,
-    },
+      userInfo
+    }
   })
 }
 

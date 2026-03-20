@@ -28,7 +28,7 @@ function request(
         port: 443,
         path: url.pathname + url.search,
         method,
-        headers: reqHeaders,
+        headers: reqHeaders
       },
       (res) => {
         let responseBody = ''
@@ -64,11 +64,7 @@ export class WhatsAppApi {
 
   /** Validate the access token */
   async validate(): Promise<void> {
-    const res = await request(
-      'GET',
-      `/v18.0/${this.phoneNumberId}`,
-      this.authHeaders()
-    )
+    const res = await request('GET', `/v18.0/${this.phoneNumberId}`, this.authHeaders())
     const data = JSON.parse(res.body)
     if (data.error) {
       throw new Error(`WhatsApp auth failed: ${data.error.message ?? JSON.stringify(data)}`)
@@ -85,7 +81,7 @@ export class WhatsAppApi {
         messaging_product: 'whatsapp',
         to,
         type: 'text',
-        text: { body: content },
+        text: { body: content }
       })
     )
     const data = JSON.parse(res.body)
@@ -96,7 +92,11 @@ export class WhatsAppApi {
   }
 
   /** Reply to a message (WhatsApp uses context for replies) */
-  async replyMessage(to: string, _messageId: string, content: string): Promise<{ messageId: string }> {
+  async replyMessage(
+    to: string,
+    _messageId: string,
+    content: string
+  ): Promise<{ messageId: string }> {
     return this.sendMessage(to, content)
   }
 }

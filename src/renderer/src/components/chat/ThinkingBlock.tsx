@@ -13,7 +13,12 @@ interface ThinkingBlockProps {
   completedAt?: number
 }
 
-export function ThinkingBlock({ thinking, isStreaming = false, startedAt, completedAt }: ThinkingBlockProps): React.JSX.Element {
+export function ThinkingBlock({
+  thinking,
+  isStreaming = false,
+  startedAt,
+  completedAt
+}: ThinkingBlockProps): React.JSX.Element {
   const { t } = useTranslation('chat')
   const isThinking = isStreaming && thinking.length > 0 && !completedAt
 
@@ -46,17 +51,17 @@ export function ThinkingBlock({ thinking, isStreaming = false, startedAt, comple
   }, [isThinking, thinking])
 
   // Compute duration label from persisted timestamps
-  const persistedDuration = startedAt && completedAt
-    ? Math.round((completedAt - startedAt) / 1000)
-    : null
+  const persistedDuration =
+    startedAt && completedAt ? Math.round((completedAt - startedAt) / 1000) : null
 
-  const durationLabel = persistedDuration !== null
-    ? t('thinking.thoughtFor', { seconds: persistedDuration })
-    : isThinking && liveElapsed > 0
-      ? t('thinking.thinkingFor', { seconds: liveElapsed })
-      : isThinking
-        ? t('thinking.thinkingEllipsis')
-        : t('thinking.thoughts')
+  const durationLabel =
+    persistedDuration !== null
+      ? t('thinking.thoughtFor', { seconds: persistedDuration })
+      : isThinking && liveElapsed > 0
+        ? t('thinking.thinkingFor', { seconds: liveElapsed })
+        : isThinking
+          ? t('thinking.thinkingEllipsis')
+          : t('thinking.thoughts')
 
   return (
     <div className="my-5">
@@ -65,10 +70,11 @@ export function ThinkingBlock({ thinking, isStreaming = false, startedAt, comple
         className="flex items-center gap-1 text-sm text-muted-foreground/60 hover:text-muted-foreground transition-colors group"
       >
         <span className="group-hover:text-primary/80 transition-colors">{durationLabel}</span>
-        {expanded
-          ? <ChevronDown className="size-3.5 transition-transform duration-200" />
-          : <ChevronRight className="size-3.5 transition-transform duration-200" />
-        }
+        {expanded ? (
+          <ChevronDown className="size-3.5 transition-transform duration-200" />
+        ) : (
+          <ChevronRight className="size-3.5 transition-transform duration-200" />
+        )}
       </button>
 
       <AnimatePresence initial={false}>
@@ -108,13 +114,15 @@ export function ThinkingBlock({ thinking, isStreaming = false, startedAt, comple
                           {children}
                         </code>
                       )
-                    },
+                    }
                   }}
                 >
                   {thinking}
                 </Markdown>
               )}
-              {isThinking && <span className="inline-block w-1.5 h-3.5 bg-primary/40 animate-pulse ml-0.5 rounded-sm" />}
+              {isThinking && (
+                <span className="inline-block w-1.5 h-3.5 bg-primary/40 animate-pulse ml-0.5 rounded-sm" />
+              )}
             </div>
           </motion.div>
         )}

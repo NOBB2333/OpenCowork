@@ -290,7 +290,7 @@ function ServerConfigPanel({ server }: { server: McpServerConfig }): React.JSX.E
   const isHttp = server.transport === 'sse' || server.transport === 'streamable-http'
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-y-auto px-4 py-3">
+    <div className="flex h-full min-h-0 flex-col overflow-y-auto overflow-x-hidden px-4 py-3">
       {/* Header with name + enabled toggle */}
       <div className="flex items-start justify-between mb-4 gap-3">
         <div className="min-w-0">
@@ -480,7 +480,6 @@ function ServerConfigPanel({ server }: { server: McpServerConfig }): React.JSX.E
             {t('mcp.refresh')}
           </Button>
         )}
-        <div className="flex-1" />
         <span
           className={`inline-flex items-center gap-1 text-[10px] ${
             status === 'connected'
@@ -546,7 +545,7 @@ function ServerConfigPanel({ server }: { server: McpServerConfig }): React.JSX.E
 
           {/* Tools list */}
           {capTab === 'tools' && (
-            <div className="space-y-1 max-h-60 overflow-y-auto">
+            <div className="space-y-1">
               {tools.length === 0 ? (
                 <p className="text-xs text-muted-foreground py-2">{t('mcp.noTools')}</p>
               ) : (
@@ -566,7 +565,7 @@ function ServerConfigPanel({ server }: { server: McpServerConfig }): React.JSX.E
 
           {/* Resources list */}
           {capTab === 'resources' && (
-            <div className="space-y-1 max-h-60 overflow-y-auto">
+            <div className="space-y-1">
               {resources.length === 0 ? (
                 <p className="text-xs text-muted-foreground py-2">{t('mcp.noResources')}</p>
               ) : (
@@ -585,7 +584,7 @@ function ServerConfigPanel({ server }: { server: McpServerConfig }): React.JSX.E
 
           {/* Prompts list */}
           {capTab === 'prompts' && (
-            <div className="space-y-1 max-h-60 overflow-y-auto">
+            <div className="space-y-1">
               {prompts.length === 0 ? (
                 <p className="text-xs text-muted-foreground py-2">{t('mcp.noPrompts')}</p>
               ) : (
@@ -815,7 +814,7 @@ export function McpPanel(): React.JSX.Element {
   const disabledServers = filteredServers.filter((s) => !s.enabled)
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full min-h-0 flex-col">
       <div className="mb-3 shrink-0">
         <h2 className="text-lg font-semibold">{t('mcp.title')}</h2>
         <p className="text-sm text-muted-foreground">{t('mcp.subtitle')}</p>

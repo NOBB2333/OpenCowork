@@ -23,27 +23,85 @@ function getValidWindow(getMainWindow: WindowGetter): BrowserWindow | undefined 
   return win
 }
 
+function decodeHtmlEntities(value: string): string {
+  return value
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+}
+
 function stripHtmlTags(html: string): string {
-  return html
-    .replace(/<h[1-6]>/gi, '\n')
-    .replace(/<\/h[1-6]>/gi, '\n')
-    .replace(/<li>/gi, '• ')
-    .replace(/<\/li>/gi, '\n')
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<p>/gi, '')
-    .replace(/<\/p>/gi, '\n\n')
-    .replace(/<strong>/gi, '')
-    .replace(/<\/strong>/gi, '')
-    .replace(/<[^>]+>/g, '')
+  return decodeHtmlEntities(
+    html
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n\n')
+      .replace(/<[^>]+>/g, '')
+  )
     .replace(/\n{3,}/g, '\n\n')
     .trim()
+}
+
+function htmlToMarkdown(html: string): string {
+  return decodeHtmlEntities(
+    html
+      .replace(/<pre[^>]*>\s*<code[^>]*>/gi, '\n```\n')
+      .replace(/<\/code>\s*<\/pre>/gi, '\n```\n')
+      .replace(
+        /<a [^>]*href=["']([^"']+)["'][^>]*>(.*?)<\/a>/gi,
+        (_match, href: string, text: string) => {
+          const label = stripHtmlTags(text).trim() || href
+          return `[${label}](${href})`
+        }
+      )
+      .replace(/<h1[^>]*>(.*?)<\/h1>/gi, (_match, text: string) => `# ${stripHtmlTags(text)}\n\n`)
+      .replace(/<h2[^>]*>(.*?)<\/h2>/gi, (_match, text: string) => `## ${stripHtmlTags(text)}\n\n`)
+      .replace(/<h3[^>]*>(.*?)<\/h3>/gi, (_match, text: string) => `### ${stripHtmlTags(text)}\n\n`)
+      .replace(
+        /<h4[^>]*>(.*?)<\/h4>/gi,
+        (_match, text: string) => `#### ${stripHtmlTags(text)}\n\n`
+      )
+      .replace(
+        /<h5[^>]*>(.*?)<\/h5>/gi,
+        (_match, text: string) => `##### ${stripHtmlTags(text)}\n\n`
+      )
+      .replace(
+        /<h6[^>]*>(.*?)<\/h6>/gi,
+        (_match, text: string) => `###### ${stripHtmlTags(text)}\n\n`
+      )
+      .replace(/<li[^>]*>(.*?)<\/li>/gi, (_match, text: string) => `- ${stripHtmlTags(text)}\n`)
+      .replace(/<strong[^>]*>/gi, '**')
+      .replace(/<\/strong>/gi, '**')
+      .replace(/<b[^>]*>/gi, '**')
+      .replace(/<\/b>/gi, '**')
+      .replace(/<em[^>]*>/gi, '*')
+      .replace(/<\/em>/gi, '*')
+      .replace(/<i[^>]*>/gi, '*')
+      .replace(/<\/i>/gi, '*')
+      .replace(/<code[^>]*>/gi, '`')
+      .replace(/<\/code>/gi, '`')
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n\n')
+      .replace(/<p[^>]*>/gi, '')
+      .replace(/<\/?(ul|ol)[^>]*>/gi, '\n')
+      .replace(/<[^>]+>/g, '')
+  )
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+function formatReleaseNotesText(releaseNotes: string): string {
+  const trimmed = releaseNotes.trim()
+  if (!trimmed) return ''
+  return /<[^>]+>/.test(trimmed) ? htmlToMarkdown(trimmed) : trimmed
 }
 
 function getReleaseNotesText(releaseNotes: unknown): string {
   if (!releaseNotes) return ''
   if (typeof releaseNotes === 'string') {
-    const stripped = stripHtmlTags(releaseNotes.trim())
-    return stripped
+    return formatReleaseNotesText(releaseNotes)
   }
 
   if (Array.isArray(releaseNotes)) {
@@ -51,7 +109,7 @@ function getReleaseNotesText(releaseNotes: unknown): string {
       .map((item) => {
         if (!item || typeof item !== 'object') return ''
         const note = (item as { note?: unknown }).note
-        return typeof note === 'string' ? stripHtmlTags(note.trim()) : ''
+        return typeof note === 'string' ? formatReleaseNotesText(note) : ''
       })
       .filter((item) => item.length > 0)
       .join('\n\n')
@@ -270,7 +328,11 @@ export function setupAutoUpdater(options: AutoUpdateOptions): void {
     console.log('[Updater] Running in development mode - using dev-app-update.yml')
   }
 
-  if (process.platform !== 'win32' && process.platform !== 'linux' && process.platform !== 'darwin') {
+  if (
+    process.platform !== 'win32' &&
+    process.platform !== 'linux' &&
+    process.platform !== 'darwin'
+  ) {
     console.log(`[Updater] Skip update check on unsupported platform: ${process.platform}`)
     return
   }

@@ -9,17 +9,23 @@ export function useDevServer(projectDir: string | null) {
   const [logs, setLogs] = useState<string[]>([])
   const cleanupRef = useRef<(() => void) | null>(null)
 
-  const start = useCallback(async (command: string) => {
-    if (!projectDir) return
-    try {
-      const result = await ipcClient.invoke(IPC.PROCESS_SPAWN, { command, cwd: projectDir }) as { id: string }
-      setProcessId(result.id)
-      setIsRunning(true)
-      setLogs([])
-    } catch (err) {
-      console.error('[useDevServer] Failed to spawn:', err)
-    }
-  }, [projectDir])
+  const start = useCallback(
+    async (command: string) => {
+      if (!projectDir) return
+      try {
+        const result = (await ipcClient.invoke(IPC.PROCESS_SPAWN, {
+          command,
+          cwd: projectDir
+        })) as { id: string }
+        setProcessId(result.id)
+        setIsRunning(true)
+        setLogs([])
+      } catch (err) {
+        console.error('[useDevServer] Failed to spawn:', err)
+      }
+    },
+    [projectDir]
+  )
 
   const stop = useCallback(async () => {
     if (!processId) return
@@ -38,7 +44,9 @@ export function useDevServer(projectDir: string | null) {
     if (!processId) return
 
     const handler = (...args: unknown[]) => {
-      const data = args[0] as { id: string; data: string; port?: number; exited?: boolean } | undefined
+      const data = args[0] as
+        | { id: string; data: string; port?: number; exited?: boolean }
+        | undefined
       if (!data || data.id !== processId) return
       setLogs((prev) => [...prev.slice(-200), data.data])
       if (data.port) setPort(data.port)

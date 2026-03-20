@@ -35,19 +35,39 @@ const cronAddHandler: ToolHandler = {
       properties: {
         name: {
           type: 'string',
-          description: 'Human-readable name for this job (shown in UI)',
+          description: 'Human-readable name for this job (shown in UI)'
         },
         schedule: {
           type: 'object',
-          description: 'Schedule config. MUST include "kind" plus the corresponding field: at (for kind=at), every (for kind=every), or expr (for kind=cron).',
+          description:
+            'Schedule config. MUST include "kind" plus the corresponding field: at (for kind=at), every (for kind=every), or expr (for kind=cron).',
           properties: {
-            kind: { type: 'string', description: '"at" (one-shot) | "every" (fixed interval) | "cron" (cron expression). For delayed one-shot tasks like "in 10 minutes", use "at".' },
-            at: { type: 'string', description: 'Required for kind=at. MUST use relative offset format: "+1m" (1 min), "+10m" (10 min), "+2h" (2 hours), "+30s" (30 sec), "+1d" (1 day). Do NOT use ISO timestamps.' },
-            every: { type: 'number', description: 'Required for kind=every. Interval in ms. 60000=1min, 300000=5min, 3600000=1hr.' },
-            expr: { type: 'string', description: 'Required for kind=cron. 5-field cron: "0 9 * * *" (daily 9am), "*/15 * * * *" (every 15min).' },
-            tz: { type: 'string', description: 'IANA timezone, e.g. "Asia/Shanghai". Default: "UTC".' },
+            kind: {
+              type: 'string',
+              description:
+                '"at" (one-shot) | "every" (fixed interval) | "cron" (cron expression). For delayed one-shot tasks like "in 10 minutes", use "at".'
+            },
+            at: {
+              type: 'string',
+              description:
+                'Required for kind=at. MUST use relative offset format: "+1m" (1 min), "+10m" (10 min), "+2h" (2 hours), "+30s" (30 sec), "+1d" (1 day). Do NOT use ISO timestamps.'
+            },
+            every: {
+              type: 'number',
+              description:
+                'Required for kind=every. Interval in ms. 60000=1min, 300000=5min, 3600000=1hr.'
+            },
+            expr: {
+              type: 'string',
+              description:
+                'Required for kind=cron. 5-field cron: "0 9 * * *" (daily 9am), "*/15 * * * *" (every 15min).'
+            },
+            tz: {
+              type: 'string',
+              description: 'IANA timezone, e.g. "Asia/Shanghai". Default: "UTC".'
+            }
           },
-          required: ['kind'],
+          required: ['kind']
         },
         prompt: {
           type: 'string',
@@ -59,47 +79,51 @@ const cronAddHandler: ToolHandler = {
             '- Build check: "Run `npm run build`. Report success or failure with error details and suggested fixes."\n' +
             '- Monitoring: "Check /var/log/app.log for ERROR entries in the last hour. Summarize findings."\n' +
             '- Code quality: "Run `npm run lint`. Report violation count, top issues, and suggestions."\n\n' +
-            'The agent has access to: Read, Write, Edit, Bash, Glob, Grep, Notify, and plugin messaging tools.',
+            'The agent has access to: Read, Write, Edit, Bash, Glob, Grep, Notify, and plugin messaging tools.'
         },
         agentId: {
           type: 'string',
-          description: 'SubAgent to use. Defaults to CronAgent. Use any registered sub-agent name.',
+          description: 'SubAgent to use. Defaults to CronAgent. Use any registered sub-agent name.'
         },
         model: {
           type: 'string',
-          description: 'Model override for this job. Defaults to provider settings.',
+          description: 'Model override for this job. Defaults to provider settings.'
         },
         workingFolder: {
           type: 'string',
-          description: 'Working directory for the Agent (defaults to current session working folder)',
+          description:
+            'Working directory for the Agent (defaults to current session working folder)'
         },
         deliveryMode: {
           type: 'string',
-          description: '"desktop" (toast notification), "session" (inject into session), or "none". Default: "desktop"',
+          description:
+            '"desktop" (toast notification), "session" (inject into session), or "none". Default: "desktop"'
         },
         deliveryTarget: {
           type: 'string',
-          description: 'Session ID for deliveryMode="session". Defaults to current session.',
+          description: 'Session ID for deliveryMode="session". Defaults to current session.'
         },
         deleteAfterRun: {
           type: 'boolean',
-          description: 'Auto-delete after first run. Default: true for "at", false for others.',
+          description: 'Auto-delete after first run. Default: true for "at", false for others.'
         },
         maxIterations: {
           type: 'number',
-          description: 'Max agent loop iterations. Default: 15.',
+          description: 'Max agent loop iterations. Default: 15.'
         },
         pluginId: {
           type: 'string',
-          description: 'Optional messaging plugin ID to deliver the results through (e.g. cron reminders to WhatsApp).',
+          description:
+            'Optional messaging plugin ID to deliver the results through (e.g. cron reminders to WhatsApp).'
         },
         pluginChatId: {
           type: 'string',
-          description: 'Chat/channel ID for the messaging plugin. Required when pluginId is provided.',
-        },
+          description:
+            'Chat/channel ID for the messaging plugin. Required when pluginId is provided.'
+        }
       },
-      required: ['name', 'schedule', 'prompt'],
-    },
+      required: ['name', 'schedule', 'prompt']
+    }
   },
   execute: async (input, ctx) => {
     const name = String(input.name ?? '')
@@ -107,7 +131,15 @@ const cronAddHandler: ToolHandler = {
     if (!name) return encodeStructuredToolResult({ error: 'name is required' })
     if (!prompt) return encodeStructuredToolResult({ error: 'prompt is required' })
 
-    const schedule = { ...(input.schedule as { kind: string; at?: string | number; every?: number; expr?: string; tz?: string }) }
+    const schedule = {
+      ...(input.schedule as {
+        kind: string
+        at?: string | number
+        every?: number
+        expr?: string
+        tz?: string
+      })
+    }
     if (!schedule?.kind) return encodeStructuredToolResult({ error: 'schedule.kind is required' })
 
     // Resolve relative time offsets for "at" kind (e.g. "+10m", "+1h", "+30s")
@@ -116,7 +148,16 @@ const cronAddHandler: ToolHandler = {
       if (relMatch) {
         const value = parseInt(relMatch[1], 10)
         const unit = relMatch[2].toLowerCase()
-        const multipliers: Record<string, number> = { s: 1000, sec: 1000, m: 60_000, min: 60_000, h: 3_600_000, hr: 3_600_000, d: 86_400_000, day: 86_400_000 }
+        const multipliers: Record<string, number> = {
+          s: 1000,
+          sec: 1000,
+          m: 60_000,
+          min: 60_000,
+          h: 3_600_000,
+          hr: 3_600_000,
+          d: 86_400_000,
+          day: 86_400_000
+        }
         schedule.at = Date.now() + value * (multipliers[unit] ?? 60_000)
       } else {
         // AI passed an ISO timestamp or other string — try to parse it
@@ -125,13 +166,13 @@ const cronAddHandler: ToolHandler = {
           // If the parsed time is in the past, reject with a helpful error
           if (parsed < Date.now() - 30_000) {
             return encodeStructuredToolResult({
-              error: `The timestamp "${schedule.at}" is in the past. You do not know the current time, so do NOT use ISO timestamps. Use relative offset format instead: "+1m" for 1 minute, "+10m" for 10 minutes, "+1h" for 1 hour, "+1d" for 1 day.`,
+              error: `The timestamp "${schedule.at}" is in the past. You do not know the current time, so do NOT use ISO timestamps. Use relative offset format instead: "+1m" for 1 minute, "+10m" for 10 minutes, "+1h" for 1 hour, "+1d" for 1 day.`
             })
           }
           schedule.at = parsed
         } else {
           return encodeStructuredToolResult({
-            error: `Invalid schedule.at value: "${schedule.at}". Use relative offset format: "+1m", "+10m", "+2h", "+1d".`,
+            error: `Invalid schedule.at value: "${schedule.at}". Use relative offset format: "+1m", "+10m", "+2h", "+1d".`
           })
         }
       }
@@ -140,7 +181,7 @@ const cronAddHandler: ToolHandler = {
     const pluginId = input.pluginId ? String(input.pluginId) : ctx.pluginId
     const pluginChatId = input.pluginChatId ? String(input.pluginChatId) : ctx.pluginChatId
 
-    const result = await ctx.ipc.invoke(IPC.CRON_ADD, {
+    const result = (await ctx.ipc.invoke(IPC.CRON_ADD, {
       name,
       sessionId: ctx.sessionId ?? null,
       schedule,
@@ -154,12 +195,15 @@ const cronAddHandler: ToolHandler = {
       maxIterations: input.maxIterations,
       // Allow explicit overrides, falling back to current plugin context when available
       pluginId: pluginId ?? undefined,
-      pluginChatId: pluginChatId ?? undefined,
-    }) as { error?: string; jobId?: string; success?: boolean }
+      pluginChatId: pluginChatId ?? undefined
+    })) as { error?: string; jobId?: string; success?: boolean }
 
     if (result.error) return encodeStructuredToolResult({ error: result.error })
 
-    useCronStore.getState().loadJobs().catch(() => {})
+    useCronStore
+      .getState()
+      .loadJobs()
+      .catch(() => {})
 
     // Auto-open the Tasks page so user can see the new job
     useUIStore.getState().openTasksPage()
@@ -169,10 +213,10 @@ const cronAddHandler: ToolHandler = {
       jobId: result.jobId,
       name,
       scheduleKind: schedule.kind,
-      message: `Job "${name}" created (id=${result.jobId}, kind=${schedule.kind}).`,
+      message: `Job "${name}" created (id=${result.jobId}, kind=${schedule.kind}).`
     })
   },
-  requiresApproval: () => true,
+  requiresApproval: () => true
 }
 
 // ── CronUpdate ───────────────────────────────────────────────────
@@ -180,14 +224,16 @@ const cronAddHandler: ToolHandler = {
 const cronUpdateHandler: ToolHandler = {
   definition: {
     name: 'CronUpdate',
-    description: 'Update an existing cron job. Provide the jobId and a patch object with fields to change.',
+    description:
+      'Update an existing cron job. Provide the jobId and a patch object with fields to change.',
     inputSchema: {
       type: 'object',
       properties: {
         jobId: { type: 'string', description: 'The job ID (e.g. "cron-abc12345")' },
         patch: {
           type: 'object',
-          description: 'Fields to update. Any subset of: name, schedule, prompt, agentId, model, workingFolder, deliveryMode, deliveryTarget, enabled, deleteAfterRun, maxIterations.',
+          description:
+            'Fields to update. Any subset of: name, schedule, prompt, agentId, model, workingFolder, deliveryMode, deliveryTarget, enabled, deleteAfterRun, maxIterations.',
           properties: {
             name: { type: 'string' },
             schedule: {
@@ -197,8 +243,8 @@ const cronUpdateHandler: ToolHandler = {
                 at: { type: 'string' },
                 every: { type: 'number' },
                 expr: { type: 'string' },
-                tz: { type: 'string' },
-              },
+                tz: { type: 'string' }
+              }
             },
             prompt: { type: 'string' },
             agentId: { type: 'string' },
@@ -208,28 +254,31 @@ const cronUpdateHandler: ToolHandler = {
             deliveryTarget: { type: 'string' },
             enabled: { type: 'boolean' },
             deleteAfterRun: { type: 'boolean' },
-            maxIterations: { type: 'number' },
-          },
-        },
+            maxIterations: { type: 'number' }
+          }
+        }
       },
-      required: ['jobId', 'patch'],
-    },
+      required: ['jobId', 'patch']
+    }
   },
   execute: async (input, ctx) => {
     const jobId = String(input.jobId ?? '')
     if (!jobId) return encodeStructuredToolResult({ error: 'jobId is required' })
 
-    const result = await ctx.ipc.invoke(IPC.CRON_UPDATE, {
+    const result = (await ctx.ipc.invoke(IPC.CRON_UPDATE, {
       jobId,
-      patch: input.patch,
-    }) as { error?: string; success?: boolean }
+      patch: input.patch
+    })) as { error?: string; success?: boolean }
 
     if (result.error) return encodeStructuredToolResult({ error: result.error })
 
-    useCronStore.getState().loadJobs().catch(() => {})
+    useCronStore
+      .getState()
+      .loadJobs()
+      .catch(() => {})
     return encodeStructuredToolResult({ success: true, jobId, message: `Job ${jobId} updated.` })
   },
-  requiresApproval: () => true,
+  requiresApproval: () => true
 }
 
 // ── CronRemove ───────────────────────────────────────────────────
@@ -243,23 +292,26 @@ const cronRemoveHandler: ToolHandler = {
       properties: {
         jobId: {
           type: 'string',
-          description: 'The job ID (e.g. "cron-abc12345")',
-        },
+          description: 'The job ID (e.g. "cron-abc12345")'
+        }
       },
-      required: ['jobId'],
-    },
+      required: ['jobId']
+    }
   },
   execute: async (input, ctx) => {
     const jobId = String(input.jobId ?? '')
     if (!jobId) return encodeStructuredToolResult({ error: 'jobId is required' })
 
-    const result = await ctx.ipc.invoke(IPC.CRON_REMOVE, { jobId }) as { error?: string; success?: boolean }
+    const result = (await ctx.ipc.invoke(IPC.CRON_REMOVE, { jobId })) as {
+      error?: string
+      success?: boolean
+    }
     if (result.error) return encodeStructuredToolResult({ error: result.error })
 
     useCronStore.getState().removeJob(jobId)
     return encodeStructuredToolResult({ success: true, jobId, message: `Job ${jobId} removed.` })
   },
-  requiresApproval: () => false,
+  requiresApproval: () => false
 }
 
 // ── CronList ─────────────────────────────────────────────────────
@@ -270,14 +322,16 @@ const cronListHandler: ToolHandler = {
     description: 'List all cron jobs with their schedule, status, and execution history.',
     inputSchema: {
       type: 'object',
-      properties: {},
-    },
+      properties: {}
+    }
   },
   execute: async (_input, ctx) => {
-    const result = await ctx.ipc.invoke(IPC.CRON_LIST, {}) as unknown[] | { error?: string }
+    const result = (await ctx.ipc.invoke(IPC.CRON_LIST, {})) as unknown[] | { error?: string }
 
     if (!Array.isArray(result)) {
-      return encodeStructuredToolResult({ error: (result as { error?: string }).error ?? 'Failed to list cron jobs' })
+      return encodeStructuredToolResult({
+        error: (result as { error?: string }).error ?? 'Failed to list cron jobs'
+      })
     }
 
     if (result.length === 0) {
@@ -309,12 +363,12 @@ const cronListHandler: ToolHandler = {
           scheduled: job.scheduled,
           executing: job.executing,
           fireCount: job.fireCount,
-          lastFiredAt: job.lastFiredAt ? new Date(job.lastFiredAt).toISOString() : null,
+          lastFiredAt: job.lastFiredAt ? new Date(job.lastFiredAt).toISOString() : null
         }
-      }),
+      })
     })
   },
-  requiresApproval: () => false,
+  requiresApproval: () => false
 }
 
 // ── Registration ─────────────────────────────────────────────────

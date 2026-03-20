@@ -222,7 +222,7 @@ export function MessageList({
     container.scrollTop = container.scrollHeight
   }, [])
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     setVisibleCount(INITIAL_VISIBLE_MESSAGE_COUNT)
     setIsAtBottom(true)
     pendingInitialScrollSessionIdRef.current = activeSessionId ?? null

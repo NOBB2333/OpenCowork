@@ -65,9 +65,7 @@ export function SkillsPanel(): React.JSX.Element {
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <Sparkles className="mb-3 size-8 text-muted-foreground/40" />
         <p className="text-sm text-muted-foreground">{t('skills.noSkills')}</p>
-        <p className="mt-1 text-xs text-muted-foreground/60">
-          {t('skills.noSkillsDesc')}
-        </p>
+        <p className="mt-1 text-xs text-muted-foreground/60">{t('skills.noSkillsDesc')}</p>
       </div>
     )
   }

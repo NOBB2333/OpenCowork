@@ -18,7 +18,7 @@ import {
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
-  ContextMenuSeparator,
+  ContextMenuSeparator
 } from '@renderer/components/ui/context-menu'
 import { toast } from 'sonner'
 
@@ -48,7 +48,7 @@ const DARK_THEME: ITheme = {
   brightBlue: '#60a5fa',
   brightMagenta: '#c084fc',
   brightCyan: '#22d3ee',
-  brightWhite: '#f9fafb',
+  brightWhite: '#f9fafb'
 }
 
 const LIGHT_THEME: ITheme = {
@@ -72,10 +72,13 @@ const LIGHT_THEME: ITheme = {
   brightBlue: '#3b82f6',
   brightMagenta: '#a855f7',
   brightCyan: '#06b6d4',
-  brightWhite: '#f8fafc',
+  brightWhite: '#f8fafc'
 }
 
-export function SshTerminal({ sessionId, connectionName: _connectionName }: SshTerminalProps): React.JSX.Element {
+export function SshTerminal({
+  sessionId,
+  connectionName: _connectionName
+}: SshTerminalProps): React.JSX.Element {
   const { t } = useTranslation('ssh')
   const { resolvedTheme } = useTheme()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -96,11 +99,12 @@ export function SshTerminal({ sessionId, connectionName: _connectionName }: SshT
       cursorBlink: true,
       cursorStyle: 'block',
       fontSize: 14,
-      fontFamily: "'Cascadia Code', 'Fira Code', 'JetBrains Mono', Consolas, 'Courier New', monospace",
+      fontFamily:
+        "'Cascadia Code', 'Fira Code', 'JetBrains Mono', Consolas, 'Courier New', monospace",
       allowProposedApi: true,
       scrollback: 2000,
       convertEol: true,
-      theme: resolvedTheme === 'light' ? LIGHT_THEME : DARK_THEME,
+      theme: resolvedTheme === 'light' ? LIGHT_THEME : DARK_THEME
     })
 
     const fitAddon = new FitAddon()
@@ -224,7 +228,7 @@ export function SshTerminal({ sessionId, connectionName: _connectionName }: SshT
             ipcClient.send(IPC.SSH_RESIZE, {
               sessionId,
               cols: term.cols,
-              rows: term.rows,
+              rows: term.rows
             })
           } catch {
             // ignore
@@ -240,7 +244,7 @@ export function SshTerminal({ sessionId, connectionName: _connectionName }: SshT
       ipcClient.send(IPC.SSH_RESIZE, {
         sessionId,
         cols: term.cols,
-        rows: term.rows,
+        rows: term.rows
       })
     }, 100)
 
@@ -321,7 +325,9 @@ export function SshTerminal({ sessionId, connectionName: _connectionName }: SshT
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="flex flex-col items-center gap-2 text-center">
             <Badge variant="destructive" className="text-xs">
-              {session.status === 'error' ? t('terminal.errorMessage') : t('terminal.disconnectedMessage')}
+              {session.status === 'error'
+                ? t('terminal.errorMessage')
+                : t('terminal.disconnectedMessage')}
             </Badge>
             {session.error && (
               <p className="text-[10px] text-muted-foreground max-w-xs">{session.error}</p>
@@ -359,12 +365,8 @@ export function SshTerminal({ sessionId, connectionName: _connectionName }: SshT
             {t('terminal.paste')}
           </ContextMenuItem>
           <ContextMenuSeparator />
-          <ContextMenuItem onClick={handleSelectAll}>
-            {t('terminal.selectAll')}
-          </ContextMenuItem>
-          <ContextMenuItem onClick={handleClear}>
-            {t('terminal.clear')}
-          </ContextMenuItem>
+          <ContextMenuItem onClick={handleSelectAll}>{t('terminal.selectAll')}</ContextMenuItem>
+          <ContextMenuItem onClick={handleClear}>{t('terminal.clear')}</ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>
     </div>

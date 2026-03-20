@@ -22,9 +22,9 @@ export const xiaomiPreset: BuiltinProviderPreset = {
       supportsThinking: true,
       thinkingConfig: {
         bodyParams: { thinking: { type: 'enabled' } },
-        disabledBodyParams: { thinking: { type: 'disabled' } },
-      },
-    },
+        disabledBodyParams: { thinking: { type: 'disabled' } }
+      }
+    }
   ],
-  deprecatedModelIds: ['gemini-3.1-flash-lite-preview', 'gemini-3-flash-preview'],
+  deprecatedModelIds: ['gemini-3.1-flash-lite-preview', 'gemini-3-flash-preview']
 }

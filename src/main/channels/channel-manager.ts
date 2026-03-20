@@ -3,7 +3,7 @@ import type {
   ChannelEvent,
   MessagingChannelService,
   ChannelServiceFactory,
-  ChannelWsMessageParser,
+  ChannelWsMessageParser
 } from './channel-types'
 import type { BasePluginService } from './base-plugin-service'
 

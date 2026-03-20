@@ -216,7 +216,9 @@ class OpenAIChatProvider implements APIProvider {
       if (delta?.tool_calls) {
         for (const tc of delta.tool_calls) {
           const idx = tc.index ?? 0
-          const googleThoughtSignature = isGoogleCompatible ? getGoogleThoughtSignature(tc) : undefined
+          const googleThoughtSignature = isGoogleCompatible
+            ? getGoogleThoughtSignature(tc)
+            : undefined
           const googleExtraContent = googleThoughtSignature
             ? { google: { thought_signature: googleThoughtSignature } }
             : undefined
@@ -399,7 +401,11 @@ class OpenAIChatProvider implements APIProvider {
     }
   }
 
-  formatMessages(messages: UnifiedMessage[], systemPrompt?: string, config?: ProviderConfig): unknown[] {
+  formatMessages(
+    messages: UnifiedMessage[],
+    systemPrompt?: string,
+    config?: ProviderConfig
+  ): unknown[] {
     const formatted: unknown[] = []
     const isGoogleCompatible = config ? isGoogleOpenAICompatible(config) : false
 

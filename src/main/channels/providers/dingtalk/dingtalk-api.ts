@@ -28,7 +28,7 @@ function request(
         port: 443,
         path: url.pathname + url.search,
         method,
-        headers: reqHeaders,
+        headers: reqHeaders
       },
       (res) => {
         let responseBody = ''
@@ -93,24 +93,16 @@ export class DingTalkApi {
   }
 
   /** Send a message to a group conversation via robot */
-  async sendMessage(
-    openConversationId: string,
-    content: string
-  ): Promise<{ messageId: string }> {
+  async sendMessage(openConversationId: string, content: string): Promise<{ messageId: string }> {
     const headers = await this.authHeaders()
     const body = JSON.stringify({
       msgParam: JSON.stringify({ content }),
       msgKey: 'sampleText',
       openConversationId,
-      robotCode: this.appKey,
+      robotCode: this.appKey
     })
 
-    const res = await request(
-      'POST',
-      '/v1.0/robot/groupMessages/send',
-      headers,
-      body
-    )
+    const res = await request('POST', '/v1.0/robot/groupMessages/send', headers, body)
 
     const data = JSON.parse(res.body)
     if (data.processQueryKey) {
@@ -143,7 +135,7 @@ export class DingTalkApi {
     const body = JSON.stringify({
       robotCode: this.appKey,
       statusCode: 0, // 0 = active
-      maxResults: 50,
+      maxResults: 50
     })
 
     const res = await request('POST', '/v1.0/robot/groups/lists', headers, body)
@@ -158,7 +150,7 @@ export class DingTalkApi {
         openConversationId: item.openConversationId,
         name: item.name,
         memberCount: item.memberCount,
-        raw: item,
+        raw: item
       })
     )
   }
@@ -180,7 +172,9 @@ export class DingTalkApi {
   > {
     // DingTalk doesn't provide a simple REST API to list historical messages.
     // This requires Event Subscription or Stream mode which will be implemented later.
-    console.warn('[DingTalkApi] getMessages: historical message retrieval requires Stream API (not yet implemented)')
+    console.warn(
+      '[DingTalkApi] getMessages: historical message retrieval requires Stream API (not yet implemented)'
+    )
     return []
   }
 
@@ -200,9 +194,16 @@ export class DingTalkApi {
   }): Promise<{ outTrackId: string }> {
     const headers = await this.authHeaders()
 
-    const deliverModel = opts.spaceType === 'IM_GROUP'
-      ? { imGroupOpenDeliverModel: { robotCode: this.appKey }, imGroupOpenSpaceModel: { supportForward: true } }
-      : { imRobotOpenDeliverModel: { spaceType: 'IM_ROBOT' }, imRobotOpenSpaceModel: { supportForward: false } }
+    const deliverModel =
+      opts.spaceType === 'IM_GROUP'
+        ? {
+            imGroupOpenDeliverModel: { robotCode: this.appKey },
+            imGroupOpenSpaceModel: { supportForward: true }
+          }
+        : {
+            imRobotOpenDeliverModel: { spaceType: 'IM_ROBOT' },
+            imRobotOpenSpaceModel: { supportForward: false }
+          }
 
     const body = JSON.stringify({
       cardTemplateId: opts.cardTemplateId,
@@ -210,15 +211,17 @@ export class DingTalkApi {
       openSpaceId: opts.openSpaceId,
       callbackType: 'STREAM',
       cardData: {
-        cardParamMap: { [opts.key]: opts.initialContent },
+        cardParamMap: { [opts.key]: opts.initialContent }
       },
-      ...deliverModel,
+      ...deliverModel
     })
 
     const res = await request('POST', '/v1.0/card/instances/createAndDeliver', headers, body)
     const data = JSON.parse(res.body)
     if (data.success === false || data.errcode) {
-      throw new Error(`DingTalk createAndDeliverCard failed: ${data.errmsg ?? data.message ?? JSON.stringify(data)}`)
+      throw new Error(
+        `DingTalk createAndDeliverCard failed: ${data.errmsg ?? data.message ?? JSON.stringify(data)}`
+      )
     }
     return { outTrackId: opts.outTrackId }
   }
@@ -244,7 +247,7 @@ export class DingTalkApi {
       content: opts.content,
       isFull: opts.isFull,
       isFinalize: opts.isFinalize,
-      isError: opts.isError ?? false,
+      isError: opts.isError ?? false
     })
 
     const res = await request('PUT', '/v1.0/card/streaming', headers, body)

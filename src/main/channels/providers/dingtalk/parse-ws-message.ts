@@ -28,7 +28,7 @@ export function parseDingTalkWsMessage(raw: string): ChannelIncomingMessageData 
         senderName: payload.senderNick ?? '',
         content,
         messageId: payload.msgId ?? '',
-        timestamp,
+        timestamp
       }
     }
 
@@ -40,7 +40,7 @@ export function parseDingTalkWsMessage(raw: string): ChannelIncomingMessageData 
         senderName: data.senderName ?? '',
         content: data.content,
         messageId: data.messageId ?? '',
-        timestamp: data.timestamp ?? Date.now(),
+        timestamp: data.timestamp ?? Date.now()
       }
     }
 

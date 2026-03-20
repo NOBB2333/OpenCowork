@@ -13,7 +13,9 @@ import {
   Check,
   Pencil,
   Globe,
-  Languages
+  Languages,
+  Download,
+  Loader2
 } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@renderer/components/ui/popover'
@@ -32,8 +34,20 @@ import { useTranslation } from 'react-i18next'
 import { useShallow } from 'zustand/react/shallow'
 import { WindowControls } from './WindowControls'
 
-export function TitleBar(): React.JSX.Element {
+interface TitleBarUpdateInfo {
+  newVersion: string
+  downloading: boolean
+  downloadProgress: number | null
+}
+
+interface TitleBarProps {
+  updateInfo: TitleBarUpdateInfo | null
+  onOpenUpdateDialog: () => void
+}
+
+export function TitleBar({ updateInfo, onOpenUpdateDialog }: TitleBarProps): React.JSX.Element {
   const { t, i18n } = useTranslation('layout')
+  const { t: tCommon } = useTranslation('common')
   const isMac = /Mac/.test(navigator.userAgent)
   const openDetailPanel = useUIStore((s) => s.openDetailPanel)
   const setSettingsOpen = useUIStore((s) => s.setSettingsOpen)
@@ -318,6 +332,33 @@ export function TitleBar(): React.JSX.Element {
 
       {/* Right-side controls */}
       <div className="flex shrink-0 items-center gap-1">
+        {updateInfo && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="titlebar-no-drag h-7 gap-1.5 border-amber-500/30 bg-amber-500/10 px-2 text-[10px] text-amber-600 hover:bg-amber-500/15 dark:text-amber-400"
+                onClick={onOpenUpdateDialog}
+              >
+                {updateInfo.downloading ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Download className="size-3.5" />
+                )}
+                {updateInfo.downloading
+                  ? typeof updateInfo.downloadProgress === 'number'
+                    ? tCommon('app.update.downloadingShort', {
+                        progress: Math.round(updateInfo.downloadProgress)
+                      })
+                    : tCommon('app.update.downloading')
+                  : tCommon('app.update.buttonLabel', { version: updateInfo.newVersion })}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{tCommon('app.update.buttonTooltip')}</TooltipContent>
+          </Tooltip>
+        )}
+
         {/* Auto-approve warning */}
         {autoApprove && (
           <Tooltip>

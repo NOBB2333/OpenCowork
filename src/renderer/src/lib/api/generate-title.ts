@@ -21,7 +21,7 @@ const FRIENDLY_MESSAGES: Record<FriendlyStatus, { zh: string[]; en: string[] }> 
       '万事俱备，只欠你开口',
       '灵感来了就别犹豫',
       '你的专属助手已上线',
-      '静候佳音',
+      '静候佳音'
     ],
     en: [
       'Ready when you are',
@@ -30,82 +30,42 @@ const FRIENDLY_MESSAGES: Record<FriendlyStatus, { zh: string[]; en: string[] }> 
       'All systems go',
       'Your assistant is ready',
       'Inspiration awaits',
-      'Let\'s get things done',
-      'At your service',
-    ],
+      "Let's get things done",
+      'At your service'
+    ]
   },
   streaming: {
-    zh: [
-      '思考中，请稍候',
-      '正在组织回答',
-      '全力运转中',
-      '马上就好',
-      '正在为你解答',
-      '灵感涌来中',
-    ],
+    zh: ['思考中，请稍候', '正在组织回答', '全力运转中', '马上就好', '正在为你解答', '灵感涌来中'],
     en: [
       'Thinking...',
       'Working on it',
       'Almost there',
       'Processing your request',
       'Crafting a response',
-      'On it',
-    ],
+      'On it'
+    ]
   },
   pending: {
-    zh: [
-      '等待你的确认',
-      '需要你看一下',
-      '请审批操作',
-      '操作待确认',
-    ],
+    zh: ['等待你的确认', '需要你看一下', '请审批操作', '操作待确认'],
     en: [
       'Waiting for your approval',
       'Action needs confirmation',
       'Please review',
-      'Approval needed',
-    ],
+      'Approval needed'
+    ]
   },
   error: {
-    zh: [
-      '遇到了一点问题',
-      '出了点小状况',
-      '别担心，我们来看看',
-      '需要你关注一下',
-    ],
-    en: [
-      'Something went wrong',
-      'Hit a snag',
-      'Let\'s take a look',
-      'Needs your attention',
-    ],
+    zh: ['遇到了一点问题', '出了点小状况', '别担心，我们来看看', '需要你关注一下'],
+    en: ['Something went wrong', 'Hit a snag', "Let's take a look", 'Needs your attention']
   },
   agents: {
-    zh: [
-      '子任务进行中',
-      '团队协作中',
-      '多个助手协同工作中',
-      '正在并行处理',
-    ],
-    en: [
-      'Sub-agents at work',
-      'Team is collaborating',
-      'Working in parallel',
-      'Agents are on it',
-    ],
+    zh: ['子任务进行中', '团队协作中', '多个助手协同工作中', '正在并行处理'],
+    en: ['Sub-agents at work', 'Team is collaborating', 'Working in parallel', 'Agents are on it']
   },
   background: {
-    zh: [
-      '后台任务运行中',
-      '命令执行中',
-      '后台进程工作中',
-    ],
-    en: [
-      'Background tasks running',
-      'Commands in progress',
-      'Working in the background',
-    ],
-  },
+    zh: ['后台任务运行中', '命令执行中', '后台进程工作中'],
+    en: ['Background tasks running', 'Commands in progress', 'Working in the background']
+  }
 }
 
 let lastPickIndex: Record<string, number> = {}
@@ -121,9 +81,7 @@ export function pickFriendlyMessage(status: FriendlyStatus, language: 'zh' | 'en
 }
 
 const stripReasoningBlocks = (value: string): string =>
-  value
-    .replace(/<think\b[^>]*>[\s\S]*?(?:<\/think>|$)/gi, '')
-    .replace(/<\/think>/gi, '')
+  value.replace(/<think\b[^>]*>[\s\S]*?(?:<\/think>|$)/gi, '').replace(/<\/think>/gi, '')
 
 const stripMarkdown = (value: string): string =>
   value
@@ -144,7 +102,7 @@ const looksLikeReasoning = (value: string): boolean => {
     /\*\*目标\*\*/,
     /步骤\s*\d/,
     /^(?:\d+\.\s)/m,
-    /^\s*[-*]\s+\*\*/m,
+    /^\s*[-*]\s+\*\*/m
   ]
   return markers.filter((r) => r.test(value)).length >= 2
 }
@@ -162,7 +120,9 @@ Reply with ONLY a JSON object in this exact format (no markdown, no explanation)
  * Runs in the background — does not block the main chat flow.
  * Returns { title, icon } or null on failure.
  */
-export async function generateSessionTitle(userMessage: string): Promise<SessionTitleResult | null> {
+export async function generateSessionTitle(
+  userMessage: string
+): Promise<SessionTitleResult | null> {
   const settings = useSettingsStore.getState()
 
   // Try provider-store fast model config first, then fall back to settings-store
@@ -175,7 +135,8 @@ export async function generateSessionTitle(userMessage: string): Promise<Session
         systemPrompt: TITLE_SYSTEM_PROMPT,
         responseSummary: useProviderStore.getState().getActiveModelConfig()?.responseSummary,
         enablePromptCache: useProviderStore.getState().getActiveModelConfig()?.enablePromptCache,
-        enableSystemPromptCache: useProviderStore.getState().getActiveModelConfig()?.enableSystemPromptCache,
+        enableSystemPromptCache: useProviderStore.getState().getActiveModelConfig()
+          ?.enableSystemPromptCache
       }
     : settings.apiKey && settings.fastModel
       ? {
@@ -188,7 +149,8 @@ export async function generateSessionTitle(userMessage: string): Promise<Session
           systemPrompt: TITLE_SYSTEM_PROMPT,
           responseSummary: useProviderStore.getState().getActiveModelConfig()?.responseSummary,
           enablePromptCache: useProviderStore.getState().getActiveModelConfig()?.enablePromptCache,
-          enableSystemPromptCache: useProviderStore.getState().getActiveModelConfig()?.enableSystemPromptCache,
+          enableSystemPromptCache: useProviderStore.getState().getActiveModelConfig()
+            ?.enableSystemPromptCache
         }
       : null
 
@@ -199,8 +161,8 @@ export async function generateSessionTitle(userMessage: string): Promise<Session
       id: 'title-req',
       role: 'user',
       content: userMessage.slice(0, 500),
-      createdAt: Date.now(),
-    },
+      createdAt: Date.now()
+    }
   ]
 
   try {
@@ -224,8 +186,8 @@ export async function generateSessionTitle(userMessage: string): Promise<Session
     if (!cleaned) return null
 
     try {
-      const jsonMatch = cleaned.match(/\{[^{}]*"title"\s*:\s*"[^"]*"[^{}]*\}/)
-        ?? cleaned.match(/\{[\s\S]*?\}/)
+      const jsonMatch =
+        cleaned.match(/\{[^{}]*"title"\s*:\s*"[^"]*"[^{}]*\}/) ?? cleaned.match(/\{[\s\S]*?\}/)
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0])
         if (parsed.title && parsed.icon) {
@@ -237,7 +199,9 @@ export async function generateSessionTitle(userMessage: string): Promise<Session
           return { title: t, icon: String(parsed.icon).trim() }
         }
       }
-    } catch { /* fall through to plain-text fallback */ }
+    } catch {
+      /* fall through to plain-text fallback */
+    }
 
     let plainTitle = stripMarkdown(stripReasoningBlocks(cleaned))
       .replace(/^["']|["']$/g, '')

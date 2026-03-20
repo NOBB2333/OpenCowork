@@ -70,7 +70,9 @@ function normalizeTokenResponse(raw: Record<string, unknown>): OAuthToken {
   const tokenType = raw.token_type ? String(raw.token_type) : undefined
 
   const expiresIn = raw.expires_in ? Number(raw.expires_in) : undefined
-  const expiresAt = Number.isFinite(expiresIn) ? Date.now() + (expiresIn as number) * 1000 : undefined
+  const expiresAt = Number.isFinite(expiresIn)
+    ? Date.now() + (expiresIn as number) * 1000
+    : undefined
   const accountId =
     (typeof raw.account_id === 'string' && raw.account_id) ||
     (typeof raw.accountId === 'string' && raw.accountId) ||
@@ -82,7 +84,7 @@ function normalizeTokenResponse(raw: Record<string, unknown>): OAuthToken {
     expiresAt,
     scope,
     tokenType,
-    accountId,
+    accountId
   }
 }
 
@@ -108,7 +110,7 @@ async function sendTokenRequest(
     method: 'POST',
     headers,
     body,
-    useSystemProxy: config.useSystemProxy,
+    useSystemProxy: config.useSystemProxy
   })) as { statusCode?: number; error?: string; body?: string }
 
   if (result?.error) {
@@ -132,8 +134,7 @@ async function sendTokenRequest(
 async function exchangeToken(config: OAuthConfig, body: URLSearchParams): Promise<OAuthToken> {
   const mode = config.tokenRequestMode ?? 'form'
   const headers = buildTokenHeaders(mode, config.tokenRequestHeaders)
-  const bodyStr =
-    mode === 'json' ? JSON.stringify(Object.fromEntries(body)) : body.toString()
+  const bodyStr = mode === 'json' ? JSON.stringify(Object.fromEntries(body)) : body.toString()
   return sendTokenRequest(config, bodyStr, headers)
 }
 
@@ -210,7 +211,7 @@ export async function startOAuthFlow(
     requestId,
     port: config.redirectPort,
     path: config.redirectPath,
-    expectedState: state,
+    expectedState: state
   })) as { port?: number; redirectUri?: string; error?: string }
 
   if (startResult?.error) {
@@ -234,9 +235,9 @@ export async function startOAuthFlow(
     ...(usePkce
       ? {
           code_challenge: codeChallenge,
-          code_challenge_method: 'S256',
+          code_challenge_method: 'S256'
         }
-      : {}),
+      : {})
   })
 
   await ipcClient.invoke('shell:openExternal', authorizeUrl)
@@ -268,7 +269,10 @@ export async function startOAuthFlow(
   return exchangeToken(config, body)
 }
 
-export async function refreshOAuthFlow(config: OAuthConfig, refreshToken: string): Promise<OAuthToken> {
+export async function refreshOAuthFlow(
+  config: OAuthConfig,
+  refreshToken: string
+): Promise<OAuthToken> {
   if (!config.tokenUrl || !config.clientId) {
     throw new Error('OAuth config missing tokenUrl/clientId')
   }
@@ -281,7 +285,7 @@ export async function refreshOAuthFlow(config: OAuthConfig, refreshToken: string
     const payload: Record<string, string> = {
       grant_type: 'refresh_token',
       client_id: config.clientId,
-      refresh_token: refreshToken,
+      refresh_token: refreshToken
     }
     if (scope) payload.scope = scope
     return sendTokenRequest(config, JSON.stringify(payload), headers)

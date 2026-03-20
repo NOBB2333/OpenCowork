@@ -3,7 +3,7 @@ import type {
   ChannelEvent,
   ChannelMessage,
   ChannelGroup,
-  MessagingChannelService,
+  MessagingChannelService
 } from '../../channel-types'
 import { BasePluginService } from '../../base-plugin-service'
 import { WhatsAppApi } from './whatsapp-api'

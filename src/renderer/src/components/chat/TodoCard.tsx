@@ -52,34 +52,32 @@ function parseTaskSnapshot(output: ToolResultContent | undefined): {
   const text = outputAsString(output)
   if (!text) return null
 
-  const parsed = decodeStructuredToolResult(text) as
-    | {
-        task_id?: unknown
-        tasks?: Array<Partial<TaskItem>>
-      }
-    | null
+  const parsed = decodeStructuredToolResult(text) as {
+    task_id?: unknown
+    tasks?: Array<Partial<TaskItem>>
+  } | null
   if (!parsed || Array.isArray(parsed) || !Array.isArray(parsed.tasks)) return null
 
   const tasks = parsed.tasks
-      .filter(
-        (task): task is Partial<TaskItem> & Pick<TaskItem, 'id' | 'subject' | 'status'> =>
-          typeof task?.id === 'string' &&
-          typeof task?.subject === 'string' &&
-          typeof task?.status === 'string'
-      )
-      .map((task) => ({
-        id: task.id,
-        subject: task.subject,
-        description: typeof task.description === 'string' ? task.description : '',
-        activeForm: typeof task.activeForm === 'string' ? task.activeForm : undefined,
-        status: task.status as TaskItem['status'],
-        owner: typeof task.owner === 'string' || task.owner === null ? task.owner : undefined,
-        blocks: Array.isArray(task.blocks) ? task.blocks.map(String) : [],
-        blockedBy: Array.isArray(task.blockedBy) ? task.blockedBy.map(String) : [],
-        metadata: task.metadata,
-        createdAt: typeof task.createdAt === 'number' ? task.createdAt : 0,
-        updatedAt: typeof task.updatedAt === 'number' ? task.updatedAt : 0
-      }))
+    .filter(
+      (task): task is Partial<TaskItem> & Pick<TaskItem, 'id' | 'subject' | 'status'> =>
+        typeof task?.id === 'string' &&
+        typeof task?.subject === 'string' &&
+        typeof task?.status === 'string'
+    )
+    .map((task) => ({
+      id: task.id,
+      subject: task.subject,
+      description: typeof task.description === 'string' ? task.description : '',
+      activeForm: typeof task.activeForm === 'string' ? task.activeForm : undefined,
+      status: task.status as TaskItem['status'],
+      owner: typeof task.owner === 'string' || task.owner === null ? task.owner : undefined,
+      blocks: Array.isArray(task.blocks) ? task.blocks.map(String) : [],
+      blockedBy: Array.isArray(task.blockedBy) ? task.blockedBy.map(String) : [],
+      metadata: task.metadata,
+      createdAt: typeof task.createdAt === 'number' ? task.createdAt : 0,
+      updatedAt: typeof task.updatedAt === 'number' ? task.updatedAt : 0
+    }))
 
   return {
     taskId: typeof parsed.task_id === 'string' ? parsed.task_id : undefined,

@@ -42,7 +42,7 @@ export function buildDayWindow(pastDays = 7, futureDays = 30): DayWindowEntry[] 
       date,
       start,
       end,
-      isToday: offset === 0,
+      isToday: offset === 0
     })
   }
   return entries
@@ -65,7 +65,7 @@ export function formatTimeLabel(timestamp: number | null | undefined): string {
   if (!timestamp) return '—'
   return new Date(timestamp).toLocaleTimeString('zh-CN', {
     hour: '2-digit',
-    minute: '2-digit',
+    minute: '2-digit'
   })
 }
 
@@ -75,7 +75,7 @@ export function formatDateTimeLabel(timestamp: number | null | undefined): strin
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
-    minute: '2-digit',
+    minute: '2-digit'
   })
 }
 
@@ -159,12 +159,15 @@ function getWeekdayIndex(label: string): number {
     fri: 5,
     friday: 5,
     sat: 6,
-    saturday: 6,
+    saturday: 6
   }
   return map[lower] ?? 0
 }
 
-function getZonedParts(timestamp: number, timeZone?: string): {
+function getZonedParts(
+  timestamp: number,
+  timeZone?: string
+): {
   minute: number
   hour: number
   day: number
@@ -178,7 +181,7 @@ function getZonedParts(timestamp: number, timeZone?: string): {
       hour: date.getUTCHours(),
       day: date.getUTCDate(),
       month: date.getUTCMonth() + 1,
-      weekday: date.getUTCDay(),
+      weekday: date.getUTCDay()
     }
   }
 
@@ -189,7 +192,7 @@ function getZonedParts(timestamp: number, timeZone?: string): {
     hour: 'numeric',
     minute: 'numeric',
     hour12: false,
-    weekday: 'short',
+    weekday: 'short'
   }).formatToParts(date)
 
   const byType = new Map(parts.map((part) => [part.type, part.value]))
@@ -198,7 +201,7 @@ function getZonedParts(timestamp: number, timeZone?: string): {
     hour: Number.parseInt(byType.get('hour') ?? '0', 10),
     day: Number.parseInt(byType.get('day') ?? '1', 10),
     month: Number.parseInt(byType.get('month') ?? '1', 10),
-    weekday: getWeekdayIndex(byType.get('weekday') ?? 'Sun'),
+    weekday: getWeekdayIndex(byType.get('weekday') ?? 'Sun')
   }
 }
 
@@ -220,7 +223,11 @@ function matchesCronExpressionAt(expr: string, timestamp: number, timeZone?: str
   )
 }
 
-export function listPlannedTimesForDay(job: CronJobEntry, dayStart: number, dayEnd: number): number[] {
+export function listPlannedTimesForDay(
+  job: CronJobEntry,
+  dayStart: number,
+  dayEnd: number
+): number[] {
   if (job.deletedAt) return []
   const { schedule } = job
 

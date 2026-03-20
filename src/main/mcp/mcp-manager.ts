@@ -1,8 +1,5 @@
 import { McpClientWrapper } from './mcp-client'
-import type {
-  McpServerConfig,
-  McpServerInfo,
-} from './mcp-types'
+import type { McpServerConfig, McpServerInfo } from './mcp-types'
 
 /**
  * McpManager — manages multiple MCP server connections with lifecycle control.
@@ -63,7 +60,7 @@ export class McpManager {
       tools: client.tools,
       resources: client.resources,
       prompts: client.prompts,
-      error: client.error,
+      error: client.error
     }
   }
 
@@ -74,19 +71,29 @@ export class McpManager {
   }
 
   /** Get tools for a server */
-  getTools(id: string): { name: string; description?: string; inputSchema: Record<string, unknown> }[] {
+  getTools(
+    id: string
+  ): { name: string; description?: string; inputSchema: Record<string, unknown> }[] {
     const client = this.clients.get(id)
     return client?.tools ?? []
   }
 
   /** Get resources for a server */
-  getResources(id: string): { uri: string; name: string; description?: string; mimeType?: string }[] {
+  getResources(
+    id: string
+  ): { uri: string; name: string; description?: string; mimeType?: string }[] {
     const client = this.clients.get(id)
     return client?.resources ?? []
   }
 
   /** Get prompts for a server */
-  getPrompts(id: string): { name: string; description?: string; arguments?: Array<{ name: string; description?: string; required?: boolean }> }[] {
+  getPrompts(
+    id: string
+  ): {
+    name: string
+    description?: string
+    arguments?: Array<{ name: string; description?: string; required?: boolean }>
+  }[] {
     const client = this.clients.get(id)
     return client?.prompts ?? []
   }

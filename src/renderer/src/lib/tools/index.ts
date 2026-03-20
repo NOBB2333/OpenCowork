@@ -1,7 +1,11 @@
 import { registerTaskTools } from './todo-tool'
 import { registerFsTools } from './fs-tool'
 import { registerSearchTools } from './search-tool'
-import { registerWebSearchTool, unregisterWebSearchTool, isWebSearchToolRegistered } from './web-search-tool'
+import {
+  registerWebSearchTool,
+  unregisterWebSearchTool,
+  isWebSearchToolRegistered
+} from './web-search-tool'
 import { registerBashTools } from './bash-tool'
 import { registerSubAgents } from '../agent/sub-agents/builtin'
 import { registerTeamTools } from '../agent/teams/register'

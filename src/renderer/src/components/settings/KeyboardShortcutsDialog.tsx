@@ -3,7 +3,7 @@ import {
   DialogContent,
   DialogDescription,
   DialogHeader,
-  DialogTitle,
+  DialogTitle
 } from '@renderer/components/ui/dialog'
 import { useUIStore } from '@renderer/stores/ui-store'
 import { useTranslation } from 'react-i18next'
@@ -23,8 +23,8 @@ const shortcutGroups = [
       { keys: 'Ctrl+Shift+Del', descKey: 'deleteAllSessions' },
       { keys: 'Ctrl+Shift+D', descKey: 'toggleTheme' },
       { keys: 'Ctrl+Shift+S', descKey: 'backupSessions' },
-      { keys: 'Ctrl+Shift+O', descKey: 'importSessions' },
-    ],
+      { keys: 'Ctrl+Shift+O', descKey: 'importSessions' }
+    ]
   },
   {
     labelKey: 'navigation',
@@ -35,8 +35,8 @@ const shortcutGroups = [
       { keys: 'Ctrl+↑/↓', descKey: 'prevNextSession' },
       { keys: 'Ctrl+1/2/3', descKey: 'switchMode' },
       { keys: 'Ctrl+Home/End', descKey: 'scrollTopBottom' },
-      { keys: 'Ctrl+Shift+T', descKey: 'cycleRightTab' },
-    ],
+      { keys: 'Ctrl+Shift+T', descKey: 'cycleRightTab' }
+    ]
   },
   {
     labelKey: 'chatGroup',
@@ -48,16 +48,16 @@ const shortcutGroups = [
       { keys: 'Escape', descKey: 'stopStreaming' },
       { keys: 'Ctrl+L', descKey: 'clearConversation' },
       { keys: 'Ctrl+Shift+E', descKey: 'exportConversation' },
-      { keys: 'Ctrl+Shift+C', descKey: 'copyConversation' },
-    ],
+      { keys: 'Ctrl+Shift+C', descKey: 'copyConversation' }
+    ]
   },
   {
     labelKey: 'toolPermissions',
     items: [
       { keys: 'Y', descKey: 'allowTool' },
-      { keys: 'N / Esc', descKey: 'denyTool' },
-    ],
-  },
+      { keys: 'N / Esc', descKey: 'denyTool' }
+    ]
+  }
 ]
 
 export function KeyboardShortcutsDialog(): React.JSX.Element {

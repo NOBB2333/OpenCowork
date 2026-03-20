@@ -4,7 +4,7 @@ import type {
   ChannelEvent,
   ChannelMessage,
   ChannelGroup,
-  ChannelWsMessageParser,
+  ChannelWsMessageParser
 } from './channel-types'
 import { WebSocketTransport } from './ws-transport'
 
@@ -79,7 +79,7 @@ export abstract class BasePluginService implements MessagingChannelService {
               type: 'status_change',
               pluginId: this.pluginId,
               pluginType: this.pluginType,
-              data: 'running', // service still running, just WS reconnecting
+              data: 'running' // service still running, just WS reconnecting
             })
           }
         },
@@ -89,9 +89,9 @@ export abstract class BasePluginService implements MessagingChannelService {
             type: 'error',
             pluginId: this.pluginId,
             pluginType: this.pluginType,
-            data: err.message,
+            data: err.message
           })
-        },
+        }
       })
       this.ws.connect()
     }
@@ -141,7 +141,7 @@ export abstract class BasePluginService implements MessagingChannelService {
       type: 'incoming_message',
       pluginId: this.pluginId,
       pluginType: this.pluginType,
-      data: parsed,
+      data: parsed
     })
   }
 

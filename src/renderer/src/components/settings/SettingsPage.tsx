@@ -2232,7 +2232,7 @@ export function SettingsPage(): React.JSX.Element {
       </div>
 
       {/* Right Content */}
-      <div className="relative flex-1 flex flex-col min-w-0 overflow-hidden px-6 py-4">
+      <div className="relative flex-1 min-h-0 flex flex-col min-w-0 overflow-hidden px-6 py-4">
         {/* Content */}
         <AnimatePresence mode="wait">
           {settingsTab === 'provider' ||
@@ -2240,7 +2240,12 @@ export function SettingsPage(): React.JSX.Element {
           settingsTab === 'channel' ||
           settingsTab === 'mcp' ? (
             <div className="flex-1 min-h-0 min-w-0 overflow-hidden pb-4" key="full-panel">
-              <SlideIn key={settingsTab} direction="right" duration={0.25} className="h-full">
+              <SlideIn
+                key={settingsTab}
+                direction="right"
+                duration={0.25}
+                className="h-full min-h-0"
+              >
                 <ActivePanel />
               </SlideIn>
             </div>

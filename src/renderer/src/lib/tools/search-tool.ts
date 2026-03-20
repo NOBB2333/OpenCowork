@@ -29,10 +29,13 @@ const globHandler: ToolHandler = {
       type: 'object',
       properties: {
         pattern: { type: 'string', description: 'Glob pattern to match files' },
-        path: { type: 'string', description: 'Optional search directory (absolute or relative to the working folder)' },
+        path: {
+          type: 'string',
+          description: 'Optional search directory (absolute or relative to the working folder)'
+        }
       },
-      required: ['pattern'],
-    },
+      required: ['pattern']
+    }
   },
   execute: async (input, ctx) => {
     const resolvedPath = resolveSearchPath(input.path, ctx.workingFolder)
@@ -40,17 +43,17 @@ const globHandler: ToolHandler = {
       const result = await ctx.ipc.invoke(IPC.SSH_FS_GLOB, {
         connectionId: ctx.sshConnectionId,
         pattern: input.pattern,
-        path: resolvedPath,
+        path: resolvedPath
       })
       return encodeStructuredToolResult(result as string[])
     }
     const result = await ctx.ipc.invoke(IPC.FS_GLOB, {
       pattern: input.pattern,
-      path: resolvedPath,
+      path: resolvedPath
     })
     return encodeStructuredToolResult(result as string[])
   },
-  requiresApproval: () => false,
+  requiresApproval: () => false
 }
 
 const grepHandler: ToolHandler = {
@@ -61,11 +64,14 @@ const grepHandler: ToolHandler = {
       type: 'object',
       properties: {
         pattern: { type: 'string', description: 'Regex pattern to search for' },
-        path: { type: 'string', description: 'Directory to search in (absolute or relative to the working folder)' },
-        include: { type: 'string', description: 'File pattern filter, e.g. *.ts' },
+        path: {
+          type: 'string',
+          description: 'Directory to search in (absolute or relative to the working folder)'
+        },
+        include: { type: 'string', description: 'File pattern filter, e.g. *.ts' }
       },
-      required: ['pattern'],
-    },
+      required: ['pattern']
+    }
   },
   execute: async (input, ctx) => {
     const resolvedPath = resolveSearchPath(input.path, ctx.workingFolder)
@@ -74,18 +80,18 @@ const grepHandler: ToolHandler = {
         connectionId: ctx.sshConnectionId,
         pattern: input.pattern,
         path: resolvedPath,
-        include: input.include,
+        include: input.include
       })
       return encodeStructuredToolResult(result as string[])
     }
     const result = await ctx.ipc.invoke(IPC.FS_GREP, {
       pattern: input.pattern,
       path: resolvedPath,
-      include: input.include,
+      include: input.include
     })
     return encodeStructuredToolResult(result as string[])
   },
-  requiresApproval: () => false,
+  requiresApproval: () => false
 }
 
 export function registerSearchTools(): void {

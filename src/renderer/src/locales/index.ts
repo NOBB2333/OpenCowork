@@ -27,7 +27,7 @@ i18n.use(initReactI18next).init({
       settings: enSettings,
       cowork: enCowork,
       agent: enAgent,
-      ssh: enSsh,
+      ssh: enSsh
     },
     zh: {
       common: zhCommon,
@@ -36,15 +36,15 @@ i18n.use(initReactI18next).init({
       settings: zhSettings,
       cowork: zhCowork,
       agent: zhAgent,
-      ssh: zhSsh,
-    },
+      ssh: zhSsh
+    }
   },
   lng: useSettingsStore.getState().language,
   fallbackLng: 'en',
   defaultNS: 'common',
   interpolation: {
-    escapeValue: false,
-  },
+    escapeValue: false
+  }
 })
 
 export default i18n

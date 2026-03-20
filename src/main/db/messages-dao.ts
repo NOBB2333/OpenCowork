@@ -37,7 +37,15 @@ export function addMessage(msg: {
   db.prepare(
     `INSERT OR REPLACE INTO messages (id, session_id, role, content, created_at, usage, sort_order)
      VALUES (?, ?, ?, ?, ?, ?, ?)`
-  ).run(msg.id, msg.sessionId, msg.role, msg.content, msg.createdAt, msg.usage ?? null, msg.sortOrder)
+  ).run(
+    msg.id,
+    msg.sessionId,
+    msg.role,
+    msg.content,
+    msg.createdAt,
+    msg.usage ?? null,
+    msg.sortOrder
+  )
 }
 
 export function updateMessage(

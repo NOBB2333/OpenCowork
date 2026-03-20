@@ -5,7 +5,7 @@ import type {
   OAuthConfig,
   ChannelConfig,
   RequestOverrides,
-  ProviderUiConfig,
+  ProviderUiConfig
 } from '../../lib/api/types'
 
 export interface BuiltinProviderPreset {

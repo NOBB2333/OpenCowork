@@ -22,7 +22,7 @@ export function parseWhatsAppWsMessage(raw: string): ChannelIncomingMessageData 
         senderName: contact?.profile?.name ?? '',
         content: msg.text?.body ?? '',
         messageId: msg.id ?? '',
-        timestamp,
+        timestamp
       }
     }
 
@@ -34,7 +34,7 @@ export function parseWhatsAppWsMessage(raw: string): ChannelIncomingMessageData 
         senderName: data.senderName ?? '',
         content: data.content,
         messageId: data.messageId ?? '',
-        timestamp: data.timestamp ?? Date.now(),
+        timestamp: data.timestamp ?? Date.now()
       }
     }
 

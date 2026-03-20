@@ -568,15 +568,7 @@ function emitCompletionMessage(
 
 // --- Helpers ---
 
-const READ_ONLY_TOOLS = new Set([
-  'Read',
-  'LS',
-  'Glob',
-  'Grep',
-  'TaskList',
-  'TaskGet',
-  'TeamStatus'
-])
+const READ_ONLY_TOOLS = new Set(['Read', 'LS', 'Glob', 'Grep', 'TaskList', 'TaskGet', 'TeamStatus'])
 
 function buildTeammateSystemPrompt(options: {
   memberName: string
@@ -643,8 +635,7 @@ function mergeTeammateUsage(target: TokenUsage, incoming: TokenUsage): void {
   target.inputTokens += incoming.inputTokens
   target.outputTokens += incoming.outputTokens
   if (incoming.billableInputTokens != null) {
-    target.billableInputTokens =
-      (target.billableInputTokens ?? 0) + incoming.billableInputTokens
+    target.billableInputTokens = (target.billableInputTokens ?? 0) + incoming.billableInputTokens
   }
   if (incoming.cacheCreationTokens) {
     target.cacheCreationTokens = (target.cacheCreationTokens ?? 0) + incoming.cacheCreationTokens

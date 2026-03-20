@@ -126,7 +126,9 @@ function buildSessionStateReminder(sessionId?: string): string | null {
   const parts: string[] = []
 
   if (useSettingsStore.getState().webSearchEnabled) {
-    parts.push('  Guidance: Web search is enabled. Actively use the WebSearch tool to gather the latest information, documentation, code examples, and data relevant to the task. Search for current information, best practices, API documentation, and any external resources that can help complete the task more accurately and comprehensively.')
+    parts.push(
+      '  Guidance: Web search is enabled. Actively use the WebSearch tool to gather the latest information, documentation, code examples, and data relevant to the task. Search for current information, best practices, API documentation, and any external resources that can help complete the task more accurately and comprehensively.'
+    )
   }
 
   if (!sessionId) {
@@ -139,7 +141,9 @@ function buildSessionStateReminder(sessionId?: string): string | null {
     const pending = tasks.filter((task) => task.status === 'pending').length
     const inProgress = tasks.filter((task) => task.status === 'in_progress').length
     const completed = tasks.filter((task) => task.status === 'completed').length
-    parts.push(`- Task List: ${tasks.length} tasks (${pending} pending, ${inProgress} in_progress, ${completed} completed)`)
+    parts.push(
+      `- Task List: ${tasks.length} tasks (${pending} pending, ${inProgress} in_progress, ${completed} completed)`
+    )
     if (inProgress > 0 || pending > 0) {
       parts.push('  Reminder: Continue with existing tasks, use TaskUpdate to update status')
     }

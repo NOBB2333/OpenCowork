@@ -543,7 +543,10 @@ export function TranslatePage(): React.JSX.Element {
             </div>
 
             {/* Source panel */}
-            <div className="flex flex-col border-b overflow-hidden" style={{ flex: '0 0 40%', minHeight: 0 }}>
+            <div
+              className="flex flex-col border-b overflow-hidden"
+              style={{ flex: '0 0 40%', minHeight: 0 }}
+            >
               <div className="flex items-center justify-between px-4 py-2 shrink-0 border-b bg-muted/5">
                 <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/50">
                   {t('translatePage.agentSourceLabel')}

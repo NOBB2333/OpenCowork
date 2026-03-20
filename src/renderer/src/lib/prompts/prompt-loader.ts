@@ -11,7 +11,7 @@ export async function loadPrompt(name: string): Promise<string | null> {
   if (cached) return cached
 
   try {
-    const result = await ipcClient.invoke(IPC.PROMPTS_LOAD, { name: key }) as
+    const result = (await ipcClient.invoke(IPC.PROMPTS_LOAD, { name: key })) as
       | { content?: string; error?: string }
       | undefined
 

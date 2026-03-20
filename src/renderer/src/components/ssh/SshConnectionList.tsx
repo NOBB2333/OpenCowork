@@ -12,7 +12,7 @@ import {
   Square,
   Loader2,
   CheckCircle2,
-  RefreshCw,
+  RefreshCw
 } from 'lucide-react'
 import { useSshStore, type SshConnection, type SshGroup } from '@renderer/stores/ssh-store'
 import { Button } from '@renderer/components/ui/button'
@@ -80,7 +80,7 @@ export function SshConnectionList({ onConnect }: SshConnectionListProps): React.
         const result = await useSshStore.getState().testConnection(connectionId)
         setTestStatus((prev) => ({
           ...prev,
-          [connectionId]: { ok: result.success, at: Date.now() },
+          [connectionId]: { ok: result.success, at: Date.now() }
         }))
         if (result.success) {
           toast.success(t('connectionSuccess'))
@@ -98,7 +98,7 @@ export function SshConnectionList({ onConnect }: SshConnectionListProps): React.
     async (connection: SshConnection) => {
       const ok = await confirm({
         title: t('deleteConnection'),
-        description: t('confirmDelete'),
+        description: t('confirmDelete')
       })
       if (!ok) return
       await useSshStore.getState().deleteConnection(connection.id)
@@ -111,7 +111,7 @@ export function SshConnectionList({ onConnect }: SshConnectionListProps): React.
     async (group: SshGroup) => {
       const ok = await confirm({
         title: t('groupDialog.title'),
-        description: t('confirmDeleteGroup'),
+        description: t('confirmDeleteGroup')
       })
       if (!ok) return
       await useSshStore.getState().deleteGroup(group.id)
@@ -122,7 +122,8 @@ export function SshConnectionList({ onConnect }: SshConnectionListProps): React.
 
   const getSessionForConnection = (connectionId: string) => {
     return Object.values(sessions).find(
-      (s) => s.connectionId === connectionId && (s.status === 'connected' || s.status === 'connecting')
+      (s) =>
+        s.connectionId === connectionId && (s.status === 'connected' || s.status === 'connecting')
     )
   }
 
@@ -164,7 +165,9 @@ export function SshConnectionList({ onConnect }: SshConnectionListProps): React.
           >
             <Server className="size-3 shrink-0" />
             <span className="truncate">{t('list.allConnections')}</span>
-            <span className="ml-auto text-[9px] text-muted-foreground/50">{connections.length}</span>
+            <span className="ml-auto text-[9px] text-muted-foreground/50">
+              {connections.length}
+            </span>
           </button>
 
           {/* Groups */}
@@ -314,7 +317,8 @@ export function SshConnectionList({ onConnect }: SshConnectionListProps): React.
                 const testInfo = testStatus[conn.id]
                 const testFresh = testInfo ? now - testInfo.at < TEST_STATUS_TTL_MS : false
                 const isReachable = !isConnected && !isConnecting && testFresh && !!testInfo?.ok
-                const isUnreachable = !isConnected && !isConnecting && testFresh && testInfo != null && !testInfo.ok
+                const isUnreachable =
+                  !isConnected && !isConnecting && testFresh && testInfo != null && !testInfo.ok
 
                 return (
                   <div
@@ -371,7 +375,9 @@ export function SshConnectionList({ onConnect }: SshConnectionListProps): React.
                           {t('list.unreachable')}
                         </span>
                       ) : (
-                        <span className="text-[10px] text-muted-foreground/40">{t('list.offline')}</span>
+                        <span className="text-[10px] text-muted-foreground/40">
+                          {t('list.offline')}
+                        </span>
                       )}
                     </div>
 

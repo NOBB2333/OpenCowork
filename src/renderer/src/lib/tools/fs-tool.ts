@@ -383,7 +383,9 @@ const lsHandler: ToolHandler = {
           path: resolvedPath
         })
       )
-      return encodeStructuredToolResult(result as Array<{ name: string; type: string; path: string }>)
+      return encodeStructuredToolResult(
+        result as Array<{ name: string; type: string; path: string }>
+      )
     }
     const result = await ctx.ipc.invoke(IPC.FS_LIST_DIR, {
       path: resolvedPath,

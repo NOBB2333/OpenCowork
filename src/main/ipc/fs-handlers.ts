@@ -738,11 +738,19 @@ export function registerFsHandlers(): void {
     async (_event, args: { path: string; query: string; limit?: number }) => {
       try {
         const searchRoot = path.resolve(args.path || process.cwd())
-        const normalizedQuery = args.query?.trim()
-        if (!normalizedQuery) return []
-
+        const normalizedQuery = args.query?.trim() ?? ''
         const files = await listSearchableFiles(searchRoot)
         const limit = Math.max(1, Math.min(args.limit ?? FILE_SEARCH_MAX_RESULTS, 100))
+
+        if (!normalizedQuery) {
+          return [...files]
+            .sort((left, right) => left.localeCompare(right, undefined, { sensitivity: 'base' }))
+            .slice(0, limit)
+            .map((filePath) => ({
+              path: filePath,
+              name: path.basename(filePath)
+            }))
+        }
 
         const topMatches: Array<{ path: string; score: number }> = []
 

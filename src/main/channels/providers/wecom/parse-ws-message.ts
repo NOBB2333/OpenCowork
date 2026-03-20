@@ -19,7 +19,7 @@ export function parseWeComWsMessage(raw: string): ChannelIncomingMessageData | n
         senderName: data.FromUserName ?? '',
         content: data.Content ?? '',
         messageId: String(data.MsgId ?? ''),
-        timestamp,
+        timestamp
       }
     }
 
@@ -31,7 +31,7 @@ export function parseWeComWsMessage(raw: string): ChannelIncomingMessageData | n
         senderName: data.senderName ?? '',
         content: data.content,
         messageId: data.messageId ?? '',
-        timestamp: data.timestamp ?? Date.now(),
+        timestamp: data.timestamp ?? Date.now()
       }
     }
 

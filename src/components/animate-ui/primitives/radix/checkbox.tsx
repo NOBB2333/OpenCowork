@@ -1,22 +1,21 @@
-'use client';
+'use client'
 
-import * as React from 'react';
-import { Checkbox as CheckboxPrimitive } from 'radix-ui';
-import { motion, SVGMotionProps, type HTMLMotionProps } from 'motion/react';
+import * as React from 'react'
+import { Checkbox as CheckboxPrimitive } from 'radix-ui'
+import { motion, SVGMotionProps, type HTMLMotionProps } from 'motion/react'
 
-import { getStrictContext } from '@renderer/lib/get-strict-context';
-import { useControlledState } from '@renderer/hooks/use-controlled-state';
+import { getStrictContext } from '@renderer/lib/get-strict-context'
+import { useControlledState } from '@renderer/hooks/use-controlled-state'
 
 type CheckboxContextType = {
-  isChecked: boolean | 'indeterminate';
-  setIsChecked: (checked: boolean | 'indeterminate') => void;
-};
+  isChecked: boolean | 'indeterminate'
+  setIsChecked: (checked: boolean | 'indeterminate') => void
+}
 
-const [CheckboxProvider, useCheckbox] =
-  getStrictContext<CheckboxContextType>('CheckboxContext');
+const [CheckboxProvider, useCheckbox] = getStrictContext<CheckboxContextType>('CheckboxContext')
 
 type CheckboxProps = HTMLMotionProps<'button'> &
-  Omit<React.ComponentProps<typeof CheckboxPrimitive.Root>, 'asChild'>;
+  Omit<React.ComponentProps<typeof CheckboxPrimitive.Root>, 'asChild'>
 
 function Checkbox({
   defaultChecked,
@@ -31,8 +30,8 @@ function Checkbox({
   const [isChecked, setIsChecked] = useControlledState({
     value: checked,
     defaultValue: defaultChecked,
-    onChange: onCheckedChange,
-  });
+    onChange: onCheckedChange
+  })
 
   return (
     <CheckboxProvider value={{ isChecked, setIsChecked }}>
@@ -54,13 +53,13 @@ function Checkbox({
         />
       </CheckboxPrimitive.Root>
     </CheckboxProvider>
-  );
+  )
 }
 
-type CheckboxIndicatorProps = SVGMotionProps<SVGSVGElement>;
+type CheckboxIndicatorProps = SVGMotionProps<SVGSVGElement>
 
 function CheckboxIndicator(props: CheckboxIndicatorProps) {
-  const { isChecked } = useCheckbox();
+  const { isChecked } = useCheckbox()
 
   return (
     <CheckboxPrimitive.Indicator forceMount asChild>
@@ -86,7 +85,7 @@ function CheckboxIndicator(props: CheckboxIndicatorProps) {
             animate={{
               pathLength: 1,
               opacity: 1,
-              transition: { duration: 0.2 },
+              transition: { duration: 0.2 }
             }}
           />
         ) : (
@@ -100,22 +99,22 @@ function CheckboxIndicator(props: CheckboxIndicatorProps) {
                 opacity: 1,
                 transition: {
                   duration: 0.2,
-                  delay: 0.2,
-                },
+                  delay: 0.2
+                }
               },
               unchecked: {
                 pathLength: 0,
                 opacity: 0,
                 transition: {
-                  duration: 0.2,
-                },
-              },
+                  duration: 0.2
+                }
+              }
             }}
           />
         )}
       </motion.svg>
     </CheckboxPrimitive.Indicator>
-  );
+  )
 }
 
 export {
@@ -124,5 +123,5 @@ export {
   useCheckbox,
   type CheckboxProps,
   type CheckboxIndicatorProps,
-  type CheckboxContextType,
-};
+  type CheckboxContextType
+}

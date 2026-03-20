@@ -46,7 +46,7 @@ export const useQuotaStore = create<QuotaStore>((set) => ({
       const next = { ...state.quotaByKey }
       delete next[key]
       return { quotaByKey: next }
-    }),
+    })
 }))
 
 function resolveQuotaKey(payload: QuotaUpdatePayload): string | null {

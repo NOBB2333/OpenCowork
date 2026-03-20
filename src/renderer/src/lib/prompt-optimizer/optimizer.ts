@@ -81,10 +81,16 @@ export async function* optimizePrompt(
   providerConfig: ProviderConfig,
   language: 'en' | 'zh',
   signal?: AbortSignal
-): AsyncGenerator<{ type: 'text' | 'thinking' | 'tool_call' | 'result'; content: string; options?: OptimizationOption[]; toolCall?: OptimizerToolCall }> {
-  const languageInstruction = language === 'zh'
-    ? '\n\n**CRITICAL LANGUAGE REQUIREMENT**: You MUST respond in Chinese (中文). All analysis text, option titles, focus descriptions, and optimized prompt content MUST be in Chinese.'
-    : '\n\n**CRITICAL LANGUAGE REQUIREMENT**: You MUST respond in English. All analysis text, option titles, focus descriptions, and optimized prompt content MUST be in English.'
+): AsyncGenerator<{
+  type: 'text' | 'thinking' | 'tool_call' | 'result'
+  content: string
+  options?: OptimizationOption[]
+  toolCall?: OptimizerToolCall
+}> {
+  const languageInstruction =
+    language === 'zh'
+      ? '\n\n**CRITICAL LANGUAGE REQUIREMENT**: You MUST respond in Chinese (中文). All analysis text, option titles, focus descriptions, and optimized prompt content MUST be in Chinese.'
+      : '\n\n**CRITICAL LANGUAGE REQUIREMENT**: You MUST respond in English. All analysis text, option titles, focus descriptions, and optimized prompt content MUST be in English.'
 
   const messages: UnifiedMessage[] = [
     {
@@ -110,7 +116,8 @@ Begin with Step 1 now.`,
   const tools = [
     {
       name: 'WriteOptimizedPrompts',
-      description: 'Write 1-3 optimized prompt options with different focuses. You MUST use this tool to provide the optimized results.',
+      description:
+        'Write 1-3 optimized prompt options with different focuses. You MUST use this tool to provide the optimized results.',
       inputSchema: {
         type: 'object' as const,
         properties: {
@@ -122,11 +129,12 @@ Begin with Step 1 now.`,
               properties: {
                 title: {
                   type: 'string',
-                  description: 'Short title describing this option (e.g., "Clarity-Focused", "Efficiency-Focused")'
+                  description:
+                    'Short title describing this option (e.g., "Clarity-Focused", "Efficiency-Focused")'
                 },
                 focus: {
                   type: 'string',
-                  description: 'Brief description of this option\'s focus/approach'
+                  description: "Brief description of this option's focus/approach"
                 },
                 content: {
                   type: 'string',
@@ -152,12 +160,21 @@ Begin with Step 1 now.`,
     iterationCount++
 
     try {
-      for await (const event of provider.sendMessage(messages, tools, { ...providerConfig, systemPrompt: OPTIMIZER_SYSTEM_PROMPT }, signal)) {
+      for await (const event of provider.sendMessage(
+        messages,
+        tools,
+        { ...providerConfig, systemPrompt: OPTIMIZER_SYSTEM_PROMPT },
+        signal
+      )) {
         if (event.type === 'text_delta' && event.text) {
           yield { type: 'text', content: event.text }
         } else if (event.type === 'thinking_delta' && event.thinking) {
           yield { type: 'thinking', content: event.thinking }
-        } else if (event.type === 'tool_call_end' && event.toolName === 'WriteOptimizedPrompts' && event.toolCallInput) {
+        } else if (
+          event.type === 'tool_call_end' &&
+          event.toolName === 'WriteOptimizedPrompts' &&
+          event.toolCallInput
+        ) {
           hasToolCall = true
           const input = event.toolCallInput as { options?: OptimizationOption[] }
           if (input.options && Array.isArray(input.options) && input.options.length > 0) {
@@ -187,7 +204,8 @@ Begin with Step 1 now.`,
         messages.push({
           id: `retry-${iterationCount}`,
           role: 'user',
-          content: 'Please use the WriteOptimizedPrompts tool to provide 1-3 optimized options. Do not just write them in your response.',
+          content:
+            'Please use the WriteOptimizedPrompts tool to provide 1-3 optimized options. Do not just write them in your response.',
           createdAt: Date.now()
         })
       } else {

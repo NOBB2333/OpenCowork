@@ -83,11 +83,7 @@ class ToolRegistry {
     }
   }
 
-  checkRequiresApproval(
-    name: string,
-    input: Record<string, unknown>,
-    ctx: ToolContext
-  ): boolean {
+  checkRequiresApproval(name: string, input: Record<string, unknown>, ctx: ToolContext): boolean {
     const handler = this.tools.get(name)
     if (!handler) return true // Unknown tools always require approval
     return handler.requiresApproval?.(input, ctx) ?? false

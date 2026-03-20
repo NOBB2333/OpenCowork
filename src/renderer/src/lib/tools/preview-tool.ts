@@ -46,7 +46,10 @@ const openPreviewHandler: ToolHandler = {
     const { useUIStore } = await import('@renderer/stores/ui-store')
     useUIStore.getState().openFilePreview(filePath, viewMode, sshConnectionId, ctx.sessionId)
 
-    return encodeStructuredToolResult({ success: true, message: `Opened ${filePath} in preview panel` })
+    return encodeStructuredToolResult({
+      success: true,
+      message: `Opened ${filePath} in preview panel`
+    })
   },
   requiresApproval: () => false
 }

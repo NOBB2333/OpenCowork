@@ -28,7 +28,7 @@ function request(
         port: 443,
         path: url.pathname + url.search,
         method,
-        headers: reqHeaders,
+        headers: reqHeaders
       },
       (res) => {
         let responseBody = ''
@@ -95,7 +95,7 @@ export class WeComApi {
         touser: toUser,
         msgtype: 'text',
         agentid: parseInt(this.agentId, 10),
-        text: { content },
+        text: { content }
       })
     )
 
@@ -107,7 +107,11 @@ export class WeComApi {
   }
 
   /** Reply (same as send for WeCom) */
-  async replyMessage(toUser: string, _messageId: string, content: string): Promise<{ messageId: string }> {
+  async replyMessage(
+    toUser: string,
+    _messageId: string,
+    content: string
+  ): Promise<{ messageId: string }> {
     return this.sendMessage(toUser, content)
   }
 }

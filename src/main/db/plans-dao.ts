@@ -24,7 +24,9 @@ export function getPlan(id: string): PlanRow | undefined {
 
 export function getPlanBySession(sessionId: string): PlanRow | undefined {
   const db = getDb()
-  return db.prepare('SELECT * FROM plans WHERE session_id = ? ORDER BY updated_at DESC LIMIT 1').get(sessionId) as PlanRow | undefined
+  return db
+    .prepare('SELECT * FROM plans WHERE session_id = ? ORDER BY updated_at DESC LIMIT 1')
+    .get(sessionId) as PlanRow | undefined
 }
 
 export function createPlan(plan: {
@@ -70,12 +72,30 @@ export function updatePlan(
   const sets: string[] = []
   const values: unknown[] = []
 
-  if (patch.title !== undefined) { sets.push('title = ?'); values.push(patch.title) }
-  if (patch.status !== undefined) { sets.push('status = ?'); values.push(patch.status) }
-  if (patch.filePath !== undefined) { sets.push('file_path = ?'); values.push(patch.filePath) }
-  if (patch.content !== undefined) { sets.push('content = ?'); values.push(patch.content) }
-  if (patch.specJson !== undefined) { sets.push('spec_json = ?'); values.push(patch.specJson) }
-  if (patch.updatedAt !== undefined) { sets.push('updated_at = ?'); values.push(patch.updatedAt) }
+  if (patch.title !== undefined) {
+    sets.push('title = ?')
+    values.push(patch.title)
+  }
+  if (patch.status !== undefined) {
+    sets.push('status = ?')
+    values.push(patch.status)
+  }
+  if (patch.filePath !== undefined) {
+    sets.push('file_path = ?')
+    values.push(patch.filePath)
+  }
+  if (patch.content !== undefined) {
+    sets.push('content = ?')
+    values.push(patch.content)
+  }
+  if (patch.specJson !== undefined) {
+    sets.push('spec_json = ?')
+    values.push(patch.specJson)
+  }
+  if (patch.updatedAt !== undefined) {
+    sets.push('updated_at = ?')
+    values.push(patch.updatedAt)
+  }
 
   if (sets.length === 0) return
 

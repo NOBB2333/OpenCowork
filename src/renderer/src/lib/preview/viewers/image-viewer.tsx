@@ -13,7 +13,7 @@ const MIME_TYPES: Record<string, string> = {
   '.bmp': 'image/bmp',
   '.webp': 'image/webp',
   '.svg': 'image/svg+xml',
-  '.ico': 'image/x-icon',
+  '.ico': 'image/x-icon'
 }
 
 function getMimeType(filePath: string): string {
@@ -63,7 +63,10 @@ export function ImageViewer({ filePath, sshConnectionId }: ViewerProps): React.J
   const zoomIn = () => setScale((s) => Math.min(s + 0.25, 5))
   const zoomOut = () => setScale((s) => Math.max(s - 0.25, 0.25))
   const rotate = () => setRotation((r) => (r + 90) % 360)
-  const resetView = () => { setScale(1); setRotation(0) }
+  const resetView = () => {
+    setScale(1)
+    setRotation(0)
+  }
 
   if (error) {
     return (
@@ -98,11 +101,18 @@ export function ImageViewer({ filePath, sshConnectionId }: ViewerProps): React.J
         <Button variant="ghost" size="sm" className="h-6 gap-1 px-2 text-[10px]" onClick={rotate}>
           <RotateCw className="size-3" />
         </Button>
-        <Button variant="ghost" size="sm" className="h-6 gap-1 px-2 text-[10px]" onClick={resetView}>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 gap-1 px-2 text-[10px]"
+          onClick={resetView}
+        >
           <Maximize2 className="size-3" />
         </Button>
         <div className="flex-1" />
-        <span className="text-[10px] text-muted-foreground/50 truncate">{filePath.split(/[\\/]/).pop()}</span>
+        <span className="text-[10px] text-muted-foreground/50 truncate">
+          {filePath.split(/[\\/]/).pop()}
+        </span>
       </div>
 
       {/* Image display */}
@@ -112,7 +122,7 @@ export function ImageViewer({ filePath, sshConnectionId }: ViewerProps): React.J
           alt={filePath.split(/[\\/]/).pop() || ''}
           className="max-w-none transition-transform duration-200"
           style={{
-            transform: `scale(${scale}) rotate(${rotation}deg)`,
+            transform: `scale(${scale}) rotate(${rotation}deg)`
           }}
           draggable={false}
         />

@@ -34,6 +34,8 @@
     "unknownProject": "Unknown Project",
     "pinnedProjects": "Pinned Projects",
     "projects": "Projects",
+    "expandOlderSessions": "Show history ({{count}})",
+    "collapseOlderSessions": "Hide history",
     "sessions": "sessions",
     "msgs": "msgs"
   },

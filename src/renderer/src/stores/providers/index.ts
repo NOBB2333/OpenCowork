@@ -41,5 +41,5 @@ export const builtinProviderPresets: BuiltinProviderPreset[] = [
   codexOAuthPreset,
   xiaomiPreset,
   bigmodelCodingPreset,
-  bigmodelPreset,
+  bigmodelPreset
 ]

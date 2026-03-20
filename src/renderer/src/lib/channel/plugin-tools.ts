@@ -25,7 +25,9 @@ async function execPlugin(
   toolName: string
 ): Promise<string> {
   if (!pluginId || typeof pluginId !== 'string') {
-    return JSON.stringify({ error: 'Missing or invalid plugin_id. Check the active channels list.' })
+    return JSON.stringify({
+      error: 'Missing or invalid plugin_id. Check the active channels list.'
+    })
   }
   if (!isPluginToolEnabled(pluginId, toolName)) {
     return toolDisabledError(toolName)
@@ -49,17 +51,27 @@ const pluginSendMessage: ToolHandler = {
       properties: {
         plugin_id: { type: 'string', description: 'The channel instance ID to use' },
         chat_id: { type: 'string', description: 'The chat/group ID to send the message to' },
-        content: { type: 'string', description: 'The message content to send' },
+        content: { type: 'string', description: 'The message content to send' }
       },
-      required: ['plugin_id', 'chat_id', 'content'],
-    },
+      required: ['plugin_id', 'chat_id', 'content']
+    }
   },
   execute: async (input, ctx) => {
     // Delivery-once guard: block duplicate delivery calls within a single cron run
-    console.log(`[PluginSendMessage] callerAgent=${ctx.callerAgent}, sharedState=`, JSON.stringify(ctx.sharedState), `pluginId=${input.plugin_id}, chatId=${input.chat_id}`)
+    console.log(
+      `[PluginSendMessage] callerAgent=${ctx.callerAgent}, sharedState=`,
+      JSON.stringify(ctx.sharedState),
+      `pluginId=${input.plugin_id}, chatId=${input.chat_id}`
+    )
     if (ctx.callerAgent === 'CronAgent' && ctx.sharedState?.deliveryUsed) {
-      console.warn('[PluginSendMessage] CronAgent already delivered results this run — BLOCKING duplicate call')
-      return JSON.stringify({ success: true, skipped: true, reason: 'Already delivered results this run. Only one delivery call is allowed.' })
+      console.warn(
+        '[PluginSendMessage] CronAgent already delivered results this run — BLOCKING duplicate call'
+      )
+      return JSON.stringify({
+        success: true,
+        skipped: true,
+        reason: 'Already delivered results this run. Only one delivery call is allowed.'
+      })
     }
     // Mark delivery BEFORE sending — prevents race conditions with parallel tool calls
     if (ctx.callerAgent === 'CronAgent' && ctx.sharedState) {
@@ -73,26 +85,28 @@ const pluginSendMessage: ToolHandler = {
       { chatId: input.chat_id, content: input.content },
       'PluginSendMessage'
     )
-    console.log('[PluginSendMessage] Send result:', typeof result === 'string' ? result.slice(0, 200) : result)
+    console.log(
+      '[PluginSendMessage] Send result:',
+      typeof result === 'string' ? result.slice(0, 200) : result
+    )
     return result
   },
-  requiresApproval: () => true,
+  requiresApproval: () => true
 }
 
 const pluginReplyMessage: ToolHandler = {
   definition: {
     name: 'PluginReplyMessage',
-    description:
-      'Reply to a specific message via a messaging channel. Requires approval.',
+    description: 'Reply to a specific message via a messaging channel. Requires approval.',
     inputSchema: {
       type: 'object',
       properties: {
         plugin_id: { type: 'string', description: 'The channel instance ID to use' },
         message_id: { type: 'string', description: 'The message ID to reply to' },
-        content: { type: 'string', description: 'The reply content' },
+        content: { type: 'string', description: 'The reply content' }
       },
-      required: ['plugin_id', 'message_id', 'content'],
-    },
+      required: ['plugin_id', 'message_id', 'content']
+    }
   },
   execute: async (input, ctx) => {
     return execPlugin(
@@ -103,7 +117,7 @@ const pluginReplyMessage: ToolHandler = {
       'PluginReplyMessage'
     )
   },
-  requiresApproval: () => true,
+  requiresApproval: () => true
 }
 
 const pluginGetGroupMessages: ToolHandler = {
@@ -115,10 +129,10 @@ const pluginGetGroupMessages: ToolHandler = {
       properties: {
         plugin_id: { type: 'string', description: 'The channel instance ID to use' },
         chat_id: { type: 'string', description: 'The chat/group ID to get messages from' },
-        count: { type: 'number', description: 'Number of messages to retrieve (default 20)' },
+        count: { type: 'number', description: 'Number of messages to retrieve (default 20)' }
       },
-      required: ['plugin_id', 'chat_id'],
-    },
+      required: ['plugin_id', 'chat_id']
+    }
   },
   execute: async (input, ctx) => {
     return execPlugin(
@@ -128,7 +142,7 @@ const pluginGetGroupMessages: ToolHandler = {
       { chatId: input.chat_id, count: input.count ?? 20 },
       'PluginGetGroupMessages'
     )
-  },
+  }
 }
 
 const pluginListGroups: ToolHandler = {
@@ -138,14 +152,14 @@ const pluginListGroups: ToolHandler = {
     inputSchema: {
       type: 'object',
       properties: {
-        plugin_id: { type: 'string', description: 'The channel instance ID to use' },
+        plugin_id: { type: 'string', description: 'The channel instance ID to use' }
       },
-      required: ['plugin_id'],
-    },
+      required: ['plugin_id']
+    }
   },
   execute: async (input, ctx) => {
     return execPlugin(ctx, input.plugin_id, 'listGroups', {}, 'PluginListGroups')
-  },
+  }
 }
 
 const pluginSummarizeGroup: ToolHandler = {
@@ -160,11 +174,11 @@ const pluginSummarizeGroup: ToolHandler = {
         chat_id: { type: 'string', description: 'The chat/group ID to summarize' },
         count: {
           type: 'number',
-          description: 'Number of recent messages to include (default 50)',
-        },
+          description: 'Number of recent messages to include (default 50)'
+        }
       },
-      required: ['plugin_id', 'chat_id'],
-    },
+      required: ['plugin_id', 'chat_id']
+    }
   },
   execute: async (input, ctx) => {
     return execPlugin(
@@ -174,7 +188,7 @@ const pluginSummarizeGroup: ToolHandler = {
       { chatId: input.chat_id, count: input.count ?? 50 },
       'PluginSummarizeGroup'
     )
-  },
+  }
 }
 
 const pluginGetCurrentChatMessages: ToolHandler = {
@@ -184,38 +198,48 @@ const pluginGetCurrentChatMessages: ToolHandler = {
     inputSchema: {
       type: 'object',
       properties: {
-        plugin_id: { type: 'string', description: 'The channel instance ID to use (optional, defaults to current)' },
-        chat_id: { type: 'string', description: 'The chat/group ID to read (optional, defaults to current)' },
-        count: { type: 'number', description: 'Number of messages to retrieve (default 20)' },
+        plugin_id: {
+          type: 'string',
+          description: 'The channel instance ID to use (optional, defaults to current)'
+        },
+        chat_id: {
+          type: 'string',
+          description: 'The chat/group ID to read (optional, defaults to current)'
+        },
+        count: { type: 'number', description: 'Number of messages to retrieve (default 20)' }
       },
-      required: [],
-    },
+      required: []
+    }
   },
   execute: async (input, ctx) => {
     const pluginId = typeof input.plugin_id === 'string' ? input.plugin_id : ctx.pluginId
     const chatId = typeof input.chat_id === 'string' ? input.chat_id : ctx.pluginChatId
     if (!pluginId || !chatId) {
-      return JSON.stringify({ error: 'Missing plugin_id or chat_id. Ensure you are in a channel chat session.' })
+      return JSON.stringify({
+        error: 'Missing plugin_id or chat_id. Ensure you are in a channel chat session.'
+      })
     }
     if (!isPluginToolEnabled(pluginId, 'PluginGetCurrentChatMessages')) {
       return toolDisabledError('PluginGetCurrentChatMessages')
     }
     try {
       const composite = `plugin:${pluginId}:chat:${chatId}`
-      const session = await ctx.ipc.invoke(IPC.PLUGIN_SESSIONS_FIND_BY_CHAT, composite) as { id?: string } | null
+      const session = (await ctx.ipc.invoke(IPC.PLUGIN_SESSIONS_FIND_BY_CHAT, composite)) as {
+        id?: string
+      } | null
       if (!session?.id) {
         return JSON.stringify({ error: 'Channel session not found for this chat.' })
       }
       const rows = await ctx.ipc.invoke(IPC.PLUGIN_SESSIONS_MESSAGES, {
         sessionId: session.id,
-        limit: typeof input.count === 'number' ? input.count : 20,
+        limit: typeof input.count === 'number' ? input.count : 20
       })
       return JSON.stringify({ sessionId: session.id, messages: rows })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       return JSON.stringify({ error: `Failed to load channel chat messages: ${msg}` })
     }
-  },
+  }
 }
 
 // ── Feishu-specific Media Tools ──
@@ -230,24 +254,27 @@ const feishuSendImage: ToolHandler = {
       properties: {
         plugin_id: { type: 'string', description: 'The Feishu channel instance ID' },
         chat_id: { type: 'string', description: 'The Feishu chat ID to send the image to' },
-        file_path: { type: 'string', description: 'Absolute local file path OR an HTTP/HTTPS URL pointing to the image' },
+        file_path: {
+          type: 'string',
+          description: 'Absolute local file path OR an HTTP/HTTPS URL pointing to the image'
+        }
       },
-      required: ['plugin_id', 'chat_id', 'file_path'],
-    },
+      required: ['plugin_id', 'chat_id', 'file_path']
+    }
   },
   execute: async (input, ctx) => {
     if (!isPluginToolEnabled(input.plugin_id as string, 'FeishuSendImage')) {
       return toolDisabledError('FeishuSendImage')
     }
-    const result = await ctx.ipc.invoke(IPC.PLUGIN_FEISHU_SEND_IMAGE, {
+    const result = (await ctx.ipc.invoke(IPC.PLUGIN_FEISHU_SEND_IMAGE, {
       pluginId: input.plugin_id,
       chatId: input.chat_id,
-      filePath: input.file_path,
-    }) as { ok?: boolean; error?: string; messageId?: string }
+      filePath: input.file_path
+    })) as { ok?: boolean; error?: string; messageId?: string }
     if (result?.error) throw new Error(`FeishuSendImage failed: ${result.error}`)
     return JSON.stringify({ ok: true, messageId: result?.messageId })
   },
-  requiresApproval: () => true,
+  requiresApproval: () => true
 }
 
 const feishuSendFile: ToolHandler = {
@@ -260,30 +287,34 @@ const feishuSendFile: ToolHandler = {
       properties: {
         plugin_id: { type: 'string', description: 'The Feishu channel instance ID' },
         chat_id: { type: 'string', description: 'The Feishu chat ID to send the file to' },
-        file_path: { type: 'string', description: 'Absolute local file path OR an HTTP/HTTPS URL pointing to the file' },
+        file_path: {
+          type: 'string',
+          description: 'Absolute local file path OR an HTTP/HTTPS URL pointing to the file'
+        },
         file_type: {
           type: 'string',
-          description: 'Override file type: opus, mp4, pdf, doc, xls, ppt, or stream. Omit to auto-detect from extension.',
-          enum: ['opus', 'mp4', 'pdf', 'doc', 'xls', 'ppt', 'stream'],
-        },
+          description:
+            'Override file type: opus, mp4, pdf, doc, xls, ppt, or stream. Omit to auto-detect from extension.',
+          enum: ['opus', 'mp4', 'pdf', 'doc', 'xls', 'ppt', 'stream']
+        }
       },
-      required: ['plugin_id', 'chat_id', 'file_path'],
-    },
+      required: ['plugin_id', 'chat_id', 'file_path']
+    }
   },
   execute: async (input, ctx) => {
     if (!isPluginToolEnabled(input.plugin_id as string, 'FeishuSendFile')) {
       return toolDisabledError('FeishuSendFile')
     }
-    const result = await ctx.ipc.invoke(IPC.PLUGIN_FEISHU_SEND_FILE, {
+    const result = (await ctx.ipc.invoke(IPC.PLUGIN_FEISHU_SEND_FILE, {
       pluginId: input.plugin_id,
       chatId: input.chat_id,
       filePath: input.file_path,
-      fileType: input.file_type,
-    }) as { ok?: boolean; error?: string; messageId?: string }
+      fileType: input.file_type
+    })) as { ok?: boolean; error?: string; messageId?: string }
     if (result?.error) throw new Error(`FeishuSendFile failed: ${result.error}`)
     return JSON.stringify({ ok: true, messageId: result?.messageId })
   },
-  requiresApproval: () => true,
+  requiresApproval: () => true
 }
 
 const feishuListChatMembers: ToolHandler = {
@@ -294,17 +325,20 @@ const feishuListChatMembers: ToolHandler = {
       type: 'object',
       properties: {
         plugin_id: { type: 'string', description: 'The Feishu channel instance ID' },
-        chat_id: { type: 'string', description: 'The Feishu chat ID (optional, defaults to current)' },
+        chat_id: {
+          type: 'string',
+          description: 'The Feishu chat ID (optional, defaults to current)'
+        },
         page_size: { type: 'number', description: 'Page size (1-50, default 50)' },
         page_token: { type: 'string', description: 'Pagination token' },
         member_id_type: {
           type: 'string',
           enum: ['open_id', 'user_id', 'union_id'],
-          description: 'Member ID type (default open_id)',
-        },
+          description: 'Member ID type (default open_id)'
+        }
       },
-      required: ['plugin_id'],
-    },
+      required: ['plugin_id']
+    }
   },
   execute: async (input, ctx) => {
     if (!isPluginToolEnabled(input.plugin_id as string, 'FeishuListChatMembers')) {
@@ -319,44 +353,48 @@ const feishuListChatMembers: ToolHandler = {
       chatId,
       pageToken: input.page_token,
       pageSize: input.page_size,
-      memberIdType: input.member_id_type,
+      memberIdType: input.member_id_type
     })
     return JSON.stringify(result)
-  },
+  }
 }
 
 const feishuAtMember: ToolHandler = {
   definition: {
     name: 'FeishuAtMember',
-    description: 'Mention members in a Feishu group chat (group-only). Use FeishuListChatMembers to get open_id values.',
+    description:
+      'Mention members in a Feishu group chat (group-only). Use FeishuListChatMembers to get open_id values.',
     inputSchema: {
       type: 'object',
       properties: {
         plugin_id: { type: 'string', description: 'The Feishu channel instance ID' },
-        chat_id: { type: 'string', description: 'The Feishu chat ID (optional, defaults to current)' },
+        chat_id: {
+          type: 'string',
+          description: 'The Feishu chat ID (optional, defaults to current)'
+        },
         user_ids: { type: 'array', items: { type: 'string' }, description: 'User IDs to mention' },
         at_all: { type: 'boolean', description: 'Mention all members' },
-        text: { type: 'string', description: 'Message text to send (without @ tags)' },
+        text: { type: 'string', description: 'Message text to send (without @ tags)' }
       },
-      required: ['plugin_id', 'text'],
-    },
+      required: ['plugin_id', 'text']
+    }
   },
   execute: async (input, ctx) => {
     if (!isPluginToolEnabled(input.plugin_id as string, 'FeishuAtMember')) {
       return toolDisabledError('FeishuAtMember')
     }
     const fallbackSender = ctx.pluginSenderId ? [ctx.pluginSenderId] : undefined
-    const result = await ctx.ipc.invoke(IPC.PLUGIN_FEISHU_SEND_MENTION, {
+    const result = (await ctx.ipc.invoke(IPC.PLUGIN_FEISHU_SEND_MENTION, {
       pluginId: input.plugin_id,
       chatId: input.chat_id ?? ctx.pluginChatId,
       userIds: input.user_ids ?? fallbackSender,
       atAll: input.at_all ?? false,
-      text: input.text,
-    }) as { ok?: boolean; error?: string; messageId?: string }
+      text: input.text
+    })) as { ok?: boolean; error?: string; messageId?: string }
     if (result?.error) throw new Error(`FeishuAtMember failed: ${result.error}`)
     return JSON.stringify({ ok: true, messageId: result?.messageId })
   },
-  requiresApproval: () => true,
+  requiresApproval: () => true
 }
 
 const feishuSendUrgent: ToolHandler = {
@@ -372,26 +410,26 @@ const feishuSendUrgent: ToolHandler = {
         urgent_types: {
           type: 'array',
           items: { type: 'string', enum: ['app', 'sms'] },
-          description: 'Urgent types to send (app, sms)',
-        },
+          description: 'Urgent types to send (app, sms)'
+        }
       },
-      required: ['plugin_id', 'message_id', 'user_ids', 'urgent_types'],
-    },
+      required: ['plugin_id', 'message_id', 'user_ids', 'urgent_types']
+    }
   },
   execute: async (input, ctx) => {
     if (!isPluginToolEnabled(input.plugin_id as string, 'FeishuSendUrgent')) {
       return toolDisabledError('FeishuSendUrgent')
     }
-    const result = await ctx.ipc.invoke(IPC.PLUGIN_FEISHU_SEND_URGENT, {
+    const result = (await ctx.ipc.invoke(IPC.PLUGIN_FEISHU_SEND_URGENT, {
       pluginId: input.plugin_id,
       messageId: input.message_id,
       userIds: input.user_ids,
-      urgentTypes: input.urgent_types,
-    }) as { ok?: boolean; error?: string }
+      urgentTypes: input.urgent_types
+    })) as { ok?: boolean; error?: string }
     if (result?.error) throw new Error(`FeishuSendUrgent failed: ${result.error}`)
     return JSON.stringify({ ok: true })
   },
-  requiresApproval: () => true,
+  requiresApproval: () => true
 }
 
 const feishuBitableListApps: ToolHandler = {
@@ -401,20 +439,20 @@ const feishuBitableListApps: ToolHandler = {
     inputSchema: {
       type: 'object',
       properties: {
-        plugin_id: { type: 'string', description: 'The Feishu channel instance ID' },
+        plugin_id: { type: 'string', description: 'The Feishu channel instance ID' }
       },
-      required: ['plugin_id'],
-    },
+      required: ['plugin_id']
+    }
   },
   execute: async (input, ctx) => {
     if (!isPluginToolEnabled(input.plugin_id as string, 'FeishuBitableListApps')) {
       return toolDisabledError('FeishuBitableListApps')
     }
     const result = await ctx.ipc.invoke(IPC.PLUGIN_FEISHU_BITABLE_LIST_APPS, {
-      pluginId: input.plugin_id,
+      pluginId: input.plugin_id
     })
     return JSON.stringify(result)
-  },
+  }
 }
 
 const feishuBitableListTables: ToolHandler = {
@@ -425,10 +463,10 @@ const feishuBitableListTables: ToolHandler = {
       type: 'object',
       properties: {
         plugin_id: { type: 'string', description: 'The Feishu channel instance ID' },
-        app_token: { type: 'string', description: 'Bitable app token' },
+        app_token: { type: 'string', description: 'Bitable app token' }
       },
-      required: ['plugin_id', 'app_token'],
-    },
+      required: ['plugin_id', 'app_token']
+    }
   },
   execute: async (input, ctx) => {
     if (!isPluginToolEnabled(input.plugin_id as string, 'FeishuBitableListTables')) {
@@ -436,10 +474,10 @@ const feishuBitableListTables: ToolHandler = {
     }
     const result = await ctx.ipc.invoke(IPC.PLUGIN_FEISHU_BITABLE_LIST_TABLES, {
       pluginId: input.plugin_id,
-      appToken: input.app_token,
+      appToken: input.app_token
     })
     return JSON.stringify(result)
-  },
+  }
 }
 
 const feishuBitableListFields: ToolHandler = {
@@ -451,10 +489,10 @@ const feishuBitableListFields: ToolHandler = {
       properties: {
         plugin_id: { type: 'string', description: 'The Feishu channel instance ID' },
         app_token: { type: 'string', description: 'Bitable app token' },
-        table_id: { type: 'string', description: 'Bitable table ID' },
+        table_id: { type: 'string', description: 'Bitable table ID' }
       },
-      required: ['plugin_id', 'app_token', 'table_id'],
-    },
+      required: ['plugin_id', 'app_token', 'table_id']
+    }
   },
   execute: async (input, ctx) => {
     if (!isPluginToolEnabled(input.plugin_id as string, 'FeishuBitableListFields')) {
@@ -463,10 +501,10 @@ const feishuBitableListFields: ToolHandler = {
     const result = await ctx.ipc.invoke(IPC.PLUGIN_FEISHU_BITABLE_LIST_FIELDS, {
       pluginId: input.plugin_id,
       appToken: input.app_token,
-      tableId: input.table_id,
+      tableId: input.table_id
     })
     return JSON.stringify(result)
-  },
+  }
 }
 
 const feishuBitableGetRecords: ToolHandler = {
@@ -481,10 +519,10 @@ const feishuBitableGetRecords: ToolHandler = {
         table_id: { type: 'string', description: 'Bitable table ID' },
         filter: { type: 'string', description: 'Optional filter formula' },
         page_size: { type: 'number', description: 'Page size (default 50)' },
-        page_token: { type: 'string', description: 'Page token for pagination' },
+        page_token: { type: 'string', description: 'Page token for pagination' }
       },
-      required: ['plugin_id', 'app_token', 'table_id'],
-    },
+      required: ['plugin_id', 'app_token', 'table_id']
+    }
   },
   execute: async (input, ctx) => {
     if (!isPluginToolEnabled(input.plugin_id as string, 'FeishuBitableGetRecords')) {
@@ -496,10 +534,10 @@ const feishuBitableGetRecords: ToolHandler = {
       tableId: input.table_id,
       filter: input.filter,
       pageSize: input.page_size,
-      pageToken: input.page_token,
+      pageToken: input.page_token
     })
     return JSON.stringify(result)
-  },
+  }
 }
 
 const feishuBitableCreateRecords: ToolHandler = {
@@ -515,11 +553,11 @@ const feishuBitableCreateRecords: ToolHandler = {
         records: {
           type: 'array',
           description: 'Records payload array',
-          items: { type: 'object', description: 'Record payload object' },
-        },
+          items: { type: 'object', description: 'Record payload object' }
+        }
       },
-      required: ['plugin_id', 'app_token', 'table_id', 'records'],
-    },
+      required: ['plugin_id', 'app_token', 'table_id', 'records']
+    }
   },
   execute: async (input, ctx) => {
     if (!isPluginToolEnabled(input.plugin_id as string, 'FeishuBitableCreateRecords')) {
@@ -529,10 +567,10 @@ const feishuBitableCreateRecords: ToolHandler = {
       pluginId: input.plugin_id,
       appToken: input.app_token,
       tableId: input.table_id,
-      records: input.records,
+      records: input.records
     })
     return JSON.stringify(result)
-  },
+  }
 }
 
 const feishuBitableUpdateRecords: ToolHandler = {
@@ -548,11 +586,11 @@ const feishuBitableUpdateRecords: ToolHandler = {
         records: {
           type: 'array',
           description: 'Records payload array',
-          items: { type: 'object', description: 'Record payload object' },
-        },
+          items: { type: 'object', description: 'Record payload object' }
+        }
       },
-      required: ['plugin_id', 'app_token', 'table_id', 'records'],
-    },
+      required: ['plugin_id', 'app_token', 'table_id', 'records']
+    }
   },
   execute: async (input, ctx) => {
     if (!isPluginToolEnabled(input.plugin_id as string, 'FeishuBitableUpdateRecords')) {
@@ -562,10 +600,10 @@ const feishuBitableUpdateRecords: ToolHandler = {
       pluginId: input.plugin_id,
       appToken: input.app_token,
       tableId: input.table_id,
-      records: input.records,
+      records: input.records
     })
     return JSON.stringify(result)
-  },
+  }
 }
 
 const feishuBitableDeleteRecords: ToolHandler = {
@@ -578,10 +616,14 @@ const feishuBitableDeleteRecords: ToolHandler = {
         plugin_id: { type: 'string', description: 'The Feishu channel instance ID' },
         app_token: { type: 'string', description: 'Bitable app token' },
         table_id: { type: 'string', description: 'Bitable table ID' },
-        record_ids: { type: 'array', items: { type: 'string' }, description: 'Record IDs to delete' },
+        record_ids: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Record IDs to delete'
+        }
       },
-      required: ['plugin_id', 'app_token', 'table_id', 'record_ids'],
-    },
+      required: ['plugin_id', 'app_token', 'table_id', 'record_ids']
+    }
   },
   execute: async (input, ctx) => {
     if (!isPluginToolEnabled(input.plugin_id as string, 'FeishuBitableDeleteRecords')) {
@@ -591,10 +633,10 @@ const feishuBitableDeleteRecords: ToolHandler = {
       pluginId: input.plugin_id,
       appToken: input.app_token,
       tableId: input.table_id,
-      recordIds: input.record_ids,
+      recordIds: input.record_ids
     })
     return JSON.stringify(result)
-  },
+  }
 }
 
 const FEISHU_TOOLS: ToolHandler[] = [
@@ -609,7 +651,7 @@ const FEISHU_TOOLS: ToolHandler[] = [
   feishuBitableGetRecords,
   feishuBitableCreateRecords,
   feishuBitableUpdateRecords,
-  feishuBitableDeleteRecords,
+  feishuBitableDeleteRecords
 ]
 
 const ALL_PLUGIN_TOOLS: ToolHandler[] = [
@@ -619,12 +661,12 @@ const ALL_PLUGIN_TOOLS: ToolHandler[] = [
   pluginListGroups,
   pluginSummarizeGroup,
   pluginGetCurrentChatMessages,
-  ...FEISHU_TOOLS,
+  ...FEISHU_TOOLS
 ]
 
 export const PLUGIN_TOOL_DEFINITIONS = ALL_PLUGIN_TOOLS.map((tool) => ({
   name: tool.definition.name,
-  description: tool.definition.description,
+  description: tool.definition.description
 }))
 
 let _registered = false

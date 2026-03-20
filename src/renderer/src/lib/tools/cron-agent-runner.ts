@@ -29,7 +29,7 @@ import type {
   ToolResultBlock,
   ToolResultContent,
   ImageBlock,
-  ImageErrorBlock,
+  ImageErrorBlock
 } from '../api/types'
 import type { AgentLoopConfig } from '../agent/types'
 import type { ToolContext } from './tool-types'
@@ -39,18 +39,31 @@ const DEFAULT_AGENT = 'CronAgent'
 const FALLBACK_CRON_AGENT = {
   name: DEFAULT_AGENT,
   description: 'Scheduled task agent for cron jobs',
-  allowedTools: ['Read', 'Write', 'Edit', 'Glob', 'Grep', 'Shell', 'Bash', 'Notify', 'AskUserQuestion'],
+  allowedTools: [
+    'Read',
+    'Write',
+    'Edit',
+    'Glob',
+    'Grep',
+    'Shell',
+    'Bash',
+    'Notify',
+    'AskUserQuestion'
+  ],
   maxIterations: 15,
   model: undefined as string | undefined,
   temperature: undefined as number | undefined,
   systemPrompt:
     'You are CronAgent, a scheduled task assistant. You execute tasks autonomously on a timer. ' +
-    'Be concise and action-oriented. Complete the task, then deliver results as instructed.',
+    'Be concise and action-oriented. Complete the task, then deliver results as instructed.'
 }
 
 const activeRuns = new Map<string, AbortController>()
 
-function getProviderConfig(providerId?: string | null, modelOverride?: string | null): ProviderConfig | null {
+function getProviderConfig(
+  providerId?: string | null,
+  modelOverride?: string | null
+): ProviderConfig | null {
   const s = useSettingsStore.getState()
   const store = useProviderStore.getState()
 
@@ -60,7 +73,7 @@ function getProviderConfig(providerId?: string | null, modelOverride?: string | 
       return {
         ...overrideConfig,
         maxTokens: store.getEffectiveMaxTokens(s.maxTokens, modelOverride),
-        temperature: s.temperature,
+        temperature: s.temperature
       }
     }
   }
@@ -71,7 +84,7 @@ function getProviderConfig(providerId?: string | null, modelOverride?: string | 
       ...fastConfig,
       model: modelOverride || fastConfig.model,
       maxTokens: store.getEffectiveMaxTokens(s.maxTokens, modelOverride || fastConfig.model),
-      temperature: s.temperature,
+      temperature: s.temperature
     }
   }
 
@@ -84,7 +97,7 @@ function getProviderConfig(providerId?: string | null, modelOverride?: string | 
     baseUrl: s.baseUrl || undefined,
     model,
     maxTokens: store.getEffectiveMaxTokens(s.maxTokens, model),
-    temperature: s.temperature,
+    temperature: s.temperature
   }
 }
 
@@ -116,7 +129,7 @@ function ensureAssistantMessage(messages: UnifiedMessage[]): UnifiedMessage {
     id: nanoid(),
     role: 'assistant',
     content: [],
-    createdAt: Date.now(),
+    createdAt: Date.now()
   }
   messages.push(message)
   return message
@@ -155,7 +168,9 @@ function completeThinking(messages: UnifiedMessage[]): void {
   const last = messages[messages.length - 1]
   if (!last || last.role !== 'assistant') return
   const blocks = getAssistantBlocks(last)
-  const thinking = [...blocks].reverse().find((block) => block.type === 'thinking' && !block.completedAt)
+  const thinking = [...blocks]
+    .reverse()
+    .find((block) => block.type === 'thinking' && !block.completedAt)
   if (thinking?.type === 'thinking') {
     thinking.completedAt = Date.now()
   }
@@ -167,7 +182,12 @@ function appendToolUse(messages: UnifiedMessage[], toolUse: ToolUseBlock): void 
   blocks.push(toolUse)
 }
 
-function appendToolResult(messages: UnifiedMessage[], toolUseId: string, content: ToolResultContent, isError?: boolean): void {
+function appendToolResult(
+  messages: UnifiedMessage[],
+  toolUseId: string,
+  content: ToolResultContent,
+  isError?: boolean
+): void {
   const resultMessage: UnifiedMessage = {
     id: nanoid(),
     role: 'user',
@@ -176,10 +196,10 @@ function appendToolResult(messages: UnifiedMessage[], toolUseId: string, content
         type: 'tool_result',
         toolUseId,
         content,
-        ...(isError ? { isError: true } : {}),
-      } satisfies ToolResultBlock,
+        ...(isError ? { isError: true } : {})
+      } satisfies ToolResultBlock
     ],
-    createdAt: Date.now(),
+    createdAt: Date.now()
   }
   messages.push(resultMessage)
 }
@@ -204,7 +224,7 @@ function toPersistedMessages(messages: UnifiedMessage[]): Array<{
     content: message.content,
     usage: message.usage,
     source: message.source ?? null,
-    createdAt: message.createdAt,
+    createdAt: message.createdAt
   }))
 }
 
@@ -237,7 +257,10 @@ export function abortCronAgent(jobId: string): void {
   }
 }
 
-async function _runCronAgentAsync(options: CronAgentRunOptions, ac: AbortController): Promise<void> {
+async function _runCronAgentAsync(
+  options: CronAgentRunOptions,
+  ac: AbortController
+): Promise<void> {
   const {
     jobId,
     name,
@@ -251,7 +274,7 @@ async function _runCronAgentAsync(options: CronAgentRunOptions, ac: AbortControl
     deliveryTarget,
     maxIterations: maxIter,
     pluginId: channelsId,
-    pluginChatId: channelsChatId,
+    pluginChatId: channelsChatId
   } = options
 
   const runId = `run-${nanoid(8)}`
@@ -292,7 +315,7 @@ async function _runCronAgentAsync(options: CronAgentRunOptions, ac: AbortControl
       modelSnapshot: effectiveModel,
       workingFolderSnapshot: effectiveWorkingFolder,
       deliveryModeSnapshot: _deliveryMode,
-      deliveryTargetSnapshot: deliveryTarget ?? null,
+      deliveryTargetSnapshot: deliveryTarget ?? null
     })
   }
 
@@ -318,7 +341,7 @@ async function _runCronAgentAsync(options: CronAgentRunOptions, ac: AbortControl
         model: effectiveModel,
         workingFolder: effectiveWorkingFolder,
         deliveryMode: _deliveryMode,
-        deliveryTarget,
+        deliveryTarget
       })
       return
     }
@@ -339,7 +362,7 @@ async function _runCronAgentAsync(options: CronAgentRunOptions, ac: AbortControl
       model: effectiveModel,
       workingFolder: effectiveWorkingFolder,
       deliveryMode: _deliveryMode,
-      deliveryTarget,
+      deliveryTarget
     })
     return
   }
@@ -357,7 +380,7 @@ async function _runCronAgentAsync(options: CronAgentRunOptions, ac: AbortControl
     callerAgent: agentName,
     pluginId: channelsId ?? undefined,
     pluginChatId: channelsChatId ?? undefined,
-    sharedState: { deliveryUsed: false },
+    sharedState: { deliveryUsed: false }
   }
 
   if (!isPluginToolsRegistered()) {
@@ -382,7 +405,7 @@ async function _runCronAgentAsync(options: CronAgentRunOptions, ac: AbortControl
     'FeishuBitableGetRecords',
     'FeishuBitableCreateRecords',
     'FeishuBitableUpdateRecords',
-    'FeishuBitableDeleteRecords',
+    'FeishuBitableDeleteRecords'
   ]
   const allDefs = toolRegistry.getDefinitions()
   const allowedSet = new Set([...definition.allowedTools, 'Notify', 'Skill', ...CHANNEL_TOOL_NAMES])
@@ -392,7 +415,7 @@ async function _runCronAgentAsync(options: CronAgentRunOptions, ac: AbortControl
     ...providerConfig,
     systemPrompt: definition.systemPrompt,
     model: effectiveModel || definition.model || providerConfig.model,
-    temperature: definition.temperature ?? providerConfig.temperature,
+    temperature: definition.temperature ?? providerConfig.temperature
   }
 
   let channelInfo = ''
@@ -433,14 +456,14 @@ Begin working on this task now.`
     id: nanoid(),
     role: 'user',
     content: prompt,
-    createdAt: Date.now(),
+    createdAt: Date.now()
   }
 
   const loopUserMessage: UnifiedMessage = {
     id: nanoid(),
     role: 'user',
     content: cronContext,
-    createdAt: userMessage.createdAt,
+    createdAt: userMessage.createdAt
   }
 
   const transcriptMessages: UnifiedMessage[] = [userMessage]
@@ -455,7 +478,7 @@ Begin working on this task now.`
     transcriptFlushPromise = ipcClient
       .invoke(IPC.CRON_RUN_MESSAGES_REPLACE, {
         runId,
-        messages: toPersistedMessages(transcriptMessages),
+        messages: toPersistedMessages(transcriptMessages)
       })
       .catch((err) => {
         console.error('[CronAgent] Failed to persist transcript:', err)
@@ -479,7 +502,7 @@ Begin working on this task now.`
     tools: innerTools,
     systemPrompt: definition.systemPrompt,
     workingFolder: effectiveWorkingFolder ?? undefined,
-    signal: ac.signal,
+    signal: ac.signal
   }
 
   let output = ''
@@ -495,14 +518,14 @@ Begin working on this task now.`
       jobId,
       timestamp: Date.now(),
       type,
-      content,
+      content
     })
     try {
       await ipcClient.invoke(IPC.CRON_RUN_LOG_APPEND, {
         runId,
         timestamp: Date.now(),
         type,
-        content,
+        content
       })
     } catch (err) {
       console.error('[CronAgent] Failed to append run log:', err)
@@ -514,7 +537,7 @@ Begin working on this task now.`
     useCronStore.getState().updateExecutionProgress(jobId, {
       iteration: iterationCount,
       toolCalls: toolCallCount,
-      currentStep,
+      currentStep
     })
     cronEvents.emit({
       type: 'run_progress',
@@ -523,7 +546,7 @@ Begin working on this task now.`
       iteration: iterationCount,
       toolCalls: toolCallCount,
       elapsed,
-      currentStep,
+      currentStep
     })
   }
 
@@ -560,7 +583,7 @@ Begin working on this task now.`
             appendImageBlock(transcriptMessages, {
               type: 'image_error',
               code: event.imageError.code,
-              message: event.imageError.message,
+              message: event.imageError.message
             })
             scheduleTranscriptFlush()
           }
@@ -571,7 +594,9 @@ Begin working on this task now.`
             id: event.toolUseBlock.id,
             name: event.toolUseBlock.name,
             input: event.toolUseBlock.input,
-            ...(event.toolUseBlock.extraContent ? { extraContent: event.toolUseBlock.extraContent } : {}),
+            ...(event.toolUseBlock.extraContent
+              ? { extraContent: event.toolUseBlock.extraContent }
+              : {})
           })
           scheduleTranscriptFlush()
           await appendLog(
@@ -585,7 +610,12 @@ Begin working on this task now.`
           const content = event.toolCall.error
             ? event.toolCall.error
             : (event.toolCall.output ?? 'ok')
-          appendToolResult(transcriptMessages, event.toolCall.id, content, Boolean(event.toolCall.error))
+          appendToolResult(
+            transcriptMessages,
+            event.toolCall.id,
+            content,
+            Boolean(event.toolCall.error)
+          )
           scheduleTranscriptFlush()
           await appendLog(
             'tool_result',
@@ -639,7 +669,7 @@ Begin working on this task now.`
     modelSnapshot: effectiveModel,
     workingFolderSnapshot: effectiveWorkingFolder,
     deliveryModeSnapshot: _deliveryMode,
-    deliveryTargetSnapshot: deliveryTarget ?? null,
+    deliveryTargetSnapshot: deliveryTarget ?? null
   }
 
   useCronStore.getState().recordRun(runEntry)
@@ -652,8 +682,8 @@ Begin working on this task now.`
         status,
         toolCallCount,
         outputSummary: outputSummary || null,
-        error: error ?? null,
-      },
+        error: error ?? null
+      }
     })
   } catch (err) {
     console.error('[CronAgent] Failed to update cron run:', err)
@@ -672,7 +702,7 @@ Begin working on this task now.`
     deliveryMode: _deliveryMode,
     deliveryTarget: deliveryTarget ?? null,
     outputSummary,
-    error,
+    error
   })
 
   const elapsedLabel =
@@ -710,14 +740,14 @@ async function logAndRecord(
     jobId,
     timestamp: Date.now(),
     type: 'error',
-    content: errorMsg,
+    content: errorMsg
   })
   try {
     await ipcClient.invoke(IPC.CRON_RUN_LOG_APPEND, {
       runId,
       timestamp: Date.now(),
       type: 'error',
-      content: errorMsg,
+      content: errorMsg
     })
     await ipcClient.invoke(IPC.CRON_RUN_MESSAGES_REPLACE, {
       runId,
@@ -727,9 +757,9 @@ async function logAndRecord(
           role: 'user',
           content: snapshot.prompt,
           source: null,
-          createdAt: snapshot.startedAt,
-        },
-      ],
+          createdAt: snapshot.startedAt
+        }
+      ]
     })
     await ipcClient.invoke(IPC.CRON_RUN_UPDATE, {
       runId,
@@ -738,8 +768,8 @@ async function logAndRecord(
         status: 'error',
         toolCallCount: 0,
         outputSummary: null,
-        error: errorMsg,
-      },
+        error: errorMsg
+      }
     })
   } catch (err) {
     console.error('[CronAgent] Failed to persist error run:', err)
@@ -765,6 +795,6 @@ async function logAndRecord(
     modelSnapshot: snapshot.model ?? null,
     workingFolderSnapshot: snapshot.workingFolder ?? null,
     deliveryModeSnapshot: snapshot.deliveryMode ?? null,
-    deliveryTargetSnapshot: snapshot.deliveryTarget ?? null,
+    deliveryTargetSnapshot: snapshot.deliveryTarget ?? null
   })
 }

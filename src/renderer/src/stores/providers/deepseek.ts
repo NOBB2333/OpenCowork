@@ -18,7 +18,8 @@ export const deepseekPreset: BuiltinProviderPreset = {
       supportsVision: false,
       supportsFunctionCall: true,
       inputPrice: 0.26,
-      outputPrice: 0.38, cacheCreationPrice: 0.26,
+      outputPrice: 0.38,
+      cacheCreationPrice: 0.26,
       cacheHitPrice: 0.026,
       supportsThinking: true,
       thinkingConfig: { bodyParams: { enable_thinking: true } }
@@ -36,6 +37,6 @@ export const deepseekPreset: BuiltinProviderPreset = {
       outputPrice: 2.5,
       cacheCreationPrice: 0.7,
       cacheHitPrice: 0.07
-    },
-  ],
+    }
+  ]
 }

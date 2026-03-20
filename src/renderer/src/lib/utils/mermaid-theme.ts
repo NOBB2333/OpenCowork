@@ -167,7 +167,10 @@ function extractTextLines(fo: Element): string[] {
 
   const tempDiv = document.createElement('div')
   tempDiv.innerHTML = html
-  return (tempDiv.textContent || '').split(/\n/).map((l) => l.trim()).filter(Boolean)
+  return (tempDiv.textContent || '')
+    .split(/\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
 }
 
 /** Prepare an SVG string for Image-element loading:
@@ -181,7 +184,10 @@ function extractTextLines(fo: Element): string[] {
  *  (e.g. unclosed <br>, unnamespaced HTML tags). Strict XML parsing would
  *  produce a parse error and truncate the document. The HTML parser's SVG
  *  integration point correctly handles SVG elements with proper casing. */
-function prepareSvgForImageLoad(rawSvg: string, foreground: string): { svg: string; width: number; height: number } {
+function prepareSvgForImageLoad(
+  rawSvg: string,
+  foreground: string
+): { svg: string; width: number; height: number } {
   const parser = new DOMParser()
   // Parse as HTML to avoid XML parse errors from HTML content in foreignObject
   const doc = parser.parseFromString(rawSvg, 'text/html')
@@ -259,7 +265,9 @@ function prepareSvgForImageLoad(rawSvg: string, foreground: string): { svg: stri
 
 /** Try re-rendering mermaid source with htmlLabels disabled.
  *  Returns null if the re-render fails (e.g. source uses HTML markup in labels). */
-async function tryRenderWithoutHtmlLabels(source: string): Promise<{ svg: string; width: number; height: number } | null> {
+async function tryRenderWithoutHtmlLabels(
+  source: string
+): Promise<{ svg: string; width: number; height: number } | null> {
   const { foreground, vars } = buildThemeVars()
 
   const container = document.createElement('div')
@@ -343,7 +351,10 @@ async function svgToPngBlob(svgString: string, width: number, height: number): P
   }
 }
 
-export async function copyMermaidToClipboard(source: string, renderedSvg?: string): Promise<'image' | 'text'> {
+export async function copyMermaidToClipboard(
+  source: string,
+  renderedSvg?: string
+): Promise<'image' | 'text'> {
   if (!source.trim()) throw new Error('No Mermaid content available')
 
   const { foreground } = buildThemeVars()

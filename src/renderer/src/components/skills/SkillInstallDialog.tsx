@@ -1,5 +1,13 @@
 import { useTranslation } from 'react-i18next'
-import { ShieldCheck, Loader2, AlertTriangle, FileText, FileCode, CheckCircle, XCircle } from 'lucide-react'
+import {
+  ShieldCheck,
+  Loader2,
+  AlertTriangle,
+  FileText,
+  FileCode,
+  CheckCircle,
+  XCircle
+} from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { useSkillsStore, type RiskItem } from '@renderer/stores/skills-store'
 import { Badge } from '@renderer/components/ui/badge'
@@ -9,7 +17,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
+  DialogFooter
 } from '@renderer/components/ui/dialog'
 import { toast } from 'sonner'
 
@@ -20,7 +28,18 @@ function formatSize(bytes: number): string {
 }
 
 function fileIcon(type: string): React.ReactNode {
-  const codeExts = new Set(['.py', '.js', '.ts', '.sh', '.bash', '.ps1', '.bat', '.cmd', '.rb', '.pl'])
+  const codeExts = new Set([
+    '.py',
+    '.js',
+    '.ts',
+    '.sh',
+    '.bash',
+    '.ps1',
+    '.bat',
+    '.cmd',
+    '.rb',
+    '.pl'
+  ])
   if (type === '.md') return <FileText className="size-3.5 text-blue-500" />
   if (codeExts.has(type)) return <FileCode className="size-3.5 text-amber-500" />
   return <FileText className="size-3.5 text-muted-foreground" />
@@ -32,7 +51,7 @@ const categoryLabels: Record<string, string> = {
   network: 'riskNetwork',
   credential: 'riskCredential',
   filesystem: 'riskFileSystem',
-  exfiltration: 'riskExfiltration',
+  exfiltration: 'riskExfiltration'
 }
 
 function RiskBadge({ severity }: { severity: RiskItem['severity'] }): React.JSX.Element {
@@ -40,14 +59,18 @@ function RiskBadge({ severity }: { severity: RiskItem['severity'] }): React.JSX.
   const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
     safe: 'secondary',
     warning: 'outline',
-    danger: 'destructive',
+    danger: 'destructive'
   }
   const labels: Record<string, string> = {
     safe: t('skillsPage.riskSafe'),
     warning: t('skillsPage.riskWarning'),
-    danger: t('skillsPage.riskDanger'),
+    danger: t('skillsPage.riskDanger')
   }
-  return <Badge variant={variants[severity]} className="text-[10px] px-1.5 py-0">{labels[severity]}</Badge>
+  return (
+    <Badge variant={variants[severity]} className="text-[10px] px-1.5 py-0">
+      {labels[severity]}
+    </Badge>
+  )
 }
 
 export function SkillInstallDialog(): React.JSX.Element | null {
@@ -84,7 +107,8 @@ export function SkillInstallDialog(): React.JSX.Element | null {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ShieldCheck className="size-5" />
-            {t('skillsPage.installSkill')}{scanResult ? `: ${scanResult.name}` : ''}
+            {t('skillsPage.installSkill')}
+            {scanResult ? `: ${scanResult.name}` : ''}
           </DialogTitle>
         </DialogHeader>
 
@@ -112,17 +136,28 @@ export function SkillInstallDialog(): React.JSX.Element | null {
             )}
 
             {agentReviewDone && (
-              <div className={cn('rounded-lg border p-3 space-y-2', agentReviewPassed ? 'bg-green-50/50 dark:bg-green-950/20 border-green-200 dark:border-green-800' : 'bg-amber-50/50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800')}>
+              <div
+                className={cn(
+                  'rounded-lg border p-3 space-y-2',
+                  agentReviewPassed
+                    ? 'bg-green-50/50 dark:bg-green-950/20 border-green-200 dark:border-green-800'
+                    : 'bg-amber-50/50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800'
+                )}
+              >
                 <h4 className="text-xs font-semibold flex items-center gap-1.5">
                   {agentReviewPassed ? (
                     <>
                       <CheckCircle className="size-3.5 text-green-600 dark:text-green-400" />
-                      <span className="text-green-900 dark:text-green-100">{t('skillsPage.agentReviewPassed')}</span>
+                      <span className="text-green-900 dark:text-green-100">
+                        {t('skillsPage.agentReviewPassed')}
+                      </span>
                     </>
                   ) : (
                     <>
                       <XCircle className="size-3.5 text-amber-600 dark:text-amber-400" />
-                      <span className="text-amber-900 dark:text-amber-100">{t('skillsPage.agentReviewFailed')}</span>
+                      <span className="text-amber-900 dark:text-amber-100">
+                        {t('skillsPage.agentReviewFailed')}
+                      </span>
                     </>
                   )}
                 </h4>
@@ -132,7 +167,16 @@ export function SkillInstallDialog(): React.JSX.Element | null {
             {/* Risk summary */}
             <div className="rounded-lg border p-3 space-y-2">
               <h4 className="text-xs font-semibold flex items-center gap-1.5">
-                <AlertTriangle className={cn('size-3.5', hasDanger ? 'text-destructive' : warningCount > 0 ? 'text-amber-500' : 'text-green-500')} />
+                <AlertTriangle
+                  className={cn(
+                    'size-3.5',
+                    hasDanger
+                      ? 'text-destructive'
+                      : warningCount > 0
+                        ? 'text-amber-500'
+                        : 'text-green-500'
+                  )}
+                />
                 {t('skillsPage.securityReview')}
               </h4>
               {scanResult.risks.length === 0 ? (
@@ -140,17 +184,35 @@ export function SkillInstallDialog(): React.JSX.Element | null {
               ) : (
                 <>
                   <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                    {dangerCount > 0 && <span className="text-destructive font-medium">{dangerCount} {t('skillsPage.riskDanger')}</span>}
-                    {warningCount > 0 && <span className="text-amber-500 font-medium">{warningCount} {t('skillsPage.riskWarning')}</span>}
+                    {dangerCount > 0 && (
+                      <span className="text-destructive font-medium">
+                        {dangerCount} {t('skillsPage.riskDanger')}
+                      </span>
+                    )}
+                    {warningCount > 0 && (
+                      <span className="text-amber-500 font-medium">
+                        {warningCount} {t('skillsPage.riskWarning')}
+                      </span>
+                    )}
                   </div>
                   <div className="space-y-1 max-h-40 overflow-y-auto">
                     {scanResult.risks.map((risk, i) => (
-                      <div key={i} className="flex items-start gap-2 text-xs rounded-md bg-muted/50 px-2 py-1.5">
+                      <div
+                        key={i}
+                        className="flex items-start gap-2 text-xs rounded-md bg-muted/50 px-2 py-1.5"
+                      >
                         <RiskBadge severity={risk.severity} />
                         <div className="min-w-0 flex-1">
-                          <span className="font-medium">{t(`skillsPage.${categoryLabels[risk.category]}` as never, { defaultValue: risk.category })}</span>
+                          <span className="font-medium">
+                            {t(`skillsPage.${categoryLabels[risk.category]}` as never, {
+                              defaultValue: risk.category
+                            })}
+                          </span>
                           <span className="text-muted-foreground">: {risk.detail}</span>
-                          <span className="text-muted-foreground/60 ml-1">{risk.file}{risk.line ? `:${risk.line}` : ''}</span>
+                          <span className="text-muted-foreground/60 ml-1">
+                            {risk.file}
+                            {risk.line ? `:${risk.line}` : ''}
+                          </span>
                         </div>
                       </div>
                     ))}
@@ -162,14 +224,21 @@ export function SkillInstallDialog(): React.JSX.Element | null {
             {/* File listing */}
             <div className="rounded-lg border p-3 space-y-2">
               <h4 className="text-xs font-semibold">
-                {t('skillsPage.filesLabel')} ({t('skillsPage.filesCount', { count: scanResult.files.length, size: formatSize(totalSize) })})
+                {t('skillsPage.filesLabel')} (
+                {t('skillsPage.filesCount', {
+                  count: scanResult.files.length,
+                  size: formatSize(totalSize)
+                })}
+                )
               </h4>
               <div className="space-y-0.5 max-h-32 overflow-y-auto">
                 {scanResult.files.map((file) => (
                   <div key={file.name} className="flex items-center gap-2 text-xs px-1 py-0.5">
                     {fileIcon(file.type)}
                     <span className="flex-1 truncate font-mono text-[11px]">{file.name}</span>
-                    <span className="text-muted-foreground text-[10px] shrink-0">{formatSize(file.size)}</span>
+                    <span className="text-muted-foreground text-[10px] shrink-0">
+                      {formatSize(file.size)}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -198,10 +267,15 @@ export function SkillInstallDialog(): React.JSX.Element | null {
             size="sm"
             variant={hasDanger ? 'destructive' : 'default'}
             onClick={() => void handleInstall()}
-            disabled={scanning || installing || !scanResult || (agentReviewText !== '' && !agentReviewDone)}
+            disabled={
+              scanning || installing || !scanResult || (agentReviewText !== '' && !agentReviewDone)
+            }
           >
             {installing ? (
-              <><Loader2 className="size-3.5 animate-spin mr-1" />{t('skillsPage.installing')}</>
+              <>
+                <Loader2 className="size-3.5 animate-spin mr-1" />
+                {t('skillsPage.installing')}
+              </>
             ) : hasDanger ? (
               t('skillsPage.installAnyway')
             ) : (

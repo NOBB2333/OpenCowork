@@ -32,7 +32,9 @@ const MAX_PRESERVE_COUNT = 10
 /** Pre-compression: keep tool results from last N messages */
 const TOOL_RESULT_KEEP_RECENT = 6
 /** Placeholder for cleared tool results */
-const CLEARED_TOOL_RESULT_PLACEHOLDER = i18n.t('contextCompression.clearedToolResult', { ns: 'agent' })
+const CLEARED_TOOL_RESULT_PLACEHOLDER = i18n.t('contextCompression.clearedToolResult', {
+  ns: 'agent'
+})
 /** Placeholder for cleared thinking blocks */
 const CLEARED_THINKING_PLACEHOLDER = i18n.t('contextCompression.clearedThinking', { ns: 'agent' })
 const COMPRESSION_SYSTEM_PROMPT = i18n.t('contextCompression.systemPrompt', { ns: 'agent' })
@@ -59,10 +61,7 @@ export function resolveCompressionContextLength(
 /**
  * Check whether full compression should be triggered.
  */
-export function shouldCompress(
-  inputTokens: number,
-  config: CompressionConfig
-): boolean {
+export function shouldCompress(inputTokens: number, config: CompressionConfig): boolean {
   if (!config.enabled || config.contextLength <= 0) return false
   return inputTokens / config.contextLength >= config.threshold
 }
@@ -71,10 +70,7 @@ export function shouldCompress(
  * Check whether lightweight pre-compression (tool result + thinking clearing) should be triggered.
  * This fires at a lower threshold than full compression.
  */
-export function shouldPreCompress(
-  inputTokens: number,
-  config: CompressionConfig
-): boolean {
+export function shouldPreCompress(inputTokens: number, config: CompressionConfig): boolean {
   if (!config.enabled || config.contextLength <= 0) return false
   const preThreshold = config.preCompressThreshold ?? 0.65
   const ratio = inputTokens / config.contextLength
@@ -99,7 +95,8 @@ export function preCompressMessages(messages: UnifiedMessage[]): UnifiedMessage[
     const newBlocks = blocks.map((block) => {
       // Clear old tool results
       if (block.type === 'tool_result') {
-        const content = typeof block.content === 'string' ? block.content : JSON.stringify(block.content)
+        const content =
+          typeof block.content === 'string' ? block.content : JSON.stringify(block.content)
         if (content.length > 200) {
           changed = true
           return { ...block, content: CLEARED_TOOL_RESULT_PLACEHOLDER }
@@ -138,10 +135,9 @@ export async function compressMessages(
   const originalCount = messages.length
 
   // Adaptive preserve count: scale with message count, clamped to [MIN, MAX]
-  const effectivePreserve = preserveCount ?? Math.min(
-    MAX_PRESERVE_COUNT,
-    Math.max(MIN_PRESERVE_COUNT, Math.floor(originalCount / 5))
-  )
+  const effectivePreserve =
+    preserveCount ??
+    Math.min(MAX_PRESERVE_COUNT, Math.max(MIN_PRESERVE_COUNT, Math.floor(originalCount / 5)))
 
   // Not enough messages to compress (need at least zone A + something + zone B)
   if (originalCount <= effectivePreserve + 2) {
@@ -185,7 +181,11 @@ export async function compressMessages(
   const summaryMsg: UnifiedMessage = {
     id: nanoid(),
     role: 'user',
-    content: i18n.t('contextCompression.summaryMessage', { ns: 'agent', count: toCompress.length, summary }),
+    content: i18n.t('contextCompression.summaryMessage', {
+      ns: 'agent',
+      count: toCompress.length,
+      summary
+    }),
     createdAt: Date.now()
   }
 
@@ -226,7 +226,11 @@ export async function compressMessages(
  * Walk backwards from the initial boundary until no tool_result blocks reference
  * tool_use IDs that would be outside Zone B (i.e. in the compression zone).
  */
-function findCleanBoundary(messages: UnifiedMessage[], initialStart: number, minStart: number): number {
+function findCleanBoundary(
+  messages: UnifiedMessage[],
+  initialStart: number,
+  minStart: number
+): number {
   let start = initialStart
   const maxRetries = 20 // safety limit
 
@@ -247,7 +251,11 @@ function findCleanBoundary(messages: UnifiedMessage[], initialStart: number, min
       const msg = messages[i]
       if (typeof msg.content === 'string') continue
       for (const block of msg.content as ContentBlock[]) {
-        if (block.type === 'tool_result' && block.toolUseId && !zoneBToolUseIds.has(block.toolUseId)) {
+        if (
+          block.type === 'tool_result' &&
+          block.toolUseId &&
+          !zoneBToolUseIds.has(block.toolUseId)
+        ) {
           hasOrphan = true
           break
         }
@@ -300,45 +308,63 @@ function sanitizeOrphanedToolBlocks(messages: UnifiedMessage[]): UnifiedMessage[
   if (orphanedToolUseIds.size === 0 && orphanedResultRefs.size === 0) return messages
 
   // 3. Convert orphaned blocks to text blocks
-  return messages.map((msg) => {
-    if (typeof msg.content === 'string') return msg
-    const blocks = msg.content as ContentBlock[]
-    let changed = false
-    const newBlocks: ContentBlock[] = []
+  return messages
+    .map((msg) => {
+      if (typeof msg.content === 'string') return msg
+      const blocks = msg.content as ContentBlock[]
+      let changed = false
+      const newBlocks: ContentBlock[] = []
 
-    for (const block of blocks) {
-      if (block.type === 'tool_use' && block.id && orphanedToolUseIds.has(block.id)) {
-        // Convert orphaned tool_use to text
-        changed = true
-        newBlocks.push({
-          type: 'text',
-          text: i18n.t('contextCompression.previousToolCall', { ns: 'agent', name: block.name, input: JSON.stringify(block.input).slice(0, 200) })
-        } as ContentBlock)
-      } else if (block.type === 'tool_result' && block.toolUseId && orphanedResultRefs.has(block.toolUseId)) {
-        // Convert orphaned tool_result to text
-        changed = true
-        const content = typeof block.content === 'string' ? block.content : JSON.stringify(block.content)
-        const truncated = content.length > 300 ? content.slice(0, 300) + '...' : content
-        newBlocks.push({
-          type: 'text',
-          text: i18n.t('contextCompression.previousToolResult', { ns: 'agent', error: block.isError, content: truncated })
-        } as ContentBlock)
-      } else {
-        newBlocks.push(block)
+      for (const block of blocks) {
+        if (block.type === 'tool_use' && block.id && orphanedToolUseIds.has(block.id)) {
+          // Convert orphaned tool_use to text
+          changed = true
+          newBlocks.push({
+            type: 'text',
+            text: i18n.t('contextCompression.previousToolCall', {
+              ns: 'agent',
+              name: block.name,
+              input: JSON.stringify(block.input).slice(0, 200)
+            })
+          } as ContentBlock)
+        } else if (
+          block.type === 'tool_result' &&
+          block.toolUseId &&
+          orphanedResultRefs.has(block.toolUseId)
+        ) {
+          // Convert orphaned tool_result to text
+          changed = true
+          const content =
+            typeof block.content === 'string' ? block.content : JSON.stringify(block.content)
+          const truncated = content.length > 300 ? content.slice(0, 300) + '...' : content
+          newBlocks.push({
+            type: 'text',
+            text: i18n.t('contextCompression.previousToolResult', {
+              ns: 'agent',
+              error: block.isError,
+              content: truncated
+            })
+          } as ContentBlock)
+        } else {
+          newBlocks.push(block)
+        }
       }
-    }
 
-    // If all blocks were converted and the message becomes empty, keep at least a placeholder
-    if (newBlocks.length === 0) {
-      newBlocks.push({ type: 'text', text: i18n.t('contextCompression.clearedDuringCompression', { ns: 'agent' }) } as ContentBlock)
-    }
+      // If all blocks were converted and the message becomes empty, keep at least a placeholder
+      if (newBlocks.length === 0) {
+        newBlocks.push({
+          type: 'text',
+          text: i18n.t('contextCompression.clearedDuringCompression', { ns: 'agent' })
+        } as ContentBlock)
+      }
 
-    return changed ? { ...msg, content: newBlocks } : msg
-  }).filter((msg) => {
-    // Remove messages that are now just empty text
-    if (typeof msg.content === 'string') return msg.content.trim().length > 0
-    return (msg.content as ContentBlock[]).length > 0
-  })
+      return changed ? { ...msg, content: newBlocks } : msg
+    })
+    .filter((msg) => {
+      // Remove messages that are now just empty text
+      if (typeof msg.content === 'string') return msg.content.trim().length > 0
+      return (msg.content as ContentBlock[]).length > 0
+    })
 }
 
 /**
@@ -389,20 +415,27 @@ function serializeMessages(messages: UnifiedMessage[]): string {
           break
         case 'tool_use':
           blockParts.push(
-            i18n.t('contextCompression.toolCallLog', { ns: 'agent', name: block.name, input: JSON.stringify(block.input).slice(0, 500) })
+            i18n.t('contextCompression.toolCallLog', {
+              ns: 'agent',
+              name: block.name,
+              input: JSON.stringify(block.input).slice(0, 500)
+            })
           )
           break
         case 'tool_result': {
           const content =
-            typeof block.content === 'string'
-              ? block.content
-              : JSON.stringify(block.content)
+            typeof block.content === 'string' ? block.content : JSON.stringify(block.content)
           // Aggressively truncate tool results — detailed content is not needed for summary
-          const truncated = content.length > 800
-            ? content.slice(0, 800) + `\n... [truncated, ${content.length} chars total]`
-            : content
+          const truncated =
+            content.length > 800
+              ? content.slice(0, 800) + `\n... [truncated, ${content.length} chars total]`
+              : content
           blockParts.push(
-            i18n.t('contextCompression.toolResultLog', { ns: 'agent', error: block.isError, content: truncated })
+            i18n.t('contextCompression.toolResultLog', {
+              ns: 'agent',
+              error: block.isError,
+              content: truncated
+            })
           )
           break
         }
@@ -444,7 +477,11 @@ async function callSummarizer(
     {
       id: 'compress-req',
       role: 'user',
-      content: i18n.t('contextCompression.compressRequest', { ns: 'agent', focusInstruction, content: serializedMessages }),
+      content: i18n.t('contextCompression.compressRequest', {
+        ns: 'agent',
+        focusInstruction,
+        content: serializedMessages
+      }),
       createdAt: Date.now()
     }
   ]
@@ -461,10 +498,14 @@ async function callSummarizer(
       clearTimeout(timeout)
       abortController.abort()
     } else {
-      signal.addEventListener('abort', () => {
-        clearTimeout(timeout)
-        abortController.abort()
-      }, { once: true })
+      signal.addEventListener(
+        'abort',
+        () => {
+          clearTimeout(timeout)
+          abortController.abort()
+        },
+        { once: true }
+      )
     }
   }
 

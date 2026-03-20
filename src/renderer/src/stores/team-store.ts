@@ -151,7 +151,11 @@ export const useTeamStore = create<TeamStore>()(
               const task = state.activeTeam.tasks.find((t) => t.id === event.taskId)
               if (task) {
                 // Guard: never roll back a completed task to a non-completed status
-                if (task.status === 'completed' && event.patch.status && event.patch.status !== 'completed') {
+                if (
+                  task.status === 'completed' &&
+                  event.patch.status &&
+                  event.patch.status !== 'completed'
+                ) {
                   break
                 }
                 Object.assign(task, event.patch)

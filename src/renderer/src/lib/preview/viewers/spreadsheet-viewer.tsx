@@ -48,14 +48,22 @@ function parseCSV(text: string): string[][] {
 function toCSV(data: string[][]): string {
   return data
     .map((row) =>
-      row.map((cell) => (cell.includes(',') || cell.includes('"') || cell.includes('\n') ? `"${cell.replace(/"/g, '""')}"` : cell)).join(',')
+      row
+        .map((cell) =>
+          cell.includes(',') || cell.includes('"') || cell.includes('\n')
+            ? `"${cell.replace(/"/g, '""')}"`
+            : cell
+        )
+        .join(',')
     )
     .join('\n')
 }
 
 // --- XLSX helpers (lazy-loaded) ---
 
-async function parseXlsx(base64: string): Promise<{ sheets: string[]; data: Map<string, string[][]> }> {
+async function parseXlsx(
+  base64: string
+): Promise<{ sheets: string[]; data: Map<string, string[][]> }> {
   const XLSX = await import('xlsx')
   const buffer = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))
   const wb = XLSX.read(buffer, { type: 'array' })
@@ -63,7 +71,10 @@ async function parseXlsx(base64: string): Promise<{ sheets: string[]; data: Map<
   for (const name of wb.SheetNames) {
     const sheet = wb.Sheets[name]
     const rows: string[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' })
-    data.set(name, rows.map((r) => r.map(String)))
+    data.set(
+      name,
+      rows.map((r) => r.map(String))
+    )
   }
   return { sheets: wb.SheetNames, data }
 }
@@ -92,7 +103,12 @@ function getExt(filePath: string): string {
 
 // --- Component ---
 
-export function SpreadsheetViewer({ filePath, content, onContentChange, sshConnectionId }: ViewerProps): React.JSX.Element {
+export function SpreadsheetViewer({
+  filePath,
+  content,
+  onContentChange,
+  sshConnectionId
+}: ViewerProps): React.JSX.Element {
   const ext = getExt(filePath)
   const isXlsx = ext === '.xlsx' || ext === '.xls'
 
@@ -142,7 +158,9 @@ export function SpreadsheetViewer({ filePath, content, onContentChange, sshConne
         if (!cancelled) setXlsxLoading(false)
       }
     })
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [filePath, isXlsx, sshConnectionId])
 
   // CSV: sync from content prop
@@ -152,15 +170,18 @@ export function SpreadsheetViewer({ filePath, content, onContentChange, sshConne
   }, [content, isXlsx])
 
   // Switch sheet
-  const handleSwitchSheet = useCallback((name: string) => {
-    setAllSheets((prev) => {
-      const next = new Map(prev)
-      next.set(activeSheet, data)
-      return next
-    })
-    setActiveSheet(name)
-    setData(allSheets.get(name) || [])
-  }, [activeSheet, data, allSheets])
+  const handleSwitchSheet = useCallback(
+    (name: string) => {
+      setAllSheets((prev) => {
+        const next = new Map(prev)
+        next.set(activeSheet, data)
+        return next
+      })
+      setActiveSheet(name)
+      setData(allSheets.get(name) || [])
+    },
+    [activeSheet, data, allSheets]
+  )
 
   const pushHistory = useCallback(
     (newData: string[][]) => {
@@ -357,9 +378,14 @@ export function SpreadsheetViewer({ filePath, content, onContentChange, sshConne
         <table className="w-full border-collapse text-xs">
           <thead className="sticky top-0 z-10 bg-muted">
             <tr>
-              <th className="w-8 border-b border-r px-1 py-0.5 text-center text-[10px] text-muted-foreground">#</th>
+              <th className="w-8 border-b border-r px-1 py-0.5 text-center text-[10px] text-muted-foreground">
+                #
+              </th>
               {Array.from({ length: maxCols }, (_, i) => (
-                <th key={i} className="min-w-[80px] border-b border-r px-2 py-0.5 text-left font-medium text-muted-foreground">
+                <th
+                  key={i}
+                  className="min-w-[80px] border-b border-r px-2 py-0.5 text-left font-medium text-muted-foreground"
+                >
                   {String.fromCharCode(65 + (i % 26))}
                   {i >= 26 ? String(Math.floor(i / 26)) : ''}
                 </th>
@@ -370,7 +396,9 @@ export function SpreadsheetViewer({ filePath, content, onContentChange, sshConne
           <tbody>
             {data.map((row, r) => (
               <tr key={r} className="hover:bg-muted/30">
-                <td className="border-b border-r px-1 py-0.5 text-center text-[10px] text-muted-foreground">{r + 1}</td>
+                <td className="border-b border-r px-1 py-0.5 text-center text-[10px] text-muted-foreground">
+                  {r + 1}
+                </td>
                 {Array.from({ length: maxCols }, (_, c) => {
                   const cell = row[c] ?? ''
                   const isEditing = editingCell?.r === r && editingCell?.c === c

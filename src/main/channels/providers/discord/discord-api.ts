@@ -28,7 +28,7 @@ function request(
         port: 443,
         path: url.pathname + url.search,
         method,
-        headers: reqHeaders,
+        headers: reqHeaders
       },
       (res) => {
         let responseBody = ''
@@ -84,14 +84,18 @@ export class DiscordApi {
   }
 
   /** Reply to a specific message */
-  async replyMessage(channelId: string, messageId: string, content: string): Promise<{ messageId: string }> {
+  async replyMessage(
+    channelId: string,
+    messageId: string,
+    content: string
+  ): Promise<{ messageId: string }> {
     const res = await request(
       'POST',
       `/api/v10/channels/${channelId}/messages`,
       this.authHeaders(),
       JSON.stringify({
         content,
-        message_reference: { message_id: messageId },
+        message_reference: { message_id: messageId }
       })
     )
     const data = JSON.parse(res.body)

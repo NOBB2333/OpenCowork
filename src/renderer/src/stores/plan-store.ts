@@ -23,17 +23,19 @@ export interface Plan {
 // --- DB persistence helpers (fire-and-forget) ---
 
 function dbCreatePlan(plan: Plan): void {
-  ipcClient.invoke('db:plans:create', {
-    id: plan.id,
-    sessionId: plan.sessionId,
-    title: plan.title,
-    status: plan.status,
-    filePath: plan.filePath,
-    content: plan.content ?? null,
-    specJson: plan.specJson ?? null,
-    createdAt: plan.createdAt,
-    updatedAt: plan.updatedAt,
-  }).catch(() => {})
+  ipcClient
+    .invoke('db:plans:create', {
+      id: plan.id,
+      sessionId: plan.sessionId,
+      title: plan.title,
+      status: plan.status,
+      filePath: plan.filePath,
+      content: plan.content ?? null,
+      specJson: plan.specJson ?? null,
+      createdAt: plan.createdAt,
+      updatedAt: plan.updatedAt
+    })
+    .catch(() => {})
 }
 
 function dbUpdatePlan(id: string, patch: Record<string, unknown>): void {
@@ -68,7 +70,7 @@ function rowToPlan(row: PlanRow): Plan {
     content: row.content ?? undefined,
     specJson: row.spec_json ?? undefined,
     createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    updatedAt: row.updated_at
   }
 }
 
@@ -138,7 +140,7 @@ export const usePlanStore = create<PlanStore>()(
         content: options.content,
         specJson: options.specJson,
         createdAt: now,
-        updatedAt: now,
+        updatedAt: now
       }
       set((state) => {
         state.plans[id] = plan
@@ -257,6 +259,6 @@ export const usePlanStore = create<PlanStore>()(
       return activePlanId ? plans[activePlanId] : undefined
     },
 
-    setActivePlan: (planId) => set({ activePlanId: planId }),
+    setActivePlan: (planId) => set({ activePlanId: planId })
   }))
 )

@@ -34,7 +34,7 @@ export function ImageGeneratingLoader(): React.JSX.Element {
           >
             <Sparkles className="size-5 text-primary fill-primary/10" />
           </motion.div>
-          
+
           {/* 外部微光光环 */}
           <motion.div
             className="absolute inset-0 rounded-xl bg-primary/10"

@@ -36,7 +36,7 @@ export function HtmlViewer({ content, viewMode, onContentChange }: ViewerProps):
         wordWrap: 'on',
         scrollBeyondLastLine: false,
         automaticLayout: true,
-        tabSize: 2,
+        tabSize: 2
       }}
     />
   )

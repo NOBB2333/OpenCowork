@@ -36,9 +36,18 @@ export function updateSshGroup(
   const sets: string[] = []
   const values: unknown[] = []
 
-  if (patch.name !== undefined) { sets.push('name = ?'); values.push(patch.name) }
-  if (patch.sortOrder !== undefined) { sets.push('sort_order = ?'); values.push(patch.sortOrder) }
-  if (patch.updatedAt !== undefined) { sets.push('updated_at = ?'); values.push(patch.updatedAt) }
+  if (patch.name !== undefined) {
+    sets.push('name = ?')
+    values.push(patch.name)
+  }
+  if (patch.sortOrder !== undefined) {
+    sets.push('sort_order = ?')
+    values.push(patch.sortOrder)
+  }
+  if (patch.updatedAt !== undefined) {
+    sets.push('updated_at = ?')
+    values.push(patch.updatedAt)
+  }
 
   if (sets.length === 0) return
   values.push(id)
@@ -84,9 +93,9 @@ export function listSshConnections(): SshConnectionRow[] {
 
 export function getSshConnection(id: string): SshConnectionRow | undefined {
   const db = getDb()
-  return db
-    .prepare('SELECT * FROM ssh_connections WHERE id = ?')
-    .get(id) as SshConnectionRow | undefined
+  return db.prepare('SELECT * FROM ssh_connections WHERE id = ?').get(id) as
+    | SshConnectionRow
+    | undefined
 }
 
 export function createSshConnection(conn: {
@@ -162,22 +171,70 @@ export function updateSshConnection(
   const sets: string[] = []
   const values: unknown[] = []
 
-  if (patch.groupId !== undefined) { sets.push('group_id = ?'); values.push(patch.groupId) }
-  if (patch.name !== undefined) { sets.push('name = ?'); values.push(patch.name) }
-  if (patch.host !== undefined) { sets.push('host = ?'); values.push(patch.host) }
-  if (patch.port !== undefined) { sets.push('port = ?'); values.push(patch.port) }
-  if (patch.username !== undefined) { sets.push('username = ?'); values.push(patch.username) }
-  if (patch.authType !== undefined) { sets.push('auth_type = ?'); values.push(patch.authType) }
-  if (patch.encryptedPassword !== undefined) { sets.push('encrypted_password = ?'); values.push(patch.encryptedPassword) }
-  if (patch.privateKeyPath !== undefined) { sets.push('private_key_path = ?'); values.push(patch.privateKeyPath) }
-  if (patch.encryptedPassphrase !== undefined) { sets.push('encrypted_passphrase = ?'); values.push(patch.encryptedPassphrase) }
-  if (patch.startupCommand !== undefined) { sets.push('startup_command = ?'); values.push(patch.startupCommand) }
-  if (patch.defaultDirectory !== undefined) { sets.push('default_directory = ?'); values.push(patch.defaultDirectory) }
-  if (patch.proxyJump !== undefined) { sets.push('proxy_jump = ?'); values.push(patch.proxyJump) }
-  if (patch.keepAliveInterval !== undefined) { sets.push('keep_alive_interval = ?'); values.push(patch.keepAliveInterval) }
-  if (patch.sortOrder !== undefined) { sets.push('sort_order = ?'); values.push(patch.sortOrder) }
-  if (patch.lastConnectedAt !== undefined) { sets.push('last_connected_at = ?'); values.push(patch.lastConnectedAt) }
-  if (patch.updatedAt !== undefined) { sets.push('updated_at = ?'); values.push(patch.updatedAt) }
+  if (patch.groupId !== undefined) {
+    sets.push('group_id = ?')
+    values.push(patch.groupId)
+  }
+  if (patch.name !== undefined) {
+    sets.push('name = ?')
+    values.push(patch.name)
+  }
+  if (patch.host !== undefined) {
+    sets.push('host = ?')
+    values.push(patch.host)
+  }
+  if (patch.port !== undefined) {
+    sets.push('port = ?')
+    values.push(patch.port)
+  }
+  if (patch.username !== undefined) {
+    sets.push('username = ?')
+    values.push(patch.username)
+  }
+  if (patch.authType !== undefined) {
+    sets.push('auth_type = ?')
+    values.push(patch.authType)
+  }
+  if (patch.encryptedPassword !== undefined) {
+    sets.push('encrypted_password = ?')
+    values.push(patch.encryptedPassword)
+  }
+  if (patch.privateKeyPath !== undefined) {
+    sets.push('private_key_path = ?')
+    values.push(patch.privateKeyPath)
+  }
+  if (patch.encryptedPassphrase !== undefined) {
+    sets.push('encrypted_passphrase = ?')
+    values.push(patch.encryptedPassphrase)
+  }
+  if (patch.startupCommand !== undefined) {
+    sets.push('startup_command = ?')
+    values.push(patch.startupCommand)
+  }
+  if (patch.defaultDirectory !== undefined) {
+    sets.push('default_directory = ?')
+    values.push(patch.defaultDirectory)
+  }
+  if (patch.proxyJump !== undefined) {
+    sets.push('proxy_jump = ?')
+    values.push(patch.proxyJump)
+  }
+  if (patch.keepAliveInterval !== undefined) {
+    sets.push('keep_alive_interval = ?')
+    values.push(patch.keepAliveInterval)
+  }
+  if (patch.sortOrder !== undefined) {
+    sets.push('sort_order = ?')
+    values.push(patch.sortOrder)
+  }
+  if (patch.lastConnectedAt !== undefined) {
+    sets.push('last_connected_at = ?')
+    values.push(patch.lastConnectedAt)
+  }
+  if (patch.updatedAt !== undefined) {
+    sets.push('updated_at = ?')
+    values.push(patch.updatedAt)
+  }
 
   if (sets.length === 0) return
   values.push(id)

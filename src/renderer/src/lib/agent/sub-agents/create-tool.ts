@@ -149,9 +149,7 @@ function scheduleNextTask(teamName: string): void {
 }
 
 function buildTaskDescription(agents: SubAgentDefinition[]): string {
-  const agentLines = agents
-    .map((a) => `- ${a.name}: ${a.description}`)
-    .join('\n')
+  const agentLines = agents.map((a) => `- ${a.name}: ${a.description}`).join('\n')
 
   return `Launch a new agent to handle complex, multi-step tasks autonomously.
 
@@ -214,7 +212,9 @@ async function executeBackgroundTeammate(
   if (assignedTaskId) {
     const task = team.tasks.find((t) => t.id === assignedTaskId)
     if (task?.status === 'completed') {
-      return encodeToolError(`Task "${assignedTaskId}" is already completed and cannot be re-assigned.`)
+      return encodeToolError(
+        `Task "${assignedTaskId}" is already completed and cannot be re-assigned.`
+      )
     }
   }
 
@@ -376,11 +376,15 @@ export function createTaskTool(providerGetter: () => ProviderConfig): ToolHandle
       // --- Synchronous sub-agent mode ---
       const subType = String(input.subagent_type ?? '')
       if (!subType) {
-        return encodeToolError(`"subagent_type" is required for synchronous Task. Available: ${subTypeEnum.join(', ')}`)
+        return encodeToolError(
+          `"subagent_type" is required for synchronous Task. Available: ${subTypeEnum.join(', ')}`
+        )
       }
       const def = subAgentRegistry.get(subType)
       if (!def) {
-        return encodeToolError(`Unknown subagent_type "${subType}". Available: ${subTypeEnum.join(', ')}`)
+        return encodeToolError(
+          `Unknown subagent_type "${subType}". Available: ${subTypeEnum.join(', ')}`
+        )
       }
 
       // Acquire concurrency slot (blocks if 2 SubAgents are already running)

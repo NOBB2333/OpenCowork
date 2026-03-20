@@ -75,7 +75,7 @@ function normalizeGroup(raw: unknown): SshConfigGroup | null {
     name,
     sortOrder: toNumber(value.sortOrder, 0),
     createdAt,
-    updatedAt,
+    updatedAt
   }
 }
 
@@ -108,7 +108,7 @@ function normalizeConnection(raw: unknown): SshConfigConnection | null {
     sortOrder: toNumber(value.sortOrder, 0),
     lastConnectedAt: typeof value.lastConnectedAt === 'number' ? value.lastConnectedAt : null,
     createdAt,
-    updatedAt,
+    updatedAt
   }
 }
 
@@ -118,8 +118,8 @@ function normalizeConfig(raw: unknown): SshConfigData {
       ? (raw as { ssh?: { groups?: unknown[]; connections?: unknown[] } }).ssh
       : undefined
 
-  const groupsRaw = Array.isArray(ssh?.groups) ? ssh?.groups ?? [] : []
-  const connectionsRaw = Array.isArray(ssh?.connections) ? ssh?.connections ?? [] : []
+  const groupsRaw = Array.isArray(ssh?.groups) ? (ssh?.groups ?? []) : []
+  const connectionsRaw = Array.isArray(ssh?.connections) ? (ssh?.connections ?? []) : []
 
   const groups: SshConfigGroup[] = []
   const groupIds = new Set<string>()
@@ -221,12 +221,14 @@ export function getSshConfigSnapshot(): SshConfigData {
 }
 
 export function listSshGroups(): SshConfigGroup[] {
-  return getSshConfigSnapshot().groups.slice().sort((a, b) => a.sortOrder - b.sortOrder)
+  return getSshConfigSnapshot()
+    .groups.slice()
+    .sort((a, b) => a.sortOrder - b.sortOrder)
 }
 
 export function listSshConnections(): SshConfigConnection[] {
-  return getSshConfigSnapshot().connections
-    .slice()
+  return getSshConfigSnapshot()
+    .connections.slice()
     .sort((a, b) => a.sortOrder - b.sortOrder)
 }
 
@@ -254,9 +256,9 @@ export function updateSshGroup(
         ...group,
         name: patch.name ?? group.name,
         sortOrder: patch.sortOrder ?? group.sortOrder,
-        updatedAt: patch.updatedAt ?? group.updatedAt,
+        updatedAt: patch.updatedAt ?? group.updatedAt
       }
-    }),
+    })
   }))
 }
 
@@ -265,7 +267,7 @@ export function deleteSshGroup(id: string): void {
     groups: current.groups.filter((group) => group.id !== id),
     connections: current.connections.map((conn) =>
       conn.groupId === id ? { ...conn, groupId: null } : conn
-    ),
+    )
   }))
 }
 
@@ -288,16 +290,16 @@ export function updateSshConnection(
       return {
         ...conn,
         ...patch,
-        updatedAt: patch.updatedAt ?? conn.updatedAt,
+        updatedAt: patch.updatedAt ?? conn.updatedAt
       }
-    }),
+    })
   }))
 }
 
 export function deleteSshConnection(id: string): void {
   updateSshConfig((current) => ({
     ...current,
-    connections: current.connections.filter((conn) => conn.id !== id),
+    connections: current.connections.filter((conn) => conn.id !== id)
   }))
 }
 

@@ -7,8 +7,6 @@ export const ollamaPreset: BuiltinProviderPreset = {
   defaultBaseUrl: 'http://localhost:11434/v1',
   homepage: 'https://ollama.com',
   apiKeyUrl: 'https://ollama.com/download',
-  defaultModels: [
-    
-  ],
-  requiresApiKey: false,
+  defaultModels: [],
+  requiresApiKey: false
 }

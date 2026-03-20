@@ -732,8 +732,7 @@ export function AppSidebar(): React.JSX.Element {
                   a +
                   s.messages.reduce(
                     (b, m) =>
-                      b +
-                      (m.usage ? getBillableTotalTokens(m.usage, getSessionRequestType(s)) : 0),
+                      b + (m.usage ? getBillableTotalTokens(m.usage, getSessionRequestType(s)) : 0),
                     0
                   ),
                 0

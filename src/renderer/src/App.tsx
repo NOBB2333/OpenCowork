@@ -1,8 +1,19 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { Loader2 } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { useTranslation } from 'react-i18next'
 import { Layout } from './components/layout/Layout'
 import { Toaster } from './components/ui/sonner'
-import { confirm, ConfirmDialogProvider } from './components/ui/confirm-dialog'
+import { Button } from './components/ui/button'
+import { ConfirmDialogProvider } from './components/ui/confirm-dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from './components/ui/dialog'
 import { ThemeProvider } from './components/theme-provider'
 import { ErrorBoundary } from './components/error-boundary'
 import { useSettingsStore } from './stores/settings-store'
@@ -15,6 +26,7 @@ import { registerAllTools, updateWebSearchToolRegistration } from './lib/tools'
 import { updateAppPluginToolRegistration } from './lib/app-plugin'
 import { registerAllProviders } from './lib/api'
 import { registerAllViewers } from './lib/preview/register-viewers'
+import { createMarkdownComponents } from './lib/preview/viewers/markdown-components'
 import { initChannelEventListener } from './stores/channel-store'
 import { usePluginAutoReply } from './hooks/use-plugin-auto-reply'
 import { toast } from 'sonner'
@@ -72,6 +84,12 @@ function compareVersions(left: string, right: string): number {
   return 0
 }
 
+interface AvailableUpdate {
+  currentVersion: string
+  newVersion: string
+  releaseNotes: string
+}
+
 function buildGlobalMemoryReminder(snapshot: GlobalMemorySnapshot): string {
   const pathLabel = snapshot.path ? `\`${snapshot.path}\`` : 'path unavailable'
   const timeLabel = snapshot.updatedAt
@@ -121,8 +139,10 @@ function App(): React.JSX.Element {
   const animationsEnabled = useSettingsStore((s) => s.animationsEnabled)
   const { t } = useTranslation('common')
   const shownUpdateVersionsRef = useRef(new Set<string>())
-  const updateDialogOpenRef = useRef(false)
-  const updateDownloadPendingRef = useRef(false)
+  const [availableUpdate, setAvailableUpdate] = useState<AvailableUpdate | null>(null)
+  const [updateDialogOpen, setUpdateDialogOpen] = useState(false)
+  const [updateDownloadPending, setUpdateDownloadPending] = useState(false)
+  const [updateDownloadProgress, setUpdateDownloadProgress] = useState<number | null>(null)
 
   // Initialize plugin auto-reply agent loop listener
   usePluginAutoReply()
@@ -343,63 +363,38 @@ function App(): React.JSX.Element {
 
       if (compareVersions(newVersion, currentVersion) <= 0) {
         console.log(
-          `[App] Ignore non-newer update dialog: current=${currentVersion}, latest=${newVersion}`
+          `[App] Ignore non-newer update event: current=${currentVersion}, latest=${newVersion}`
         )
         return
       }
 
       if (shownUpdateVersionsRef.current.has(newVersion)) {
-        console.log(`[App] Ignore duplicate update dialog for version ${newVersion}`)
-        return
-      }
-
-      if (updateDialogOpenRef.current) {
-        console.log('[App] Update dialog already open, ignore repeated trigger')
+        console.log(`[App] Ignore duplicate update notification for version ${newVersion}`)
         return
       }
 
       shownUpdateVersionsRef.current.add(newVersion)
-      updateDialogOpenRef.current = true
+      setAvailableUpdate({
+        currentVersion,
+        newVersion,
+        releaseNotes: d.releaseNotes || ''
+      })
+      setUpdateDownloadPending(false)
+      setUpdateDownloadProgress(null)
+    })
 
-      void (async () => {
-        try {
-          const confirmed = await confirm({
-            title: t('app.update.availableTitle', { version: newVersion }),
-            description: d.releaseNotes || t('app.update.availableDescription'),
-            confirmLabel: t('app.update.actions.updateNow'),
-            cancelLabel: t('app.update.actions.remindLater')
-          })
-
-          if (!confirmed) {
-            toast.info(t('app.update.delayed'))
-            return
-          }
-
-          if (updateDownloadPendingRef.current) {
-            console.log('[App] Update download already pending, ignore repeated confirm')
-            return
-          }
-
-          updateDownloadPendingRef.current = true
-          toast.info(t('app.update.downloading'))
-
-          const result = (await window.electron.ipcRenderer.invoke('update:download')) as
-            | { success: true }
-            | { success: false; error: string }
-
-          if (!result.success) {
-            updateDownloadPendingRef.current = false
-            toast.error(t('app.update.downloadFailed'), { description: result.error })
-          }
-        } finally {
-          updateDialogOpenRef.current = false
-        }
-      })()
+    const offUpdateProgress = ipcClient.on('update:download-progress', (data: unknown) => {
+      const d = data as { percent: number }
+      setUpdateDownloadPending(true)
+      setUpdateDownloadProgress(typeof d.percent === 'number' ? d.percent : null)
     })
 
     const offUpdateDownloaded = ipcClient.on('update:downloaded', (data: unknown) => {
       const d = data as { version: string }
-      updateDownloadPendingRef.current = false
+      setUpdateDownloadPending(false)
+      setUpdateDownloadProgress(null)
+      setUpdateDialogOpen(false)
+      setAvailableUpdate(null)
       toast.success(t('app.update.downloadedTitle'), {
         description: t('app.update.downloadedDescription', { version: d.version })
       })
@@ -407,16 +402,37 @@ function App(): React.JSX.Element {
 
     const offUpdateError = ipcClient.on('update:error', (data: unknown) => {
       const d = data as { error: string }
-      updateDownloadPendingRef.current = false
+      setUpdateDownloadPending(false)
+      setUpdateDownloadProgress(null)
       toast.error(t('app.update.failed'), { description: d.error })
     })
 
     return () => {
       offUpdateAvailable()
+      offUpdateProgress()
       offUpdateDownloaded()
       offUpdateError()
     }
   }, [t])
+
+  const handleUpdateNow = async (): Promise<void> => {
+    if (!availableUpdate || updateDownloadPending) {
+      return
+    }
+
+    setUpdateDownloadPending(true)
+    setUpdateDownloadProgress(null)
+    toast.info(t('app.update.downloading'))
+
+    const result = (await window.electron.ipcRenderer.invoke('update:download')) as
+      | { success: true }
+      | { success: false; error: string }
+
+    if (!result.success) {
+      setUpdateDownloadPending(false)
+      toast.error(t('app.update.downloadFailed'), { description: result.error })
+    }
+  }
 
   // Sync i18n language with settings store
   const language = useSettingsStore((s) => s.language)
@@ -463,7 +479,87 @@ function App(): React.JSX.Element {
   return (
     <ErrorBoundary>
       <ThemeProvider defaultTheme={theme}>
-        <Layout />
+        <Layout
+          updateInfo={
+            availableUpdate
+              ? {
+                  newVersion: availableUpdate.newVersion,
+                  downloading: updateDownloadPending,
+                  downloadProgress: updateDownloadProgress
+                }
+              : null
+          }
+          onOpenUpdateDialog={() => setUpdateDialogOpen(true)}
+        />
+
+        <Dialog open={!!availableUpdate && updateDialogOpen} onOpenChange={setUpdateDialogOpen}>
+          <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-2xl">
+            <DialogHeader className="border-b px-6 py-5 pr-12">
+              <DialogTitle>
+                {t('app.update.availableTitle', { version: availableUpdate?.newVersion ?? '' })}
+              </DialogTitle>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span>
+                  {t('app.update.currentVersion', {
+                    version: availableUpdate?.currentVersion ?? '-'
+                  })}
+                </span>
+                <span>→</span>
+                <span>
+                  {t('app.update.latestVersion', {
+                    version: availableUpdate?.newVersion ?? '-'
+                  })}
+                </span>
+              </div>
+            </DialogHeader>
+
+            <div className="max-h-[min(60vh,36rem)] overflow-y-auto px-6 py-4">
+              <div className="mb-3 text-xs font-medium text-muted-foreground">
+                {t('app.update.releaseNotes')}
+              </div>
+              {availableUpdate?.releaseNotes ? (
+                <div className="prose prose-sm dark:prose-invert max-w-none">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={createMarkdownComponents()}
+                  >
+                    {availableUpdate.releaseNotes}
+                  </ReactMarkdown>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">{t('app.update.noReleaseNotes')}</p>
+              )}
+            </div>
+
+            <DialogFooter className="border-t px-6 py-4 sm:justify-between">
+              <div className="text-xs text-muted-foreground">
+                {updateDownloadPending
+                  ? typeof updateDownloadProgress === 'number'
+                    ? t('app.update.downloadingProgress', {
+                        progress: Math.round(updateDownloadProgress)
+                      })
+                    : t('app.update.downloading')
+                  : t('app.update.availableDescription')}
+              </div>
+              <div className="flex flex-col-reverse gap-2 sm:flex-row">
+                <Button variant="outline" onClick={() => setUpdateDialogOpen(false)}>
+                  {t('app.update.actions.remindLater')}
+                </Button>
+                <Button onClick={() => void handleUpdateNow()} disabled={updateDownloadPending}>
+                  {updateDownloadPending && <Loader2 className="mr-2 size-4 animate-spin" />}
+                  {updateDownloadPending
+                    ? typeof updateDownloadProgress === 'number'
+                      ? t('app.update.downloadingProgress', {
+                          progress: Math.round(updateDownloadProgress)
+                        })
+                      : t('app.update.downloading')
+                    : t('app.update.actions.updateNow')}
+                </Button>
+              </div>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         <Toaster position="bottom-left" theme="system" richColors />
         <ConfirmDialogProvider />
         <NotifyToastContainer />

@@ -262,9 +262,7 @@ export function AskUserQuestionCard({
   const activeSessionMode = useChatStore(
     (s) => s.sessions.find((session) => session.id === s.activeSessionId)?.mode
   )
-  const clarifyAutoAcceptRecommended = useSettingsStore(
-    (s) => s.clarifyAutoAcceptRecommended
-  )
+  const clarifyAutoAcceptRecommended = useSettingsStore((s) => s.clarifyAutoAcceptRecommended)
   const isAnswered = status === 'completed' && !!output
   const isPending = !isAnswered && (status === 'running' || isLive)
   const answeredPairs = React.useMemo(() => parseAnsweredPairs(output), [output])

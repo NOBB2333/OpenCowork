@@ -427,7 +427,9 @@ async function _runPluginAgent(task: PluginAutoReplyTask): Promise<void> {
         }
       }
       channelLines.push('', 'Use the channel_id value as plugin_id when calling Plugin* tools.')
-      userPrompt = userPrompt ? `${userPrompt}\n${channelLines.join('\n')}` : channelLines.join('\n')
+      userPrompt = userPrompt
+        ? `${userPrompt}\n${channelLines.join('\n')}`
+        : channelLines.join('\n')
     }
 
     // Inject channel session auto-reply context

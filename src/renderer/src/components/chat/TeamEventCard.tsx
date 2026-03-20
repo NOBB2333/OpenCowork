@@ -1,11 +1,4 @@
-import {
-  Users,
-  ClipboardList,
-  MessageSquare,
-  Trash2,
-  RefreshCw,
-  UserPlus
-} from 'lucide-react'
+import { Users, ClipboardList, MessageSquare, Trash2, RefreshCw, UserPlus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@renderer/lib/utils'
 import type { ToolResultContent } from '@renderer/lib/api/types'
@@ -109,7 +102,9 @@ export function TeamEventCard({ name, input, output }: TeamEventCardProps): Reac
         <span className="text-[11px] font-medium text-cyan-600 dark:text-cyan-400">
           {config.labelKey ? t(config.labelKey) : name}
         </span>
-        {isError && <span className="text-[9px] text-destructive font-medium">{t('teamEvent.failed')}</span>}
+        {isError && (
+          <span className="text-[9px] text-destructive font-medium">{t('teamEvent.failed')}</span>
+        )}
         <span className="flex-1" />
       </div>
       {summary && (

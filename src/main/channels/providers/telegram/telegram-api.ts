@@ -28,7 +28,7 @@ function request(
         port: 443,
         path: url.pathname + url.search,
         method,
-        headers: reqHeaders,
+        headers: reqHeaders
       },
       (res) => {
         let responseBody = ''
@@ -84,7 +84,11 @@ export class TelegramApi {
   }
 
   /** Reply to a specific message */
-  async replyMessage(messageId: string, chatId: string, content: string): Promise<{ messageId: string }> {
+  async replyMessage(
+    messageId: string,
+    chatId: string,
+    content: string
+  ): Promise<{ messageId: string }> {
     const res = await request(
       'POST',
       `${this.baseUrl}/sendMessage`,
@@ -92,7 +96,7 @@ export class TelegramApi {
       JSON.stringify({
         chat_id: chatId,
         text: content,
-        reply_to_message_id: parseInt(messageId, 10),
+        reply_to_message_id: parseInt(messageId, 10)
       })
     )
     const data = JSON.parse(res.body)

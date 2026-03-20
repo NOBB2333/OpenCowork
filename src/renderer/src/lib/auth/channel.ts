@@ -31,11 +31,11 @@ export async function sendChannelCode(args: SendCodeArgs): Promise<void> {
   const body = {
     appid: appId,
     channel_type: channelType,
-    ...(channelType === 'sms' ? { mobile } : { email }),
+    ...(channelType === 'sms' ? { mobile } : { email })
   }
 
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    'Content-Type': 'application/json'
   }
   if (token) headers.Authorization = `Bearer ${token}`
 
@@ -43,7 +43,7 @@ export async function sendChannelCode(args: SendCodeArgs): Promise<void> {
     url: config.vcodeUrl,
     method: 'POST',
     headers,
-    body: JSON.stringify(body),
+    body: JSON.stringify(body)
   })) as { statusCode?: number; error?: string; body?: string }
 
   if (result?.error) throw new Error(result.error)
@@ -65,11 +65,11 @@ export async function verifyChannelCode(args: VerifyCodeArgs): Promise<{ accessT
     appid: appId,
     channel_type: channelType,
     code,
-    ...(channelType === 'sms' ? { mobile } : { email }),
+    ...(channelType === 'sms' ? { mobile } : { email })
   }
 
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    'Content-Type': 'application/json'
   }
   if (token) headers.Authorization = `Bearer ${token}`
 
@@ -77,7 +77,7 @@ export async function verifyChannelCode(args: VerifyCodeArgs): Promise<{ accessT
     url: config.tokenUrl,
     method: 'POST',
     headers,
-    body: JSON.stringify(body),
+    body: JSON.stringify(body)
   })) as { statusCode?: number; error?: string; body?: string }
 
   if (result?.error) throw new Error(result.error)
@@ -92,15 +92,18 @@ export async function verifyChannelCode(args: VerifyCodeArgs): Promise<{ accessT
   return { accessToken }
 }
 
-export async function fetchChannelUserInfo(config: ChannelConfig, accessToken: string): Promise<Record<string, unknown>> {
+export async function fetchChannelUserInfo(
+  config: ChannelConfig,
+  accessToken: string
+): Promise<Record<string, unknown>> {
   if (!accessToken) throw new Error('Missing access token')
 
   const result = (await ipcClient.invoke('api:request', {
     url: config.userUrl,
     method: 'GET',
     headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
+      Authorization: `Bearer ${accessToken}`
+    }
   })) as { statusCode?: number; error?: string; body?: string }
 
   if (result?.error) throw new Error(result.error)

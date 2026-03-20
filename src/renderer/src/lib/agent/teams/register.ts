@@ -8,17 +8,10 @@ import { sendMessageTool } from './tools/send-message'
 import { teamDeleteTool } from './tools/team-delete'
 import { teamStatusTool } from './tools/team-status'
 
-const TEAM_TOOLS = [
-  teamCreateTool,
-  sendMessageTool,
-  teamStatusTool,
-  teamDeleteTool
-]
+const TEAM_TOOLS = [teamCreateTool, sendMessageTool, teamStatusTool, teamDeleteTool]
 
 /** All team tool names for identification in UI rendering */
-export const TEAM_TOOL_NAMES = new Set(
-  TEAM_TOOLS.map((t) => t.definition.name)
-)
+export const TEAM_TOOL_NAMES = new Set(TEAM_TOOLS.map((t) => t.definition.name))
 
 /**
  * Register all Agent Team tools into the global tool registry

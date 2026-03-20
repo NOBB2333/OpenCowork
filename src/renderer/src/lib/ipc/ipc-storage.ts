@@ -37,5 +37,5 @@ export const ipcStorage: StateStorage = {
     } catch {
       // Silently fail
     }
-  },
+  }
 }

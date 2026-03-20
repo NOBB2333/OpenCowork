@@ -106,6 +106,8 @@ interface VisibleProjectGroup {
   isMissing: boolean
 }
 
+const HISTORY_AUTO_COLLAPSE_AFTER_MS = 7 * 24 * 60 * 60 * 1000
+
 export function SessionListPanel(): React.JSX.Element {
   const { t } = useTranslation('layout')
   const projectsRaw = useChatStore((s) => s.projects)
@@ -211,6 +213,9 @@ export function SessionListPanel(): React.JSX.Element {
   const [renameValue, setRenameValue] = useState('')
   const renameInputRef = useRef<HTMLInputElement>(null)
   const [collapsedProjectIds, setCollapsedProjectIds] = useState<Set<string>>(() => new Set())
+  const [expandedHistoryProjectIds, setExpandedHistoryProjectIds] = useState<Set<string>>(
+    () => new Set()
+  )
   const projectIdSet = useMemo(() => new Set(projects.map((project) => project.id)), [projects])
   const draggingRef = useRef(false)
   const startXRef = useRef(0)
@@ -351,6 +356,18 @@ export function SessionListPanel(): React.JSX.Element {
 
   const toggleProjectCollapsed = useCallback((projectId: string): void => {
     setCollapsedProjectIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(projectId)) {
+        next.delete(projectId)
+      } else {
+        next.add(projectId)
+      }
+      return next
+    })
+  }, [])
+
+  const toggleProjectHistoryExpanded = useCallback((projectId: string): void => {
+    setExpandedHistoryProjectIds((prev) => {
       const next = new Set(prev)
       if (next.has(projectId)) {
         next.delete(projectId)
@@ -661,10 +678,247 @@ export function SessionListPanel(): React.JSX.Element {
     () => filteredProjectGroups.filter((group) => !group.project.pinned || group.isMissing),
     [filteredProjectGroups]
   )
+  const historyCollapseThreshold = Date.now() - HISTORY_AUTO_COLLAPSE_AFTER_MS
+
+  const renderSessionItem = (session: SessionListItem): React.JSX.Element => (
+    <ContextMenu key={session.id}>
+      <ContextMenuTrigger asChild>
+        <button
+          className={cn(
+            'flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors',
+            session.id === activeSessionId &&
+              useUIStore.getState().chatView === 'session' &&
+              !useUIStore.getState().settingsPageOpen
+              ? 'bg-accent text-accent-foreground'
+              : 'text-foreground/80 hover:bg-muted/60'
+          )}
+          onClick={() => {
+            setActiveSession(session.id)
+            useUIStore.getState().navigateToSession()
+          }}
+          onDoubleClick={(e) => {
+            e.preventDefault()
+            setEditingId(session.id)
+            setEditTitle(session.title)
+            setTimeout(() => editRef.current?.select(), 0)
+          }}
+        >
+          <span className="shrink-0">
+            {session.pinned ? (
+              <Pin className="size-3.5 text-muted-foreground/50" />
+            ) : session.icon ? (
+              <DynamicIcon name={session.icon as never} className="size-4" />
+            ) : (
+              modeIcons[session.mode]
+            )}
+          </span>
+          {editingId === session.id ? (
+            <input
+              ref={editRef}
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              onBlur={() => {
+                const trimmed = editTitle.trim()
+                if (trimmed && trimmed !== session.title) {
+                  useChatStore.getState().updateSessionTitle(session.id, trimmed)
+                  toast.success(t('action.rename', { ns: 'common' }))
+                }
+                setEditingId(null)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                if (e.key === 'Escape') {
+                  setEditingId(null)
+                }
+              }}
+              onClick={(e) => e.stopPropagation()}
+              className="h-6 w-full min-w-0 rounded border bg-background px-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+          ) : (
+            <div className="flex min-w-0 flex-1 flex-col">
+              <span className="truncate text-sm leading-4">{session.title}</span>
+              {searchQuery &&
+                !session.title.toLowerCase().includes(searchQuery) &&
+                contentSearchMeta.snippetBySessionId.get(session.id) && (
+                  <span className="truncate text-[9px] text-muted-foreground/40">
+                    {contentSearchMeta.snippetBySessionId.get(session.id)}
+                  </span>
+                )}
+            </div>
+          )}
+          {editingId !== session.id && (
+            <span className="ml-auto flex shrink-0 items-center gap-1">
+              {runningSessions[session.id] === 'running' && (
+                <Loader2 className="size-3.5 animate-spin text-blue-500" />
+              )}
+              {runningSessions[session.id] === 'completed' && (
+                <CheckCircle2 className="size-3.5 text-emerald-500" />
+              )}
+              {getPendingSessionMessageCountForSession(session.id) > 0 && (
+                <span className="rounded-full border border-primary/20 bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium text-primary">
+                  {getPendingSessionMessageCountForSession(session.id)}
+                </span>
+              )}
+              {session.pinned && <Pin className="size-3 text-muted-foreground/30 -rotate-45" />}
+              {session.mode !== mode && (
+                <span className="rounded bg-muted px-1 py-px text-[8px] uppercase text-muted-foreground/40">
+                  {session.mode}
+                </span>
+              )}
+              {session.messageCount > 0 && (
+                <span className="text-[10px] text-muted-foreground/40">{session.messageCount}</span>
+              )}
+            </span>
+          )}
+        </button>
+      </ContextMenuTrigger>
+      <ContextMenuContent className="w-48">
+        <ContextMenuItem onClick={() => openRenameDialog('session', session.id, session.title)}>
+          <Pencil className="size-4" />
+          {t('action.rename', { ns: 'common' })}
+        </ContextMenuItem>
+        {session.messageCount > 0 && (
+          <>
+            <ContextMenuItem
+              onClick={async () => {
+                await handleExport(session.id)
+                toast.success(t('sidebar_toast.exportedOne'))
+              }}
+            >
+              <Download className="size-4" />
+              {t('sidebar.exportAsMarkdown')}
+            </ContextMenuItem>
+            <ContextMenuItem
+              onClick={async () => {
+                await useChatStore.getState().loadSessionMessages(session.id)
+                const snapshot = getSessionSnapshot(session.id)
+                if (!snapshot) return
+                const json = JSON.stringify(snapshot, null, 2)
+                const blob = new Blob([json], {
+                  type: 'application/json'
+                })
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = `${
+                  session.title
+                    .replace(/[^a-zA-Z0-9-_ ]/g, '')
+                    .slice(0, 50)
+                    .trim() || 'session'
+                }.json`
+                a.click()
+                URL.revokeObjectURL(url)
+                toast.success(t('sidebar_toast.exportedAsJson'))
+              }}
+            >
+              <Download className="size-4" />
+              {t('sidebar.exportAsJson')}
+            </ContextMenuItem>
+            <ContextMenuItem
+              onClick={() => {
+                duplicateSession(session.id)
+                toast.success(t('sidebar_toast.sessionDuplicated'))
+              }}
+            >
+              <Copy className="size-4" />
+              {t('action.duplicate', { ns: 'common' })}
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+            <ContextMenuItem
+              onClick={() => {
+                clearSessionMessages(session.id)
+                clearPendingSessionMessages(session.id)
+                toast.success(t('sidebar_toast.messagesCleared'))
+              }}
+            >
+              <Eraser className="size-4" />
+              {t('sidebar.clearMessages')}
+            </ContextMenuItem>
+          </>
+        )}
+        <ContextMenuItem
+          onClick={() => {
+            togglePinSession(session.id)
+            toast.success(
+              session.pinned ? t('sidebar_toast.unpinned') : t('sidebar_toast.pinnedMsg')
+            )
+          }}
+        >
+          {session.pinned ? <PinOff className="size-4" /> : <Pin className="size-4" />}
+          {session.pinned ? t('action.unpin', { ns: 'common' }) : t('sidebar.pinToTop')}
+        </ContextMenuItem>
+        <ContextMenuSub>
+          <ContextMenuSubTrigger>
+            {modeIcons[session.mode]}
+            {t('sidebar.switchMode')}
+          </ContextMenuSubTrigger>
+          <ContextMenuSubContent>
+            {(['chat', 'clarify', 'cowork', 'code'] as const).map((m) => (
+              <ContextMenuItem
+                key={m}
+                disabled={session.mode === m}
+                onClick={() => {
+                  updateSessionMode(session.id, m)
+                  toast.success(t('sidebar_toast.switchedMode', { mode: m }))
+                }}
+              >
+                {modeIcons[m]}
+                <span className="capitalize">{m}</span>
+              </ContextMenuItem>
+            ))}
+          </ContextMenuSubContent>
+        </ContextMenuSub>
+        <ContextMenuSeparator />
+        <ContextMenuItem
+          variant="destructive"
+          onClick={() => {
+            const hasRunning =
+              runningSessions[session.id] === 'running' ||
+              runningSubAgentSessionIds.has(session.id) ||
+              activeTeamSessionId === session.id
+            const queueCount = getPendingSessionMessageCountForSession(session.id)
+            if (session.messageCount > 0 || hasRunning || queueCount > 0) {
+              setDeleteTarget({
+                id: session.id,
+                title: session.title,
+                msgCount: session.messageCount,
+                queueCount
+              })
+              return
+            }
+            const snapshot = getSessionSnapshot(session.id)
+            if (!snapshot) return
+            clearPendingSessionMessages(snapshot.id)
+            deleteSession(snapshot.id)
+            toast.success(t('sidebar_toast.sessionDeleted'), {
+              action: {
+                label: t('action.undo', { ns: 'common' }),
+                onClick: () => useChatStore.getState().restoreSession(snapshot)
+              },
+              duration: 5000
+            })
+          }}
+        >
+          <Trash2 className="size-4" />
+          {t('action.delete', { ns: 'common' })}
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
+  )
 
   const renderProjectGroup = (group: VisibleProjectGroup): React.JSX.Element => {
     const isCollapsed = collapsedProjectIds.has(group.project.id)
     const canManageProject = !group.isMissing && projectIdSet.has(group.project.id)
+    const shouldAutoCollapseHistory = !searchQuery
+    const recentItems = shouldAutoCollapseHistory
+      ? group.items.filter((session) => session.updatedAt >= historyCollapseThreshold)
+      : group.items
+    const historicalItems = shouldAutoCollapseHistory
+      ? group.items.filter((session) => session.updatedAt < historyCollapseThreshold)
+      : []
+    const isHistoryExpanded =
+      expandedHistoryProjectIds.has(group.project.id) ||
+      historicalItems.some((session) => session.id === activeSessionId)
 
     return (
       <div key={group.project.id} className="mb-1.5">
@@ -764,239 +1018,31 @@ export function SessionListPanel(): React.JSX.Element {
         >
           <div className="overflow-hidden">
             <div className="ml-4 border-l border-border/40 pl-2">
-              {group.items.map((session) => (
-                <ContextMenu key={session.id}>
-                  <ContextMenuTrigger asChild>
-                    <button
+              {recentItems.map(renderSessionItem)}
+              {historicalItems.length > 0 && (
+                <div className="mt-1 border-t border-border/30 pt-1">
+                  <button
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+                    onClick={() => toggleProjectHistoryExpanded(group.project.id)}
+                  >
+                    <ChevronRight
                       className={cn(
-                        'flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors',
-                        session.id === activeSessionId &&
-                          useUIStore.getState().chatView === 'session' &&
-                          !useUIStore.getState().settingsPageOpen
-                          ? 'bg-accent text-accent-foreground'
-                          : 'text-foreground/80 hover:bg-muted/60'
+                        'size-3.5 transition-transform duration-200 ease-in-out',
+                        isHistoryExpanded && 'rotate-90'
                       )}
-                      onClick={() => {
-                        setActiveSession(session.id)
-                        useUIStore.getState().navigateToSession()
-                      }}
-                      onDoubleClick={(e) => {
-                        e.preventDefault()
-                        setEditingId(session.id)
-                        setEditTitle(session.title)
-                        setTimeout(() => editRef.current?.select(), 0)
-                      }}
-                    >
-                      <span className="shrink-0">
-                        {session.pinned ? (
-                          <Pin className="size-3.5 text-muted-foreground/50" />
-                        ) : session.icon ? (
-                          <DynamicIcon name={session.icon as never} className="size-4" />
-                        ) : (
-                          modeIcons[session.mode]
-                        )}
-                      </span>
-                      {editingId === session.id ? (
-                        <input
-                          ref={editRef}
-                          value={editTitle}
-                          onChange={(e) => setEditTitle(e.target.value)}
-                          onBlur={() => {
-                            const trimmed = editTitle.trim()
-                            if (trimmed && trimmed !== session.title) {
-                              useChatStore.getState().updateSessionTitle(session.id, trimmed)
-                              toast.success(t('action.rename', { ns: 'common' }))
-                            }
-                            setEditingId(null)
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
-                            if (e.key === 'Escape') {
-                              setEditingId(null)
-                            }
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                          className="h-6 w-full min-w-0 rounded border bg-background px-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                        />
-                      ) : (
-                        <div className="flex min-w-0 flex-1 flex-col">
-                          <span className="truncate text-sm leading-4">{session.title}</span>
-                          {searchQuery &&
-                            !session.title.toLowerCase().includes(searchQuery) &&
-                            contentSearchMeta.snippetBySessionId.get(session.id) && (
-                              <span className="truncate text-[9px] text-muted-foreground/40">
-                                {contentSearchMeta.snippetBySessionId.get(session.id)}
-                              </span>
-                            )}
-                        </div>
-                      )}
-                      {editingId !== session.id && (
-                        <span className="ml-auto flex shrink-0 items-center gap-1">
-                          {runningSessions[session.id] === 'running' && (
-                            <Loader2 className="size-3.5 animate-spin text-blue-500" />
-                          )}
-                          {runningSessions[session.id] === 'completed' && (
-                            <CheckCircle2 className="size-3.5 text-emerald-500" />
-                          )}
-                          {getPendingSessionMessageCountForSession(session.id) > 0 && (
-                            <span className="rounded-full border border-primary/20 bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium text-primary">
-                              {getPendingSessionMessageCountForSession(session.id)}
-                            </span>
-                          )}
-                          {session.pinned && (
-                            <Pin className="size-3 text-muted-foreground/30 -rotate-45" />
-                          )}
-                          {session.mode !== mode && (
-                            <span className="rounded bg-muted px-1 py-px text-[8px] uppercase text-muted-foreground/40">
-                              {session.mode}
-                            </span>
-                          )}
-                          {session.messageCount > 0 && (
-                            <span className="text-[10px] text-muted-foreground/40">
-                              {session.messageCount}
-                            </span>
-                          )}
-                        </span>
-                      )}
-                    </button>
-                  </ContextMenuTrigger>
-                  <ContextMenuContent className="w-48">
-                    <ContextMenuItem
-                      onClick={() => openRenameDialog('session', session.id, session.title)}
-                    >
-                      <Pencil className="size-4" />
-                      {t('action.rename', { ns: 'common' })}
-                    </ContextMenuItem>
-                    {session.messageCount > 0 && (
-                      <>
-                        <ContextMenuItem
-                          onClick={async () => {
-                            await handleExport(session.id)
-                            toast.success(t('sidebar_toast.exportedOne'))
-                          }}
-                        >
-                          <Download className="size-4" />
-                          {t('sidebar.exportAsMarkdown')}
-                        </ContextMenuItem>
-                        <ContextMenuItem
-                          onClick={async () => {
-                            await useChatStore.getState().loadSessionMessages(session.id)
-                            const snapshot = getSessionSnapshot(session.id)
-                            if (!snapshot) return
-                            const json = JSON.stringify(snapshot, null, 2)
-                            const blob = new Blob([json], {
-                              type: 'application/json'
-                            })
-                            const url = URL.createObjectURL(blob)
-                            const a = document.createElement('a')
-                            a.href = url
-                            a.download = `${
-                              session.title
-                                .replace(/[^a-zA-Z0-9-_ ]/g, '')
-                                .slice(0, 50)
-                                .trim() || 'session'
-                            }.json`
-                            a.click()
-                            URL.revokeObjectURL(url)
-                            toast.success(t('sidebar_toast.exportedAsJson'))
-                          }}
-                        >
-                          <Download className="size-4" />
-                          {t('sidebar.exportAsJson')}
-                        </ContextMenuItem>
-                        <ContextMenuItem
-                          onClick={() => {
-                            duplicateSession(session.id)
-                            toast.success(t('sidebar_toast.sessionDuplicated'))
-                          }}
-                        >
-                          <Copy className="size-4" />
-                          {t('action.duplicate', { ns: 'common' })}
-                        </ContextMenuItem>
-                        <ContextMenuSeparator />
-                        <ContextMenuItem
-                          onClick={() => {
-                            clearSessionMessages(session.id)
-                            clearPendingSessionMessages(session.id)
-                            toast.success(t('sidebar_toast.messagesCleared'))
-                          }}
-                        >
-                          <Eraser className="size-4" />
-                          {t('sidebar.clearMessages')}
-                        </ContextMenuItem>
-                      </>
-                    )}
-                    <ContextMenuItem
-                      onClick={() => {
-                        togglePinSession(session.id)
-                        toast.success(
-                          session.pinned
-                            ? t('sidebar_toast.unpinned')
-                            : t('sidebar_toast.pinnedMsg')
-                        )
-                      }}
-                    >
-                      {session.pinned ? <PinOff className="size-4" /> : <Pin className="size-4" />}
-                      {session.pinned ? t('action.unpin', { ns: 'common' }) : t('sidebar.pinToTop')}
-                    </ContextMenuItem>
-                    <ContextMenuSub>
-                      <ContextMenuSubTrigger>
-                        {modeIcons[session.mode]}
-                        {t('sidebar.switchMode')}
-                      </ContextMenuSubTrigger>
-                      <ContextMenuSubContent>
-                        {(['chat', 'clarify', 'cowork', 'code'] as const).map((m) => (
-                          <ContextMenuItem
-                            key={m}
-                            disabled={session.mode === m}
-                            onClick={() => {
-                              updateSessionMode(session.id, m)
-                              toast.success(t('sidebar_toast.switchedMode', { mode: m }))
-                            }}
-                          >
-                            {modeIcons[m]}
-                            <span className="capitalize">{m}</span>
-                          </ContextMenuItem>
-                        ))}
-                      </ContextMenuSubContent>
-                    </ContextMenuSub>
-                    <ContextMenuSeparator />
-                    <ContextMenuItem
-                      variant="destructive"
-                      onClick={() => {
-                        const hasRunning =
-                          runningSessions[session.id] === 'running' ||
-                          runningSubAgentSessionIds.has(session.id) ||
-                          activeTeamSessionId === session.id
-                        const queueCount = getPendingSessionMessageCountForSession(session.id)
-                        if (session.messageCount > 0 || hasRunning || queueCount > 0) {
-                          setDeleteTarget({
-                            id: session.id,
-                            title: session.title,
-                            msgCount: session.messageCount,
-                            queueCount
-                          })
-                          return
-                        }
-                        const snapshot = getSessionSnapshot(session.id)
-                        if (!snapshot) return
-                        clearPendingSessionMessages(snapshot.id)
-                        deleteSession(snapshot.id)
-                        toast.success(t('sidebar_toast.sessionDeleted'), {
-                          action: {
-                            label: t('action.undo', { ns: 'common' }),
-                            onClick: () => useChatStore.getState().restoreSession(snapshot)
-                          },
-                          duration: 5000
-                        })
-                      }}
-                    >
-                      <Trash2 className="size-4" />
-                      {t('action.delete', { ns: 'common' })}
-                    </ContextMenuItem>
-                  </ContextMenuContent>
-                </ContextMenu>
-              ))}
+                    />
+                    <span>
+                      {isHistoryExpanded
+                        ? t('sidebar.collapseOlderSessions', { defaultValue: '收起历史记录' })
+                        : t('sidebar.expandOlderSessions', {
+                            count: historicalItems.length,
+                            defaultValue: '展开历史记录（{{count}}）'
+                          })}
+                    </span>
+                  </button>
+                  {isHistoryExpanded && historicalItems.map(renderSessionItem)}
+                </div>
+              )}
             </div>
           </div>
         </div>

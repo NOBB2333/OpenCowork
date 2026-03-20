@@ -8,7 +8,7 @@ import type {
   ChannelGroup,
   ChannelIncomingMessageData,
   MessagingChannelService,
-  ChannelStreamingHandle,
+  ChannelStreamingHandle
 } from '../../channel-types'
 import { BasePluginService } from '../../base-plugin-service'
 import { DingTalkApi } from './dingtalk-api'
@@ -55,7 +55,7 @@ export class DingTalkService extends BasePluginService {
       clientId: appKey,
       clientSecret: appSecret,
       keepAlive: true,
-      debug: false,
+      debug: false
     })
 
     // Register event listener for all events (auto-ACK handled by SDK)
@@ -73,7 +73,9 @@ export class DingTalkService extends BasePluginService {
     // Ensure DingTalk API bypasses system proxy (axios in SDK respects NO_PROXY)
     const noProxy = process.env.NO_PROXY || process.env.no_proxy || ''
     if (!noProxy.includes('dingtalk.com')) {
-      process.env.NO_PROXY = noProxy ? `${noProxy},api.dingtalk.com,oapi.dingtalk.com` : 'api.dingtalk.com,oapi.dingtalk.com'
+      process.env.NO_PROXY = noProxy
+        ? `${noProxy},api.dingtalk.com,oapi.dingtalk.com`
+        : 'api.dingtalk.com,oapi.dingtalk.com'
     }
 
     // Connect the stream
@@ -86,7 +88,7 @@ export class DingTalkService extends BasePluginService {
         type: 'error',
         pluginId: this.pluginId,
         pluginType: this.pluginType,
-        data: err instanceof Error ? err.message : String(err),
+        data: err instanceof Error ? err.message : String(err)
       })
     }
   }
@@ -126,9 +128,7 @@ export class DingTalkService extends BasePluginService {
     content = content.trim()
     if (!content) return
 
-    const timestamp = payload.createAt
-      ? parseInt(String(payload.createAt), 10)
-      : Date.now()
+    const timestamp = payload.createAt ? parseInt(String(payload.createAt), 10) : Date.now()
 
     // Filter stale messages (> 15 minutes old)
     if (Date.now() - timestamp > 15 * 60 * 1000) {
@@ -145,11 +145,13 @@ export class DingTalkService extends BasePluginService {
       : 0
     if (sessionWebhook && sessionWebhookExpiredTime) {
       this.webhookCache.set(chatId, { url: sessionWebhook, expiredTime: sessionWebhookExpiredTime })
-      console.log(`[DingTalk] Cached sessionWebhook for chat ${chatId} (expires ${new Date(sessionWebhookExpiredTime).toISOString()})`)
+      console.log(
+        `[DingTalk] Cached sessionWebhook for chat ${chatId} (expires ${new Date(sessionWebhookExpiredTime).toISOString()})`
+      )
     }
 
     // Cache chat metadata for card streaming
-    const convType = payload.conversationType === '1' ? 'p2p' as const : 'group' as const
+    const convType = payload.conversationType === '1' ? ('p2p' as const) : ('group' as const)
     const senderId = String(payload.senderStaffId ?? payload.senderId ?? '')
     this.chatMetaCache.set(chatId, { conversationType: convType, senderId })
 
@@ -161,14 +163,14 @@ export class DingTalkService extends BasePluginService {
       messageId: String(payload.msgId ?? ''),
       timestamp,
       chatType: payload.conversationType === '1' ? 'p2p' : 'group',
-      chatName: String(payload.conversationTitle ?? ''),
+      chatName: String(payload.conversationTitle ?? '')
     }
 
     this.emit({
       type: 'incoming_message',
       pluginId: this.pluginId,
       pluginType: this.pluginType,
-      data: parsed,
+      data: parsed
     })
   }
 
@@ -189,12 +191,14 @@ export class DingTalkService extends BasePluginService {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json; charset=utf-8',
-            'Content-Length': String(bodyBuffer.byteLength),
-          },
+            'Content-Length': String(bodyBuffer.byteLength)
+          }
         },
         (res) => {
           let responseBody = ''
-          res.on('data', (chunk: Buffer) => { responseBody += chunk.toString() })
+          res.on('data', (chunk: Buffer) => {
+            responseBody += chunk.toString()
+          })
           res.on('end', () => {
             if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
               console.log(`[DingTalk] Webhook reply sent successfully`)
@@ -207,7 +211,10 @@ export class DingTalkService extends BasePluginService {
       )
 
       req.on('error', reject)
-      req.setTimeout(10000, () => { req.destroy(); reject(new Error('Webhook reply timeout')) })
+      req.setTimeout(10000, () => {
+        req.destroy()
+        reject(new Error('Webhook reply timeout'))
+      })
       req.write(bodyBuffer)
       req.end()
     })
@@ -246,7 +253,7 @@ export class DingTalkService extends BasePluginService {
       chatId,
       content: m.content,
       timestamp: m.createTime,
-      raw: m.raw,
+      raw: m.raw
     }))
   }
 
@@ -256,7 +263,7 @@ export class DingTalkService extends BasePluginService {
       id: g.openConversationId,
       name: g.name,
       memberCount: g.memberCount,
-      raw: g.raw,
+      raw: g.raw
     }))
   }
 
@@ -294,7 +301,7 @@ export class DingTalkService extends BasePluginService {
       openSpaceId,
       spaceType,
       initialContent: initialContent || '⏳ Thinking...',
-      key: streamKey,
+      key: streamKey
     })
 
     console.log(`[DingTalk] Created streaming card ${outTrackId} in space ${openSpaceId}`)
@@ -312,7 +319,7 @@ export class DingTalkService extends BasePluginService {
           key: streamKey,
           content,
           isFull: true,
-          isFinalize: false,
+          isFinalize: false
         })
       },
       finish: async (finalContent: string) => {
@@ -322,10 +329,10 @@ export class DingTalkService extends BasePluginService {
           key: streamKey,
           content: finalContent,
           isFull: true,
-          isFinalize: true,
+          isFinalize: true
         })
         console.log(`[DingTalk] Finalized streaming card ${outTrackId}`)
-      },
+      }
     }
 
     return handle

@@ -141,7 +141,10 @@ function appendMemoryContext(
     parts.push(
       `\n<global_daily_memory>`,
       `Recent global daily memory files provide short-term continuity.`,
-      ...globalDailyMemory.flatMap((entry) => [`\n## ${entry.date} — \`${entry.path}\``, entry.content ?? '']),
+      ...globalDailyMemory.flatMap((entry) => [
+        `\n## ${entry.date} — \`${entry.path}\``,
+        entry.content ?? ''
+      ]),
       `</global_daily_memory>`
     )
   }

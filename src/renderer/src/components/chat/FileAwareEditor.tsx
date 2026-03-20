@@ -189,6 +189,33 @@ function collectTextContent(node: Node): string {
   return Array.from(element.childNodes).map(collectTextContent).join('')
 }
 
+function isSameDocument(left: EditorDocumentNode[], right: EditorDocumentNode[]): boolean {
+  if (left.length !== right.length) return false
+
+  for (let index = 0; index < left.length; index += 1) {
+    const leftNode = left[index]
+    const rightNode = right[index]
+    if (leftNode?.type !== rightNode?.type) return false
+
+    if (leftNode?.type === 'text' && rightNode?.type === 'text') {
+      if (leftNode.text !== rightNode.text) return false
+      continue
+    }
+
+    if (leftNode?.type === 'file' && rightNode?.type === 'file') {
+      if (
+        leftNode.id !== rightNode.id ||
+        leftNode.fileId !== rightNode.fileId ||
+        leftNode.fallbackText !== rightNode.fallbackText
+      ) {
+        return false
+      }
+    }
+  }
+
+  return true
+}
+
 function parseDomToDocument(root: HTMLDivElement): EditorDocumentNode[] {
   const nextDocument: EditorDocumentNode[] = []
 
@@ -351,14 +378,52 @@ export const FileAwareEditor = React.forwardRef<FileAwareEditorHandle, FileAware
     ref
   ) {
     const editorRef = React.useRef<HTMLDivElement>(null)
+    const selectionRef = React.useRef<EditorSelectionOffsets>({ start: 0, end: 0 })
+    const focusedRef = React.useRef(false)
+    const selectionSyncFrameRef = React.useRef<number | null>(null)
+    const documentSyncFrameRef = React.useRef<number | null>(null)
+    const handlersRef = React.useRef<
+      Pick<FileAwareEditorProps, 'onReferencePreview' | 'onReferenceLocate' | 'onReferenceDelete'>
+    >({})
+    const lastRenderedHighlightRef = React.useRef<string | null | undefined>(undefined)
+
+    React.useEffect(() => {
+      handlersRef.current = {
+        onReferencePreview,
+        onReferenceLocate,
+        onReferenceDelete
+      }
+    }, [onReferenceDelete, onReferenceLocate, onReferencePreview])
 
     const syncSelection = React.useCallback(() => {
       const root = editorRef.current
-      if (!root) return { start: 0, end: 0 }
+      if (!root) return selectionRef.current
       const selection = getSelectionOffsets(root, files)
+      selectionRef.current = selection
       onSelectionChange?.(selection)
       return selection
     }, [files, onSelectionChange])
+
+    const scheduleSelectionSync = React.useCallback(() => {
+      if (selectionSyncFrameRef.current !== null) {
+        window.cancelAnimationFrame(selectionSyncFrameRef.current)
+      }
+      selectionSyncFrameRef.current = window.requestAnimationFrame(() => {
+        selectionSyncFrameRef.current = null
+        syncSelection()
+      })
+    }, [syncSelection])
+
+    React.useEffect(() => {
+      return () => {
+        if (selectionSyncFrameRef.current !== null) {
+          window.cancelAnimationFrame(selectionSyncFrameRef.current)
+        }
+        if (documentSyncFrameRef.current !== null) {
+          window.cancelAnimationFrame(documentSyncFrameRef.current)
+        }
+      }
+    }, [])
 
     React.useImperativeHandle(
       ref,
@@ -370,15 +435,18 @@ export const FileAwareEditor = React.forwardRef<FileAwareEditorHandle, FileAware
           const root = editorRef.current
           if (!root) return
           root.focus()
+          focusedRef.current = true
           const plainText = editorDocumentToPlainText(document, files)
+          selectionRef.current = { start: plainText.length, end: plainText.length }
           setSelectionOffsets(root, plainText.length, plainText.length)
-          onSelectionChange?.({ start: plainText.length, end: plainText.length })
+          onSelectionChange?.(selectionRef.current)
         },
         setSelectionOffsets: (start, end = start) => {
           const root = editorRef.current
           if (!root) return
+          selectionRef.current = { start, end }
           setSelectionOffsets(root, start, end)
-          onSelectionChange?.({ start, end })
+          onSelectionChange?.(selectionRef.current)
         },
         getSelectionOffsets: () => {
           const root = editorRef.current
@@ -402,30 +470,70 @@ export const FileAwareEditor = React.forwardRef<FileAwareEditorHandle, FileAware
     React.useLayoutEffect(() => {
       const root = editorRef.current
       if (!root) return
-      const selection = getSelectionOffsets(root, files)
+
+      const currentDocument = parseDomToDocument(root)
+      const highlightChanged = lastRenderedHighlightRef.current !== highlightedFileId
+      const shouldRender = highlightChanged || !isSameDocument(currentDocument, document)
+
+      if (!shouldRender) {
+        return
+      }
+
       renderDocument(root, document, files, {
-        onReferencePreview,
-        onReferenceLocate,
-        onReferenceDelete,
+        ...handlersRef.current,
         highlightedFileId
       })
-      setSelectionOffsets(root, selection.start, selection.end)
-    }, [
-      document,
-      files,
-      highlightedFileId,
-      onReferenceDelete,
-      onReferenceLocate,
-      onReferencePreview
-    ])
+      lastRenderedHighlightRef.current = highlightedFileId
 
-    const handleInput = React.useCallback(() => {
+      if (!focusedRef.current) return
+      const selection = selectionRef.current
+      setSelectionOffsets(root, selection.start, selection.end)
+    }, [document, files, highlightedFileId])
+
+    const flushDocumentSync = React.useCallback(() => {
       const root = editorRef.current
       if (!root) return
       const nextDocument = parseDomToDocument(root)
-      onDocumentChange(nextDocument)
-      syncSelection()
-    }, [onDocumentChange, syncSelection])
+      if (!isSameDocument(nextDocument, document)) {
+        onDocumentChange(nextDocument)
+      }
+    }, [document, onDocumentChange])
+
+    const scheduleDocumentSync = React.useCallback(() => {
+      if (documentSyncFrameRef.current !== null) {
+        return
+      }
+      documentSyncFrameRef.current = window.requestAnimationFrame(() => {
+        documentSyncFrameRef.current = null
+        flushDocumentSync()
+      })
+    }, [flushDocumentSync])
+
+    const syncDocumentAndSelection = React.useCallback(() => {
+      scheduleDocumentSync()
+      scheduleSelectionSync()
+    }, [scheduleDocumentSync, scheduleSelectionSync])
+
+    const handleInput = React.useCallback(() => {
+      syncDocumentAndSelection()
+    }, [syncDocumentAndSelection])
+
+    const handleCompositionUpdateInternal = React.useCallback(() => {
+      syncDocumentAndSelection()
+    }, [syncDocumentAndSelection])
+
+    const handleCompositionEndInternal = React.useCallback(
+      (event: React.CompositionEvent<HTMLDivElement>) => {
+        onCompositionEnd?.(event)
+        if (documentSyncFrameRef.current !== null) {
+          window.cancelAnimationFrame(documentSyncFrameRef.current)
+          documentSyncFrameRef.current = null
+        }
+        flushDocumentSync()
+        scheduleSelectionSync()
+      },
+      [flushDocumentSync, onCompositionEnd, scheduleSelectionSync]
+    )
 
     const plainText = React.useMemo(
       () => editorDocumentToPlainText(document, files),
@@ -450,29 +558,33 @@ export const FileAwareEditor = React.forwardRef<FileAwareEditorHandle, FileAware
           ref={editorRef}
           contentEditable={!disabled}
           suppressContentEditableWarning
+          spellCheck={false}
+          data-gramm="false"
           className="relative z-10 h-full min-h-[60px] overflow-y-auto whitespace-pre-wrap break-words p-1 text-base outline-none md:text-sm"
           onInput={handleInput}
           onKeyDown={onKeyDown}
           onPaste={onPaste}
           onFocus={() => {
+            focusedRef.current = true
             onFocus?.()
-            syncSelection()
+            scheduleSelectionSync()
           }}
-          onBlur={onBlur}
+          onBlur={() => {
+            focusedRef.current = false
+            onBlur?.()
+          }}
           onClick={() => {
-            syncSelection()
+            scheduleSelectionSync()
           }}
           onKeyUp={() => {
-            syncSelection()
+            scheduleSelectionSync()
           }}
           onMouseUp={() => {
-            syncSelection()
+            scheduleSelectionSync()
           }}
           onCompositionStart={onCompositionStart}
-          onCompositionEnd={(event) => {
-            onCompositionEnd?.(event)
-            syncSelection()
-          }}
+          onCompositionUpdate={handleCompositionUpdateInternal}
+          onCompositionEnd={handleCompositionEndInternal}
           role="textbox"
           aria-multiline="true"
         />

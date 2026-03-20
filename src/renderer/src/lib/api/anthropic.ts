@@ -5,7 +5,7 @@ import type {
   ToolDefinition,
   UnifiedMessage,
   ContentBlock,
-  TokenUsage,
+  TokenUsage
 } from './types'
 import { ipcStreamRequest, maskHeaders } from '../ipc/api-stream'
 import { registerProvider } from './provider'
@@ -27,11 +27,21 @@ class AnthropicProvider implements APIProvider {
       model: config.model,
       max_tokens: config.maxTokens ?? 32000,
       ...(config.systemPrompt
-        ? { system: [{ type: 'text', text: config.systemPrompt, ...(config.enableSystemPromptCache ? { cache_control: { type: 'ephemeral' } } : {}) }] }
+        ? {
+            system: [
+              {
+                type: 'text',
+                text: config.systemPrompt,
+                ...(config.enableSystemPromptCache ? { cache_control: { type: 'ephemeral' } } : {})
+              }
+            ]
+          }
         : {}),
       messages: this.formatMessages(messages),
-      ...(tools.length > 0 ? { tools: this.formatTools(tools), tool_choice: { type: 'auto' } } : {}),
-      stream: true,
+      ...(tools.length > 0
+        ? { tools: this.formatTools(tools), tool_choice: { type: 'auto' } }
+        : {}),
+      stream: true
     }
 
     // Merge thinking/reasoning params when enabled; explicit disable params when off
@@ -51,13 +61,22 @@ class AnthropicProvider implements APIProvider {
       'Content-Type': 'application/json',
       'x-api-key': config.apiKey,
       'anthropic-version': '2023-06-01',
-      'anthropic-beta': 'prompt-caching-2024-07-31,interleaved-thinking-2025-05-14',
+      'anthropic-beta': 'prompt-caching-2024-07-31,interleaved-thinking-2025-05-14'
     }
     if (config.userAgent) headers['User-Agent'] = config.userAgent
     const bodyStr = JSON.stringify(body)
 
     // Yield debug info for dev mode inspection
-    yield { type: 'request_debug', debugInfo: { url, method: 'POST', headers: maskHeaders(headers), body: bodyStr, timestamp: Date.now() } }
+    yield {
+      type: 'request_debug',
+      debugInfo: {
+        url,
+        method: 'POST',
+        headers: maskHeaders(headers),
+        body: bodyStr,
+        timestamp: Date.now()
+      }
+    }
 
     const toolBuffersByBlockIndex = new Map<number, string>()
     const toolCallsByBlockIndex = new Map<number, { id: string; name: string }>()
@@ -71,7 +90,7 @@ class AnthropicProvider implements APIProvider {
       return {
         type: 'thinking_encrypted',
         thinkingEncryptedContent: trimmed,
-        thinkingEncryptedProvider: 'anthropic',
+        thinkingEncryptedProvider: 'anthropic'
       }
     }
 
@@ -88,7 +107,7 @@ class AnthropicProvider implements APIProvider {
       body: bodyStr,
       signal,
       providerId: config.providerId,
-      providerBuiltinId: config.providerBuiltinId,
+      providerBuiltinId: config.providerBuiltinId
     })) {
       if (!sse.data || sse.data === '[DONE]') continue
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -121,12 +140,12 @@ class AnthropicProvider implements APIProvider {
             toolBuffersByBlockIndex.set(blockIndex, '')
             toolCallsByBlockIndex.set(blockIndex, {
               id: data.content_block.id,
-              name: data.content_block.name,
+              name: data.content_block.name
             })
             yield {
               type: 'tool_call_start',
               toolCallId: data.content_block.id,
-              toolName: data.content_block.name,
+              toolName: data.content_block.name
             }
           } else if (data.content_block.type === 'thinking') {
             const thinkingEncryptedEvent = tryBuildThinkingEncryptedEvent(
@@ -161,7 +180,7 @@ class AnthropicProvider implements APIProvider {
             yield {
               type: 'tool_call_delta',
               toolCallId: toolCall?.id,
-              argumentsDelta: data.delta.partial_json,
+              argumentsDelta: data.delta.partial_json
             }
           }
           break
@@ -178,14 +197,14 @@ class AnthropicProvider implements APIProvider {
                   type: 'tool_call_end',
                   toolCallId: toolCall.id,
                   toolName: toolCall.name,
-                  toolCallInput: JSON.parse(raw),
+                  toolCallInput: JSON.parse(raw)
                 }
               } catch {
                 yield {
                   type: 'tool_call_end',
                   toolCallId: toolCall.id,
                   toolName: toolCall.name,
-                  toolCallInput: {},
+                  toolCallInput: {}
                 }
               }
             } else {
@@ -194,7 +213,7 @@ class AnthropicProvider implements APIProvider {
                 type: 'tool_call_end',
                 toolCallId: toolCall.id,
                 toolName: toolCall.name,
-                toolCallInput: {},
+                toolCallInput: {}
               }
             }
             toolBuffersByBlockIndex.delete(blockIndex)
@@ -220,7 +239,7 @@ class AnthropicProvider implements APIProvider {
                 type: 'tool_call_end',
                 toolCallId: toolCall.id,
                 toolName: toolCall.name,
-                toolCallInput: parsed,
+                toolCallInput: parsed
               }
             }
             toolCallsByBlockIndex.clear()
@@ -237,8 +256,8 @@ class AnthropicProvider implements APIProvider {
             timing: {
               totalMs: requestCompletedAt - requestStartedAt,
               ttftMs: firstTokenAt ? firstTokenAt - requestStartedAt : undefined,
-              tps: computeTps(outputTokens, firstTokenAt, requestCompletedAt),
-            },
+              tps: computeTps(outputTokens, firstTokenAt, requestCompletedAt)
+            }
           }
           break
         }
@@ -267,9 +286,10 @@ class AnthropicProvider implements APIProvider {
                 return {
                   type: 'thinking',
                   thinking: b.thinking,
-                  ...(b.encryptedContent && (b.encryptedContentProvider === 'anthropic' || !b.encryptedContentProvider)
+                  ...(b.encryptedContent &&
+                  (b.encryptedContentProvider === 'anthropic' || !b.encryptedContentProvider)
                     ? { signature: b.encryptedContent }
-                    : {}),
+                    : {})
                 }
               case 'text':
                 return { type: 'text', text: b.text }
@@ -280,7 +300,14 @@ class AnthropicProvider implements APIProvider {
                 if (Array.isArray(b.content)) {
                   formattedContent = b.content.map((cb) => {
                     if (cb.type === 'image') {
-                      return { type: 'image', source: { type: cb.source.type, media_type: cb.source.mediaType, data: cb.source.data } }
+                      return {
+                        type: 'image',
+                        source: {
+                          type: cb.source.type,
+                          media_type: cb.source.mediaType,
+                          data: cb.source.data
+                        }
+                      }
                     }
                     return cb
                   })
@@ -292,7 +319,7 @@ class AnthropicProvider implements APIProvider {
               default:
                 return { type: 'text', text: '[unsupported block]' }
             }
-          }),
+          })
         }
       })
   }
@@ -301,7 +328,7 @@ class AnthropicProvider implements APIProvider {
     return tools.map((t) => ({
       name: t.name,
       description: t.description,
-      input_schema: t.inputSchema,
+      input_schema: t.inputSchema
     }))
   }
 }
@@ -310,7 +337,11 @@ export function registerAnthropicProvider(): void {
   registerProvider('anthropic', () => new AnthropicProvider())
 }
 
-function computeTps(outputTokens: number, firstTokenAt: number | null, completedAt: number): number | undefined {
+function computeTps(
+  outputTokens: number,
+  firstTokenAt: number | null,
+  completedAt: number
+): number | undefined {
   if (!firstTokenAt || outputTokens <= 0) return undefined
   const durationMs = completedAt - firstTokenAt
   if (durationMs <= 0) return undefined

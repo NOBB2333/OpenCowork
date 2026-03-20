@@ -24,24 +24,24 @@ const notifyHandler: ToolHandler = {
       properties: {
         title: {
           type: 'string',
-          description: 'Notification title (shown as the header)',
+          description: 'Notification title (shown as the header)'
         },
         body: {
           type: 'string',
-          description: 'Notification body — the main content/summary to communicate',
+          description: 'Notification body — the main content/summary to communicate'
         },
         type: {
           type: 'string',
           enum: ['info', 'success', 'warning', 'error'],
-          description: 'Notification style. Default: "info"',
+          description: 'Notification style. Default: "info"'
         },
         duration: {
           type: 'number',
-          description: 'How long the desktop toast stays visible in milliseconds. Default: 5000',
-        },
+          description: 'How long the desktop toast stays visible in milliseconds. Default: 5000'
+        }
       },
-      required: ['title', 'body'],
-    },
+      required: ['title', 'body']
+    }
   },
 
   execute: async (input, ctx) => {
@@ -55,10 +55,20 @@ const notifyHandler: ToolHandler = {
     }
 
     // ── Delivery-once guard: block duplicate delivery calls within a single cron run ──
-    console.log(`[Notify] callerAgent=${ctx.callerAgent}, sharedState=`, JSON.stringify(ctx.sharedState), `pluginId=${ctx.pluginId}, pluginChatId=${ctx.pluginChatId}`)
+    console.log(
+      `[Notify] callerAgent=${ctx.callerAgent}, sharedState=`,
+      JSON.stringify(ctx.sharedState),
+      `pluginId=${ctx.pluginId}, pluginChatId=${ctx.pluginChatId}`
+    )
     if (ctx.callerAgent === 'CronAgent' && ctx.sharedState?.deliveryUsed) {
-      console.warn('[Notify] CronAgent already delivered results this run — BLOCKING duplicate Notify call')
-      return encodeStructuredToolResult({ success: true, skipped: true, reason: 'Already delivered results this run. Only one delivery call is allowed.' })
+      console.warn(
+        '[Notify] CronAgent already delivered results this run — BLOCKING duplicate Notify call'
+      )
+      return encodeStructuredToolResult({
+        success: true,
+        skipped: true,
+        reason: 'Already delivered results this run. Only one delivery call is allowed.'
+      })
     }
 
     // When CronAgent has plugin context, redirect Notify → plugin channel automatically.
@@ -69,12 +79,13 @@ const notifyHandler: ToolHandler = {
       console.log('[Notify] CronAgent has plugin context — redirecting to plugin channel via IPC')
       if (ctx.sharedState) ctx.sharedState.deliveryUsed = true
       try {
-        const emoji = type === 'success' ? '✅' : type === 'warning' ? '⚠️' : type === 'error' ? '❌' : 'ℹ️'
+        const emoji =
+          type === 'success' ? '✅' : type === 'warning' ? '⚠️' : type === 'error' ? '❌' : 'ℹ️'
         const content = `${emoji} ${title}\n${body}`
         const result = await ctx.ipc.invoke(IPC.PLUGIN_EXEC, {
           pluginId: ctx.pluginId,
           action: 'sendMessage',
-          params: { chatId: ctx.pluginChatId, content },
+          params: { chatId: ctx.pluginChatId, content }
         })
         console.log('[Notify] Plugin redirect done, sharedState=', JSON.stringify(ctx.sharedState))
         return encodeStructuredToolResult(result as Record<string, unknown>)
@@ -96,17 +107,17 @@ const notifyHandler: ToolHandler = {
       return encodeStructuredToolResult({
         success: true,
         title,
-        body: body.slice(0, 200),
+        body: body.slice(0, 200)
       })
     } catch (err) {
       return encodeStructuredToolResult({
         success: false,
-        error: err instanceof Error ? err.message : String(err),
+        error: err instanceof Error ? err.message : String(err)
       })
     }
   },
 
-  requiresApproval: () => false,
+  requiresApproval: () => false
 }
 
 export function registerNotifyTool(): void {

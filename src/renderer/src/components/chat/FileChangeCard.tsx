@@ -607,11 +607,8 @@ export function FileChangeCard({
     parsedOutput.success === true
   )
   const isOutputError = outputStr
-    ? !!(
-        parsedOutput &&
-        !Array.isArray(parsedOutput) &&
-        typeof parsedOutput.error === 'string'
-      ) || (!parsedOutput && outputStr.length > 0)
+    ? !!(parsedOutput && !Array.isArray(parsedOutput) && typeof parsedOutput.error === 'string') ||
+      (!parsedOutput && outputStr.length > 0)
     : false
 
   // Determine border color based on status

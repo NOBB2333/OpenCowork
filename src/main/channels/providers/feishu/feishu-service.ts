@@ -6,7 +6,7 @@ import type {
   ChannelGroup,
   MessagingChannelService,
   ChannelStreamingHandle,
-  ChannelIncomingMessageData,
+  ChannelIncomingMessageData
 } from '../../channel-types'
 import { FeishuApi } from './feishu-api'
 
@@ -19,27 +19,33 @@ const STREAM_THROTTLE_MS = 500
  * where axios requests to the WS endpoint fail.
  */
 function buildFetchHttpInstance(): Lark.HttpInstance {
-  const request = async (opts: { url: string; method: string; data?: unknown; headers?: Record<string, string> }) => {
+  const request = async (opts: {
+    url: string
+    method: string
+    data?: unknown
+    headers?: Record<string, string>
+  }) => {
     const res = await fetch(opts.url, {
       method: opts.method.toUpperCase(),
       headers: {
         'Content-Type': 'application/json',
         'User-Agent': 'oapi-node-sdk/1.0.0',
-        ...(opts.headers ?? {}),
+        ...(opts.headers ?? {})
       },
-      body: opts.data != null ? JSON.stringify(opts.data) : undefined,
+      body: opts.data != null ? JSON.stringify(opts.data) : undefined
     })
     return res.json()
   }
   return {
     request,
-    get: (url: string, opts?: unknown) => request({ url, method: 'GET', ...(opts as object ?? {}) }),
+    get: (url: string, opts?: unknown) =>
+      request({ url, method: 'GET', ...((opts as object) ?? {}) }),
     post: (url: string, data?: unknown) => request({ url, method: 'POST', data }),
     put: (url: string, data?: unknown) => request({ url, method: 'PUT', data }),
     delete: (url: string) => request({ url, method: 'DELETE' }),
     head: (url: string) => request({ url, method: 'HEAD' }),
     options: (url: string) => request({ url, method: 'OPTIONS' }),
-    patch: (url: string, data?: unknown) => request({ url, method: 'PATCH', data }),
+    patch: (url: string, data?: unknown) => request({ url, method: 'PATCH', data })
   } as unknown as Lark.HttpInstance
 }
 
@@ -89,7 +95,10 @@ export class FeishuService implements MessagingChannelService {
       this._botOpenId = botInfo.openId
       console.log(`[Feishu] Bot identity: ${botInfo.appName} (${botInfo.openId})`)
     } catch (err) {
-      console.warn('[Feishu] Failed to fetch bot info, group @mention detection may be unreliable:', err)
+      console.warn(
+        '[Feishu] Failed to fetch bot info, group @mention detection may be unreliable:',
+        err
+      )
     }
 
     // Use custom fetch-based httpInstance to fix axios 400 in Electron
@@ -97,7 +106,7 @@ export class FeishuService implements MessagingChannelService {
       appId,
       appSecret,
       loggerLevel: Lark.LoggerLevel.info,
-      httpInstance: buildFetchHttpInstance(),
+      httpInstance: buildFetchHttpInstance()
     })
 
     this.wsClient.start({
@@ -111,7 +120,11 @@ export class FeishuService implements MessagingChannelService {
                 chat_type?: string // 'p2p' | 'group'
                 content?: string
                 message_type?: string
-                mentions?: Array<{ key: string; id: { open_id?: string; union_id?: string }; name: string }>
+                mentions?: Array<{
+                  key: string
+                  id: { open_id?: string; union_id?: string }
+                  name: string
+                }>
               }
               sender?: { sender_id?: { open_id?: string; user_id?: string } }
             }
@@ -129,10 +142,11 @@ export class FeishuService implements MessagingChannelService {
 
             // Group chat filter: only respond when the bot is @mentioned
             if (chatType === 'group') {
-              const isBotMentioned = mentions.some((m) =>
-                m.key === '@_all' ||
-                (this._botOpenId && m.id?.open_id === this._botOpenId) ||
-                (!this._botOpenId && m.name === (this._instance.name || ''))
+              const isBotMentioned = mentions.some(
+                (m) =>
+                  m.key === '@_all' ||
+                  (this._botOpenId && m.id?.open_id === this._botOpenId) ||
+                  (!this._botOpenId && m.name === (this._instance.name || ''))
               )
               if (!isBotMentioned) {
                 return
@@ -162,9 +176,15 @@ export class FeishuService implements MessagingChannelService {
                 // Image message: download and convert to base64
                 content = '[User sent an image]'
                 try {
-                  const buf = await this.api.downloadMessageResource(messageId, parsed.image_key, 'image')
+                  const buf = await this.api.downloadMessageResource(
+                    messageId,
+                    parsed.image_key,
+                    'image'
+                  )
                   images = [{ base64: buf.toString('base64'), mediaType: 'image/png' }]
-                  console.log(`[Feishu] Downloaded image ${parsed.image_key} (${buf.byteLength} bytes)`)
+                  console.log(
+                    `[Feishu] Downloaded image ${parsed.image_key} (${buf.byteLength} bytes)`
+                  )
                 } catch (err) {
                   console.warn(`[Feishu] Failed to download image:`, err)
                   content = `[User sent an image but download failed: ${parsed.image_key}]`
@@ -175,7 +195,7 @@ export class FeishuService implements MessagingChannelService {
                   fileKey: parsed.file_key,
                   fileName: parsed.file_name,
                   mediaType: parsed.media_type,
-                  durationMs: typeof parsed.duration === 'number' ? parsed.duration : undefined,
+                  durationMs: typeof parsed.duration === 'number' ? parsed.duration : undefined
                 }
               } else {
                 content = parsed.text ?? ''
@@ -187,22 +207,28 @@ export class FeishuService implements MessagingChannelService {
             // Strip @bot mention placeholder from content (Feishu uses @_user_1 style placeholders)
             if (mentions.length > 0 && content) {
               for (const m of mentions) {
-                content = content.replace(new RegExp(m.key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), '').trim()
+                content = content
+                  .replace(new RegExp(m.key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), '')
+                  .trim()
               }
             }
 
             if (!chatId || (!content && !images && !audio)) return
 
-            console.log(`[Feishu] ${msgType} [${chatType}] in ${chatId}: ${content.slice(0, 60)}${images ? ` [+${images.length} image(s)]` : ''}${audio ? ' [audio]' : ''}`)
+            console.log(
+              `[Feishu] ${msgType} [${chatType}] in ${chatId}: ${content.slice(0, 60)}${images ? ` [+${images.length} image(s)]` : ''}${audio ? ' [audio]' : ''}`
+            )
 
             // Resolve sender display name (cached) so P2P chats have proper titles
-            let senderName = senderId ? this._userNameCache.get(senderId) ?? '' : ''
+            let senderName = senderId ? (this._userNameCache.get(senderId) ?? '') : ''
             if (!senderName && senderId) {
               try {
                 const profile = await this.api.getUserProfile(senderId, senderIdType)
                 senderName = profile?.name?.trim() ?? ''
                 if (senderName) this._userNameCache.set(senderId, senderName)
-              } catch { /* ignore */ }
+              } catch {
+                /* ignore */
+              }
             }
 
             // Resolve chat name (cached)
@@ -212,7 +238,9 @@ export class FeishuService implements MessagingChannelService {
                 const info = await this.api.getChatInfo(chatId)
                 chatName = info?.name || ''
                 if (chatName) this._chatNameCache.set(chatId, chatName)
-              } catch { /* ignore */ }
+              } catch {
+                /* ignore */
+              }
             }
 
             if (chatType === 'p2p' && !chatName && senderName) {
@@ -233,14 +261,14 @@ export class FeishuService implements MessagingChannelService {
                 audio,
                 msgType,
                 chatName,
-                chatType,
-              } as ChannelIncomingMessageData,
+                chatType
+              } as ChannelIncomingMessageData
             })
           } catch (err) {
             console.error('[Feishu] Error handling message:', err)
           }
-        },
-      }),
+        }
+      })
     })
 
     this._running = true
@@ -248,7 +276,7 @@ export class FeishuService implements MessagingChannelService {
       type: 'status_change',
       pluginId: this.pluginId,
       pluginType: this.pluginType,
-      data: 'running',
+      data: 'running'
     })
     console.log(`[Feishu] Started for plugin ${this.pluginId}`)
   }
@@ -256,7 +284,11 @@ export class FeishuService implements MessagingChannelService {
   async stop(): Promise<void> {
     this._running = false
     if (this.wsClient) {
-      try { this.wsClient.close() } catch { /* ignore */ }
+      try {
+        this.wsClient.close()
+      } catch {
+        /* ignore */
+      }
       this.wsClient = null
     }
     console.log(`[Feishu] Stopped plugin ${this.pluginId}`)
@@ -280,9 +312,8 @@ export class FeishuService implements MessagingChannelService {
         const parsed = JSON.parse(trimmed) as { msg_type?: string; content?: unknown }
         if (parsed?.msg_type && parsed.content != null) {
           const msgType = String(parsed.msg_type)
-          const payload = msgType === 'text'
-            ? String(parsed.content)
-            : JSON.stringify(parsed.content)
+          const payload =
+            msgType === 'text' ? String(parsed.content) : JSON.stringify(parsed.content)
           return this.api.sendMessage(chatId, payload, msgType)
         }
       } catch {
@@ -305,7 +336,7 @@ export class FeishuService implements MessagingChannelService {
       chatId,
       content: m.content,
       timestamp: parseInt(m.create_time, 10) || Date.now(),
-      raw: m.raw,
+      raw: m.raw
     }))
   }
 
@@ -315,7 +346,7 @@ export class FeishuService implements MessagingChannelService {
       id: c.chat_id,
       name: c.name,
       memberCount: c.member_count,
-      raw: c.raw,
+      raw: c.raw
     }))
   }
 
@@ -357,7 +388,7 @@ export class FeishuService implements MessagingChannelService {
         const seq = this._nextSeq(cardId)
         await this.api.updateCard(cardId, finalContent, seq)
         this._cardSequences.delete(cardId)
-      },
+      }
     }
 
     return handle

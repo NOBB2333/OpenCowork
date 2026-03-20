@@ -526,7 +526,13 @@ export const azureOpenaiPreset: BuiltinProviderPreset = {
       cacheHitPrice: 0.075
     },
     // Speech & transcription
-    { id: 'gpt-4o-transcribe', name: 'GPT-4o Transcribe', icon: 'openai', enabled: true, category: 'speech' },
+    {
+      id: 'gpt-4o-transcribe',
+      name: 'GPT-4o Transcribe',
+      icon: 'openai',
+      enabled: true,
+      category: 'speech'
+    },
     {
       id: 'gpt-4o-mini-transcribe',
       name: 'GPT-4o Mini Transcribe',
@@ -534,5 +540,5 @@ export const azureOpenaiPreset: BuiltinProviderPreset = {
       enabled: true,
       category: 'speech'
     }
-  ],
+  ]
 }

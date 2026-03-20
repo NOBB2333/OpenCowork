@@ -99,10 +99,7 @@ export function selectFileTextToPlainText(text: string): string {
   return segments.map((segment) => segment.text).join('')
 }
 
-export function findSelectFileTagAt(
-  text: string,
-  cursor: number
-): SelectFileTagRange | null {
+export function findSelectFileTagAt(text: string, cursor: number): SelectFileTagRange | null {
   const safeCursor = Math.max(0, Math.min(cursor, text.length))
   for (const range of getSelectFileTagRanges(text)) {
     if (safeCursor > range.start && safeCursor < range.end) {
@@ -117,21 +114,28 @@ export function getSelectFileMentionQuery(
   cursor: number
 ): SelectFileMentionQuery | null {
   const safeCursor = Math.max(0, Math.min(cursor, text.length))
-  let tokenStart = safeCursor
+  let mentionStart = -1
 
-  while (tokenStart > 0) {
-    const char = text[tokenStart - 1]
+  for (let index = safeCursor - 1; index >= 0; index -= 1) {
+    const char = text[index]
     if (/\s/.test(char)) break
-    tokenStart -= 1
+    if (char === '<' || char === '>') return null
+    if (char === '@') {
+      mentionStart = index
+      break
+    }
   }
 
-  const token = text.slice(tokenStart, safeCursor)
-  if (!token.startsWith('@')) return null
-  if (token.includes('<') || token.includes('>')) return null
+  if (mentionStart < 0) return null
+
+  const prefixChar = mentionStart > 0 ? text[mentionStart - 1] : ''
+  if (prefixChar && /[A-Za-z0-9_./\\-]/.test(prefixChar)) {
+    return null
+  }
 
   return {
-    start: tokenStart,
+    start: mentionStart,
     end: safeCursor,
-    query: token.slice(1)
+    query: text.slice(mentionStart + 1, safeCursor)
   }
 }

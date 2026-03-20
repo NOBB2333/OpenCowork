@@ -1,45 +1,43 @@
-'use client';
+'use client'
 
-import * as React from 'react';
-import { motion, type Transition } from 'motion/react';
-import { Label } from '@renderer/components/ui/label';
-import { Checkbox } from '@renderer/components/animate-ui/primitives/radix/checkbox';
+import * as React from 'react'
+import { motion, type Transition } from 'motion/react'
+import { Label } from '@renderer/components/ui/label'
+import { Checkbox } from '@renderer/components/animate-ui/primitives/radix/checkbox'
 
 const checkboxItems = [
   {
     id: 1,
     label: 'Code in Assembly 💾',
-    defaultChecked: false,
+    defaultChecked: false
   },
   {
     id: 2,
     label: 'Present a bug as a feature 🪲',
-    defaultChecked: false,
+    defaultChecked: false
   },
   {
     id: 3,
     label: 'Push to prod on a Friday 🚀',
-    defaultChecked: false,
-  },
-];
+    defaultChecked: false
+  }
+]
 
 const getPathAnimate = (isChecked: boolean) => ({
   pathLength: isChecked ? 1 : 0,
-  opacity: isChecked ? 1 : 0,
-});
+  opacity: isChecked ? 1 : 0
+})
 
 const getPathTransition = (isChecked: boolean): Transition => ({
   pathLength: { duration: 1, ease: 'easeInOut' },
   opacity: {
     duration: 0.01,
-    delay: isChecked ? 0 : 1,
-  },
-});
+    delay: isChecked ? 0 : 1
+  }
+})
 
 function PlayfulTodolist() {
-  const [checked, setChecked] = React.useState(
-    checkboxItems.map((i) => !!i.defaultChecked),
-  );
+  const [checked, setChecked] = React.useState(checkboxItems.map((i) => !!i.defaultChecked))
 
   return (
     <div className="bg-neutral-100 dark:bg-neutral-900 rounded-2xl p-6 space-y-6">
@@ -50,9 +48,9 @@ function PlayfulTodolist() {
               variant="accent"
               checked={checked[idx]}
               onCheckedChange={(val) => {
-                const updated = [...checked];
-                updated[idx] = val === true;
-                setChecked(updated);
+                const updated = [...checked]
+                updated[idx] = val === true
+                setChecked(updated)
               }}
               id={`checkbox-${item.id}`}
             />
@@ -85,7 +83,7 @@ function PlayfulTodolist() {
         </div>
       ))}
     </div>
-  );
+  )
 }
 
-export { PlayfulTodolist };
+export { PlayfulTodolist }

@@ -3,12 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useSshStore, type SshGroup } from '@renderer/stores/ssh-store'
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@renderer/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@renderer/components/ui/dialog'
 import { toast } from 'sonner'
 
 interface SshGroupDialogProps {
@@ -43,7 +38,12 @@ export function SshGroupDialog({ open, group, onClose }: SshGroupDialogProps): R
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) onClose()
+      }}
+    >
       <DialogContent className="sm:max-w-sm p-4">
         <DialogHeader>
           <DialogTitle className="text-sm">{t('groupDialog.title')}</DialogTitle>

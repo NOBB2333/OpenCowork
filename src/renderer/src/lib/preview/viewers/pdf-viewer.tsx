@@ -11,7 +11,7 @@ import 'react-pdf/dist/Page/TextLayer.css'
 // Configure pdf.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url,
+  import.meta.url
 ).toString()
 
 export function PdfViewer({ filePath, sshConnectionId }: ViewerProps): React.JSX.Element {
@@ -52,7 +52,9 @@ export function PdfViewer({ filePath, sshConnectionId }: ViewerProps): React.JSX
       }
     })
 
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [filePath, sshConnectionId])
 
   const onDocumentLoadSuccess = ({ numPages: n }: { numPages: number }): void => {
@@ -84,13 +86,25 @@ export function PdfViewer({ filePath, sshConnectionId }: ViewerProps): React.JSX
     <div className="flex size-full flex-col">
       {/* Page navigation */}
       <div className="flex h-8 items-center justify-center gap-2 border-b px-2">
-        <Button variant="ghost" size="sm" className="h-6 px-1" onClick={prevPage} disabled={currentPage <= 1}>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 px-1"
+          onClick={prevPage}
+          disabled={currentPage <= 1}
+        >
           <ChevronLeft className="size-3.5" />
         </Button>
         <span className="text-xs text-muted-foreground">
           {currentPage} / {numPages}
         </span>
-        <Button variant="ghost" size="sm" className="h-6 px-1" onClick={nextPage} disabled={currentPage >= numPages}>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 px-1"
+          onClick={nextPage}
+          disabled={currentPage >= numPages}
+        >
           <ChevronRight className="size-3.5" />
         </Button>
       </div>

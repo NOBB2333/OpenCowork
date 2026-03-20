@@ -30,7 +30,12 @@ export interface NotifyOptions {
 
 interface NotifyStore {
   items: NotifyItem[]
-  push: (title: string, body: string, typeOrOpts?: NotifyType | NotifyOptions, duration?: number) => void
+  push: (
+    title: string,
+    body: string,
+    typeOrOpts?: NotifyType | NotifyOptions,
+    duration?: number
+  ) => void
   dismiss: (id: string) => void
 }
 
@@ -59,9 +64,9 @@ export const useNotifyStore = create<NotifyStore>((set) => ({
       duration: dur,
       createdAt: Date.now(),
       persistent,
-      actions,
+      actions
     }
     set((s) => ({ items: [...s.items, item] }))
   },
-  dismiss: (id) => set((s) => ({ items: s.items.filter((i) => i.id !== id) })),
+  dismiss: (id) => set((s) => ({ items: s.items.filter((i) => i.id !== id) }))
 }))

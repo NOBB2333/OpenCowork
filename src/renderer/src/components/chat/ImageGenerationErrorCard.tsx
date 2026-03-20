@@ -19,36 +19,39 @@ function getErrorViewModel(code: ImageErrorCode): ErrorViewModel {
       return {
         icon: Clock3,
         titleKey: 'assistantMessage.imageError.titleTimeout',
-        descKey: 'assistantMessage.imageError.descTimeout',
+        descKey: 'assistantMessage.imageError.descTimeout'
       }
     case 'network':
       return {
         icon: WifiOff,
         titleKey: 'assistantMessage.imageError.titleNetwork',
-        descKey: 'assistantMessage.imageError.descNetwork',
+        descKey: 'assistantMessage.imageError.descNetwork'
       }
     case 'request_aborted':
       return {
         icon: Ban,
         titleKey: 'assistantMessage.imageError.titleAborted',
-        descKey: 'assistantMessage.imageError.descAborted',
+        descKey: 'assistantMessage.imageError.descAborted'
       }
     case 'api_error':
       return {
         icon: AlertTriangle,
         titleKey: 'assistantMessage.imageError.titleApi',
-        descKey: 'assistantMessage.imageError.descApi',
+        descKey: 'assistantMessage.imageError.descApi'
       }
     default:
       return {
         icon: AlertTriangle,
         titleKey: 'assistantMessage.imageError.titleUnknown',
-        descKey: 'assistantMessage.imageError.descUnknown',
+        descKey: 'assistantMessage.imageError.descUnknown'
       }
   }
 }
 
-export function ImageGenerationErrorCard({ code, message }: ImageGenerationErrorCardProps): React.JSX.Element {
+export function ImageGenerationErrorCard({
+  code,
+  message
+}: ImageGenerationErrorCardProps): React.JSX.Element {
   const { t } = useTranslation('chat')
   const viewModel = getErrorViewModel(code)
   const Icon = viewModel.icon
@@ -61,7 +64,9 @@ export function ImageGenerationErrorCard({ code, message }: ImageGenerationError
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-destructive/90">{t(viewModel.titleKey)}</p>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{t(viewModel.descKey)}</p>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            {t(viewModel.descKey)}
+          </p>
           <details className="mt-2">
             <summary className="cursor-pointer text-xs text-muted-foreground/80 hover:text-foreground">
               {t('assistantMessage.imageError.details')}

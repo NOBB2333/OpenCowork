@@ -2,13 +2,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
-import type {
-  McpServerConfig,
-  McpServerStatus,
-  McpTool,
-  McpResource,
-  McpPrompt,
-} from './mcp-types'
+import type { McpServerConfig, McpServerStatus, McpTool, McpResource, McpPrompt } from './mcp-types'
 
 /**
  * McpClientWrapper — wraps @modelcontextprotocol/sdk Client for a single MCP server.
@@ -18,7 +12,11 @@ import type {
  */
 export class McpClientWrapper {
   private client: Client | null = null
-  private transport: InstanceType<typeof StdioClientTransport> | InstanceType<typeof SSEClientTransport> | InstanceType<typeof StreamableHTTPClientTransport> | null = null
+  private transport:
+    | InstanceType<typeof StdioClientTransport>
+    | InstanceType<typeof SSEClientTransport>
+    | InstanceType<typeof StreamableHTTPClientTransport>
+    | null = null
 
   private _status: McpServerStatus = 'disconnected'
   private _error: string | undefined
@@ -65,16 +63,13 @@ export class McpClientWrapper {
         this.config.autoFallback !== false &&
         this.config.url
       ) {
-        console.log(
-          `[MCP:${this.config.name}] Streamable HTTP failed, falling back to SSE...`
-        )
+        console.log(`[MCP:${this.config.name}] Streamable HTTP failed, falling back to SSE...`)
         try {
           await this.tryConnect('sse')
           this._usedFallback = true
           return
         } catch (fallbackErr) {
-          const msg =
-            fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr)
+          const msg = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr)
           this._status = 'error'
           this._error = `Streamable HTTP and SSE fallback both failed: ${msg}`
           throw new Error(this._error)
@@ -93,10 +88,7 @@ export class McpClientWrapper {
     // Clean up any existing client
     await this.cleanupClient()
 
-    this.client = new Client(
-      { name: 'OpenCowork', version: '1.0.0' },
-      { capabilities: {} }
-    )
+    this.client = new Client({ name: 'OpenCowork', version: '1.0.0' }, { capabilities: {} })
 
     this.transport = this.createTransport(transportType)
     await this.client.connect(this.transport)
@@ -116,7 +108,10 @@ export class McpClientWrapper {
   /** Create the transport instance based on type */
   private createTransport(
     transportType: string
-  ): InstanceType<typeof StdioClientTransport> | InstanceType<typeof SSEClientTransport> | InstanceType<typeof StreamableHTTPClientTransport> {
+  ):
+    | InstanceType<typeof StdioClientTransport>
+    | InstanceType<typeof SSEClientTransport>
+    | InstanceType<typeof StreamableHTTPClientTransport> {
     switch (transportType) {
       case 'stdio':
         if (!this.config.command) {
@@ -136,7 +131,7 @@ export class McpClientWrapper {
             command: this.config.command,
             args: this.config.args,
             env: mergedEnv,
-            cwd: this.config.cwd,
+            cwd: this.config.cwd
           })
         }
 
@@ -145,9 +140,7 @@ export class McpClientWrapper {
           throw new Error('SSE transport requires a URL')
         }
         return new SSEClientTransport(new URL(this.config.url), {
-          requestInit: this.config.headers
-            ? { headers: this.config.headers }
-            : undefined,
+          requestInit: this.config.headers ? { headers: this.config.headers } : undefined
         })
 
       case 'streamable-http':
@@ -155,9 +148,7 @@ export class McpClientWrapper {
           throw new Error('Streamable HTTP transport requires a URL')
         }
         return new StreamableHTTPClientTransport(new URL(this.config.url), {
-          requestInit: this.config.headers
-            ? { headers: this.config.headers }
-            : undefined,
+          requestInit: this.config.headers ? { headers: this.config.headers } : undefined
         })
 
       default:
@@ -207,10 +198,7 @@ export class McpClientWrapper {
   }
 
   /** Call a tool on the MCP server */
-  async callTool(
-    toolName: string,
-    args: Record<string, unknown>
-  ): Promise<unknown> {
+  async callTool(toolName: string, args: Record<string, unknown>): Promise<unknown> {
     if (!this.client || this._status !== 'connected') {
       throw new Error(`MCP server "${this.config.name}" is not connected`)
     }
@@ -228,10 +216,7 @@ export class McpClientWrapper {
   }
 
   /** Get a prompt from the MCP server */
-  async getPrompt(
-    name: string,
-    args?: Record<string, string>
-  ): Promise<unknown> {
+  async getPrompt(name: string, args?: Record<string, string>): Promise<unknown> {
     if (!this.client || this._status !== 'connected') {
       throw new Error(`MCP server "${this.config.name}" is not connected`)
     }
@@ -251,7 +236,7 @@ export class McpClientWrapper {
       const pageTools = (result.tools ?? []).map((t) => ({
         name: t.name,
         description: t.description,
-        inputSchema: (t.inputSchema ?? {}) as Record<string, unknown>,
+        inputSchema: (t.inputSchema ?? {}) as Record<string, unknown>
       }))
       collected.push(...pageTools)
       cursor = result.nextCursor ?? undefined
@@ -273,7 +258,7 @@ export class McpClientWrapper {
         uri: r.uri,
         name: r.name,
         description: r.description,
-        mimeType: r.mimeType,
+        mimeType: r.mimeType
       }))
       collected.push(...pageResources)
       cursor = result.nextCursor ?? undefined
@@ -297,8 +282,8 @@ export class McpClientWrapper {
         arguments: p.arguments?.map((a) => ({
           name: a.name,
           description: a.description,
-          required: a.required,
-        })),
+          required: a.required
+        }))
       }))
       collected.push(...pagePrompts)
       cursor = result.nextCursor ?? undefined

@@ -97,8 +97,8 @@ export const baiduCodingPreset: BuiltinProviderPreset = {
       cacheHitPrice: 0.03,
       cacheCreationPrice: 0.4,
       type: 'anthropic'
-    },
-  ],
+    }
+  ]
 }
 
 export const baiduPreset: BuiltinProviderPreset = {
@@ -109,9 +109,21 @@ export const baiduPreset: BuiltinProviderPreset = {
   homepage: 'https://cloud.baidu.com/product-s/qianfan_home',
   apiKeyUrl: 'https://cloud.baidu.com/doc/qianfan/s/wmh8l6tnf',
   defaultModels: [
-    { id: 'deepseek-v3.2', name: 'DeepSeek V3.2', icon: 'deepseek', enabled: true, supportsFunctionCall: true },
+    {
+      id: 'deepseek-v3.2',
+      name: 'DeepSeek V3.2',
+      icon: 'deepseek',
+      enabled: true,
+      supportsFunctionCall: true
+    },
     { id: 'glm-4.7', name: 'GLM 4.7', icon: 'chatglm', enabled: true, supportsFunctionCall: true },
     { id: 'kimi-k2.5', name: 'Kimi K2.5', icon: 'kimi', enabled: true, supportsFunctionCall: true },
-    { id: 'MiniMax-M2.1', name: 'MiniMax M2.1', icon: 'minimax', enabled: true, supportsFunctionCall: true },
-  ],
+    {
+      id: 'MiniMax-M2.1',
+      name: 'MiniMax M2.1',
+      icon: 'minimax',
+      enabled: true,
+      supportsFunctionCall: true
+    }
+  ]
 }

@@ -36,5 +36,5 @@ export const configStorage: StateStorage = {
     } catch {
       // Silently fail
     }
-  },
+  }
 }

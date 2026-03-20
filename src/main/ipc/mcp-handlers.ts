@@ -111,7 +111,7 @@ export function registerMcpHandlers(mcpManager: McpManager): void {
         tools: info?.tools ?? [],
         resources: info?.resources ?? [],
         prompts: info?.prompts ?? [],
-        error: info?.error,
+        error: info?.error
       }
     })
   })
@@ -129,7 +129,7 @@ export function registerMcpHandlers(mcpManager: McpManager): void {
       {
         serverId,
         toolName,
-        args,
+        args
       }: { serverId: string; toolName: string; args: Record<string, unknown> }
     ) => {
       try {
@@ -169,7 +169,7 @@ export function registerMcpHandlers(mcpManager: McpManager): void {
       {
         serverId,
         promptName,
-        args,
+        args
       }: { serverId: string; promptName: string; args?: Record<string, string> }
     ) => {
       try {

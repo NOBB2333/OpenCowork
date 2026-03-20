@@ -68,8 +68,18 @@ export interface SubAgentResult {
 // --- SubAgent Events (yielded to parent/UI) ---
 
 export type SubAgentEvent =
-  | { type: 'sub_agent_start'; subAgentName: string; toolUseId: string; input: Record<string, unknown> }
-  | { type: 'sub_agent_tool_call'; subAgentName: string; toolUseId: string; toolCall: ToolCallState }
+  | {
+      type: 'sub_agent_start'
+      subAgentName: string
+      toolUseId: string
+      input: Record<string, unknown>
+    }
+  | {
+      type: 'sub_agent_tool_call'
+      subAgentName: string
+      toolUseId: string
+      toolCall: ToolCallState
+    }
   | { type: 'sub_agent_text_delta'; subAgentName: string; toolUseId: string; text: string }
   | { type: 'sub_agent_iteration'; subAgentName: string; toolUseId: string; iteration: number }
   | { type: 'sub_agent_end'; subAgentName: string; toolUseId: string; result: SubAgentResult }

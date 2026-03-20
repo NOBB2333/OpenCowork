@@ -11,7 +11,13 @@ interface DevServerViewerProps extends ViewerProps {
   onStop?: () => void
 }
 
-export function DevServerViewer({ port, isRunning, logs = [], onStart, onStop }: DevServerViewerProps): React.JSX.Element {
+export function DevServerViewer({
+  port,
+  isRunning,
+  logs = [],
+  onStart,
+  onStop
+}: DevServerViewerProps): React.JSX.Element {
   const [showLogs, setShowLogs] = useState(false)
   const [iframeKey, setIframeKey] = useState(0)
   const logsEndRef = useRef<HTMLDivElement>(null)
@@ -29,17 +35,32 @@ export function DevServerViewer({ port, isRunning, logs = [], onStart, onStop }:
       {/* Toolbar */}
       <div className="flex h-8 items-center gap-1 border-b px-2">
         {isRunning ? (
-          <Button variant="ghost" size="sm" className="h-6 gap-1 px-2 text-xs text-red-500" onClick={onStop}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 gap-1 px-2 text-xs text-red-500"
+            onClick={onStop}
+          >
             <Square className="size-3" /> Stop
           </Button>
         ) : (
-          <Button variant="ghost" size="sm" className="h-6 gap-1 px-2 text-xs text-green-500" onClick={onStart}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 gap-1 px-2 text-xs text-green-500"
+            onClick={onStart}
+          >
             <Play className="size-3" /> Start
           </Button>
         )}
         {port && (
           <>
-            <Button variant="ghost" size="sm" className="h-6 gap-1 px-2 text-xs" onClick={() => setIframeKey((k) => k + 1)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 gap-1 px-2 text-xs"
+              onClick={() => setIframeKey((k) => k + 1)}
+            >
               <RefreshCw className="size-3" /> Refresh
             </Button>
             <span className="text-[10px] text-muted-foreground">:{port}</span>
@@ -78,7 +99,9 @@ export function DevServerViewer({ port, isRunning, logs = [], onStart, onStop }:
         {showLogs && (
           <div className="w-80 overflow-auto bg-zinc-950 p-2 font-mono text-[11px] text-zinc-400">
             {logs.map((line, i) => (
-              <div key={i} className="whitespace-pre-wrap break-all">{line}</div>
+              <div key={i} className="whitespace-pre-wrap break-all">
+                {line}
+              </div>
             ))}
             <div ref={logsEndRef} />
           </div>

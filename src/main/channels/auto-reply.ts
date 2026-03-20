@@ -12,7 +12,10 @@ import { tryHandleCommand } from './plugin-commands'
 const PLUGINS_WORK_DIR = path.join(os.homedir(), '.open-cowork', 'plugins')
 const PLUGINS_FILE = path.join(os.homedir(), '.open-cowork', 'plugins.json')
 
-function shouldReplaceSessionTitle(currentTitle: string | undefined, nextTitle: string | undefined): boolean {
+function shouldReplaceSessionTitle(
+  currentTitle: string | undefined,
+  nextTitle: string | undefined
+): boolean {
   const current = (currentTitle ?? '').trim()
   const next = (nextTitle ?? '').trim()
   if (!next || current === next) return false
@@ -55,7 +58,9 @@ export function handleChannelAutoReply(event: ChannelEvent): void {
         const plugins = JSON.parse(fs.readFileSync(PLUGINS_FILE, 'utf-8')) as ChannelInstance[]
         pluginInstance = plugins.find((p) => p.id === pluginId)
       }
-    } catch { /* ignore read errors */ }
+    } catch {
+      /* ignore read errors */
+    }
 
     const pluginProject = projectsDao.ensurePluginProject(
       pluginId,
@@ -103,8 +108,11 @@ export function handleChannelAutoReply(event: ChannelEvent): void {
       ).run(now, pluginProject.id, pluginWorkDir, pluginSshConnectionId, session.id)
 
       if (sessionProviderId || sessionModelId) {
-        db.prepare('UPDATE sessions SET provider_id = ?, model_id = ? WHERE id = ?')
-          .run(sessionProviderId, sessionModelId, session.id)
+        db.prepare('UPDATE sessions SET provider_id = ?, model_id = ? WHERE id = ?').run(
+          sessionProviderId,
+          sessionModelId,
+          session.id
+        )
       }
 
       const betterTitle = data.chatName || data.senderName
@@ -124,7 +132,7 @@ export function handleChannelAutoReply(event: ChannelEvent): void {
         data,
         sessionId: session.id,
         pluginWorkDir,
-        pluginManager: _pluginManager,
+        pluginManager: _pluginManager
       })
       // true = fully handled, skip agent loop
       if (commandResult === true) return
@@ -155,9 +163,10 @@ export function handleChannelAutoReply(event: ChannelEvent): void {
         senderName: data.senderName,
         chatName: data.chatName,
         sessionTitle: session.title,
-        content: data.content
-          || (data.images?.length ? '[User sent an image]' : '')
-          || (data.audio ? '[User sent an audio message]' : ''),
+        content:
+          data.content ||
+          (data.images?.length ? '[User sent an image]' : '') ||
+          (data.audio ? '[User sent an audio message]' : ''),
         messageId: data.messageId,
         supportsStreaming,
         images: data.images,
@@ -165,13 +174,13 @@ export function handleChannelAutoReply(event: ChannelEvent): void {
         chatType: data.chatType,
         projectId: pluginProject.id,
         workingFolder: pluginWorkDir,
-        sshConnectionId: pluginSshConnectionId,
+        sshConnectionId: pluginSshConnectionId
       })
     }
 
     console.log(
       `[AutoReply] Routed message from ${data.senderName || data.senderId} ` +
-      `in chat ${data.chatId} to session ${session.id}`
+        `in chat ${data.chatId} to session ${session.id}`
     )
   } catch (err) {
     console.error('[AutoReply] Failed to route incoming message:', err)

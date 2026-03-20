@@ -48,14 +48,19 @@ Be thorough but avoid false positives. Network calls and subprocess usage are wa
       id: nanoid(),
       role: 'user',
       content: `Please analyze this skill for security risks:\n\n${filesSummary}`,
-      createdAt: Date.now(),
+      createdAt: Date.now()
     }
 
     const messages: UnifiedMessage[] = [userMessage]
     let fullResponse = ''
 
     // Stream the response
-    for await (const event of provider.sendMessage(messages, [], { ...providerConfig, systemPrompt }, signal)) {
+    for await (const event of provider.sendMessage(
+      messages,
+      [],
+      { ...providerConfig, systemPrompt },
+      signal
+    )) {
       if (signal.aborted) break
 
       if (event.type === 'text_delta' && event.text) {
@@ -77,7 +82,13 @@ Be thorough but avoid false positives. Network calls and subprocess usage are wa
     const result = JSON.parse(jsonMatch[0]) as {
       summary?: string
       passed?: boolean
-      risks?: Array<{ severity: string; category: string; detail: string; file: string; line?: number }>
+      risks?: Array<{
+        severity: string
+        category: string
+        detail: string
+        file: string
+        line?: number
+      }>
     }
 
     // Convert to RiskItem format
@@ -86,7 +97,7 @@ Be thorough but avoid false positives. Network calls and subprocess usage are wa
       category: r.category || 'unknown',
       detail: r.detail || '',
       file: r.file || 'unknown',
-      line: r.line,
+      line: r.line
     }))
 
     return risks

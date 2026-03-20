@@ -4,7 +4,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
+  DropdownMenuTrigger
 } from '@renderer/components/ui/dropdown-menu'
 import type { RightPanelTab } from '@renderer/stores/ui-store'
 import type { RightPanelTabDef } from './right-panel-defs'
@@ -22,7 +22,7 @@ export function RightPanelHeader({
   visibleTabs,
   onSelectTab,
   onClose,
-  t,
+  t
 }: RightPanelHeaderProps): React.JSX.Element {
   const ActiveTabIcon = activeTabDef.icon
 
@@ -36,9 +36,7 @@ export function RightPanelHeader({
             className="flex h-7 items-center gap-2 px-2 text-sm font-medium hover:bg-muted/50"
           >
             <ActiveTabIcon className="size-4 text-muted-foreground" />
-            <span className="text-foreground">
-              {t(`rightPanel.${activeTabDef.labelKey}`)}
-            </span>
+            <span className="text-foreground">{t(`rightPanel.${activeTabDef.labelKey}`)}</span>
             <ChevronDown className="size-3.5 text-muted-foreground" />
           </Button>
         </DropdownMenuTrigger>

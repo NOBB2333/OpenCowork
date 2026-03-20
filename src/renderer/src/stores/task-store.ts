@@ -25,22 +25,24 @@ export type TodoItem = TaskItem
 
 function dbCreateTask(task: TaskItem, sortOrder: number): void {
   if (!task.sessionId) return
-  ipcClient.invoke('db:tasks:create', {
-    id: task.id,
-    sessionId: task.sessionId,
-    planId: task.planId,
-    subject: task.subject,
-    description: task.description,
-    activeForm: task.activeForm,
-    status: task.status,
-    owner: task.owner,
-    blocks: task.blocks,
-    blockedBy: task.blockedBy,
-    metadata: task.metadata,
-    sortOrder,
-    createdAt: task.createdAt,
-    updatedAt: task.updatedAt,
-  }).catch(() => {})
+  ipcClient
+    .invoke('db:tasks:create', {
+      id: task.id,
+      sessionId: task.sessionId,
+      planId: task.planId,
+      subject: task.subject,
+      description: task.description,
+      activeForm: task.activeForm,
+      status: task.status,
+      owner: task.owner,
+      blocks: task.blocks,
+      blockedBy: task.blockedBy,
+      metadata: task.metadata,
+      sortOrder,
+      createdAt: task.createdAt,
+      updatedAt: task.updatedAt
+    })
+    .catch(() => {})
 }
 
 function dbUpdateTask(id: string, patch: Record<string, unknown>): void {
@@ -86,7 +88,7 @@ function rowToTask(row: TaskRow): TaskItem {
     blockedBy: JSON.parse(row.blocked_by || '[]'),
     metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
     createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    updatedAt: row.updated_at
   }
 }
 
@@ -120,7 +122,10 @@ interface TaskStore {
   /** Get a task by ID */
   getTask: (id: string) => TaskItem | undefined
   /** Update a task by ID (partial patch). Returns updated task or undefined if not found. */
-  updateTask: (id: string, patch: Partial<Omit<TaskItem, 'id' | 'createdAt'>>) => TaskItem | undefined
+  updateTask: (
+    id: string,
+    patch: Partial<Omit<TaskItem, 'id' | 'createdAt'>>
+  ) => TaskItem | undefined
   /** Delete a task by ID */
   deleteTask: (id: string) => boolean
   /** Get all tasks */
@@ -183,7 +188,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       blocks: task.blocks ?? [],
       blockedBy: task.blockedBy ?? [],
       createdAt: task.createdAt ?? now,
-      updatedAt: now,
+      updatedAt: now
     }
     let sortOrder = 0
     set((state) => {
@@ -194,17 +199,21 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         return { tasks: updated, todos: updated }
       }
 
-      const sessionTasks = state.tasksBySession[sessionId] ?? (state.currentSessionId === sessionId ? state.tasks : [])
+      const sessionTasks =
+        state.tasksBySession[sessionId] ?? (state.currentSessionId === sessionId ? state.tasks : [])
       sortOrder = sessionTasks.length
       const nextSessionTasks = [...sessionTasks, newTask]
       const nextTasksBySession = { ...state.tasksBySession, [sessionId]: nextSessionTasks }
 
-      if (state.currentSessionId === sessionId || (!state.currentSessionId && state.tasks.length === 0)) {
+      if (
+        state.currentSessionId === sessionId ||
+        (!state.currentSessionId && state.tasks.length === 0)
+      ) {
         return {
           currentSessionId: state.currentSessionId ?? sessionId,
           tasks: nextSessionTasks,
           todos: nextSessionTasks,
-          tasksBySession: nextTasksBySession,
+          tasksBySession: nextTasksBySession
         }
       }
       return { tasksBySession: nextTasksBySession }
@@ -252,7 +261,11 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         updatedTask = updated
 
         if (state.currentSessionId === sessionId) {
-          return { tasks: nextSessionTasks, todos: nextSessionTasks, tasksBySession: nextTasksBySession }
+          return {
+            tasks: nextSessionTasks,
+            todos: nextSessionTasks,
+            tasksBySession: nextTasksBySession
+          }
         }
         return { tasksBySession: nextTasksBySession }
       }
@@ -290,7 +303,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
           .map((t) => ({
             ...t,
             blocks: t.blocks.filter((b) => b !== id),
-            blockedBy: t.blockedBy.filter((b) => b !== id),
+            blockedBy: t.blockedBy.filter((b) => b !== id)
           }))
         nextTasksBySession[sessionId] = cleaned
         deleted = true
@@ -329,7 +342,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     return {
       total,
       completed,
-      percentage: total === 0 ? 0 : Math.round((completed / total) * 100),
+      percentage: total === 0 ? 0 : Math.round((completed / total) * 100)
     }
   },
 
@@ -348,7 +361,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         tasks: [],
         todos: [],
         currentSessionId: null,
-        tasksBySession: nextTasksBySession,
+        tasksBySession: nextTasksBySession
       }
     })
     dbDeleteTasksBySession(sessionId)
@@ -365,7 +378,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       blocks: t.blocks ?? [],
       blockedBy: t.blockedBy ?? [],
       createdAt: t.createdAt ?? now,
-      updatedAt: now,
+      updatedAt: now
     }))
     set((state) => {
       if (!state.currentSessionId) return { tasks, todos: tasks }
@@ -374,13 +387,13 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         todos: tasks,
         tasksBySession: {
           ...state.tasksBySession,
-          [state.currentSessionId]: tasks,
-        },
+          [state.currentSessionId]: tasks
+        }
       }
     })
   },
 
   getTodos: () => get().tasks,
 
-  getActiveTodo: () => get().tasks.find((t) => t.status === 'in_progress'),
+  getActiveTodo: () => get().tasks.find((t) => t.status === 'in_progress')
 }))

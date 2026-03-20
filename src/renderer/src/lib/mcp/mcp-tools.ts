@@ -31,7 +31,7 @@ export function parseMcpToolName(
   if (sepIdx === -1) return null
   return {
     serverId: rest.slice(0, sepIdx),
-    toolName: rest.slice(sepIdx + 2),
+    toolName: rest.slice(sepIdx + 2)
   }
 }
 
@@ -67,15 +67,15 @@ export function registerMcpTools(
           inputSchema: {
             type: 'object',
             properties: (mcpTool.inputSchema?.properties as Record<string, unknown>) ?? {},
-            required: (mcpTool.inputSchema?.required as string[]) ?? [],
-          },
+            required: (mcpTool.inputSchema?.required as string[]) ?? []
+          }
         },
         execute: async (input: Record<string, unknown>, ctx: ToolContext) => {
           try {
             const result = await ctx.ipc.invoke(IPC.MCP_CALL_TOOL, {
               serverId: server.id,
               toolName: mcpTool.name,
-              args: input,
+              args: input
             })
             const res = result as { success: boolean; result?: unknown; error?: string }
             if (!res.success) {
@@ -90,7 +90,7 @@ export function registerMcpTools(
           }
         },
         // MCP tools require approval by default for safety
-        requiresApproval: () => true,
+        requiresApproval: () => true
       }
 
       toolRegistry.register(handler)

@@ -20,7 +20,7 @@ export function parseDiscordWsMessage(raw: string): ChannelIncomingMessageData |
         senderName: msg.author?.username ?? '',
         content: msg.content ?? '',
         messageId: msg.id ?? '',
-        timestamp,
+        timestamp
       }
     }
 
@@ -32,7 +32,7 @@ export function parseDiscordWsMessage(raw: string): ChannelIncomingMessageData |
         senderName: data.senderName ?? '',
         content: data.content,
         messageId: data.messageId ?? '',
-        timestamp: data.timestamp ?? Date.now(),
+        timestamp: data.timestamp ?? Date.now()
       }
     }
 

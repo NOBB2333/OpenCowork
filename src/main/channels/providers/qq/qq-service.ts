@@ -156,10 +156,16 @@ export class QQService implements MessagingChannelService {
     }
 
     const wakeup = this.resolveWakeupEligibility(target.id)
-    return this.api.sendMessage(target, content, undefined, { isWakeup: wakeup.enabled })
+    return this.api
+      .sendMessage(target, content, undefined, { isWakeup: wakeup.enabled })
       .then((result) => {
         if (wakeup.enabled && wakeup.periodKey) {
-          this.markWakeupSent(target.id, wakeup.periodKey, wakeup.sourceMessageId, wakeup.sourceTimestamp)
+          this.markWakeupSent(
+            target.id,
+            wakeup.periodKey,
+            wakeup.sourceMessageId,
+            wakeup.sourceTimestamp
+          )
         }
         return result
       })
@@ -183,12 +189,16 @@ export class QQService implements MessagingChannelService {
   } {
     const db = getDb()
     const now = Date.now()
-    const row = db.prepare(
-      `SELECT source_message_id, source_timestamp
+    const row = db
+      .prepare(
+        `SELECT source_message_id, source_timestamp
          FROM qq_wakeup_windows
         WHERE plugin_id = ? AND open_id = ? AND period_key = '__source__'
         LIMIT 1`
-    ).get(this.pluginId, openId) as { source_message_id?: string | null; source_timestamp?: number } | undefined
+      )
+      .get(this.pluginId, openId) as
+      | { source_message_id?: string | null; source_timestamp?: number }
+      | undefined
 
     const sourceTimestamp = row?.source_timestamp ?? now
     const periodKey = getWakeupPeriodKey(sourceTimestamp, now)
@@ -201,12 +211,14 @@ export class QQService implements MessagingChannelService {
       }
     }
 
-    const existing = db.prepare(
-      `SELECT 1
+    const existing = db
+      .prepare(
+        `SELECT 1
          FROM qq_wakeup_windows
         WHERE plugin_id = ? AND open_id = ? AND period_key = ?
         LIMIT 1`
-    ).get(this.pluginId, openId, periodKey)
+      )
+      .get(this.pluginId, openId, periodKey)
 
     return {
       enabled: !existing,

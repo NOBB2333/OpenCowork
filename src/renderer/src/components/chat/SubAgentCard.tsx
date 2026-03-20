@@ -116,7 +116,11 @@ function SubAgentCardInner({
   const isError = outputStr
     ? (() => {
         const parsedOutput = decodeStructuredToolResult(outputStr)
-        if (parsedOutput && !Array.isArray(parsedOutput) && typeof parsedOutput.error === 'string') {
+        if (
+          parsedOutput &&
+          !Array.isArray(parsedOutput) &&
+          typeof parsedOutput.error === 'string'
+        ) {
           return true
         }
         const parsedHistText = decodeStructuredToolResult(histText)

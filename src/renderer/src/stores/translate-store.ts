@@ -163,7 +163,9 @@ export const useTranslateStore = create<TranslateStore>((set, get) => ({
 
     const providerStore = useProviderStore.getState()
     const targetProviderId =
-      overrideProviderId ?? providerStore.activeTranslationProviderId ?? providerStore.activeProviderId
+      overrideProviderId ??
+      providerStore.activeTranslationProviderId ??
+      providerStore.activeProviderId
     if (targetProviderId) {
       const ready = await ensureProviderAuthReady(targetProviderId)
       if (!ready) {

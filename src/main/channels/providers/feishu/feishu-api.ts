@@ -29,7 +29,7 @@ function request(
         port: 443,
         path: url.pathname + url.search,
         method,
-        headers: reqHeaders,
+        headers: reqHeaders
       },
       (res) => {
         let responseBody = ''
@@ -103,7 +103,7 @@ export class FeishuApi {
     }
     return {
       openId: data.bot?.open_id ?? '',
-      appName: data.bot?.app_name ?? '',
+      appName: data.bot?.app_name ?? ''
     }
   }
 
@@ -117,7 +117,7 @@ export class FeishuApi {
     const body = JSON.stringify({
       receive_id: chatId,
       msg_type: msgType,
-      content: msgType === 'text' ? JSON.stringify({ text: content }) : content,
+      content: msgType === 'text' ? JSON.stringify({ text: content }) : content
     })
 
     const res = await request(
@@ -139,15 +139,10 @@ export class FeishuApi {
     const headers = await this.authHeaders()
     const body = JSON.stringify({
       msg_type: 'text',
-      content: JSON.stringify({ text: content }),
+      content: JSON.stringify({ text: content })
     })
 
-    const res = await request(
-      'POST',
-      `/open-apis/im/v1/messages/${messageId}/reply`,
-      headers,
-      body
-    )
+    const res = await request('POST', `/open-apis/im/v1/messages/${messageId}/reply`, headers, body)
 
     const data = JSON.parse(res.body)
     if (data.code !== 0) {
@@ -165,7 +160,7 @@ export class FeishuApi {
       if (data.code !== 0) return null
       return {
         name: data.data?.name ?? '',
-        chatType: data.data?.chat_type ?? '',
+        chatType: data.data?.chat_type ?? ''
       }
     } catch {
       return null
@@ -189,7 +184,7 @@ export class FeishuApi {
       const data = JSON.parse(res.body)
       if (data.code !== 0) return null
       return {
-        name: data.data?.user?.name ?? '',
+        name: data.data?.user?.name ?? ''
       }
     } catch {
       return null
@@ -213,7 +208,7 @@ export class FeishuApi {
         chat_id: item.chat_id,
         name: item.name,
         member_count: item.member_count,
-        raw: item,
+        raw: item
       })
     )
   }
@@ -243,7 +238,7 @@ export class FeishuApi {
     return {
       items: data.data?.items ?? [],
       page_token: data.data?.page_token,
-      has_more: data.data?.has_more,
+      has_more: data.data?.has_more
     }
   }
 
@@ -253,20 +248,17 @@ export class FeishuApi {
    * Create a card entity for streaming updates.
    * Returns the card_id used for subsequent updates.
    */
-  async createCard(
-    initialContent: string,
-    title = 'AI Assistant'
-  ): Promise<{ cardId: string }> {
+  async createCard(initialContent: string, title = 'AI Assistant'): Promise<{ cardId: string }> {
     const headers = await this.authHeaders()
     const cardData = {
       schema: '2.0',
       config: { update_multi: true, streaming_mode: true },
       header: {
-        title: { tag: 'plain_text', content: title },
+        title: { tag: 'plain_text', content: title }
       },
       body: {
-        elements: [{ tag: 'markdown', content: initialContent }],
-      },
+        elements: [{ tag: 'markdown', content: initialContent }]
+      }
     }
 
     const res = await request(
@@ -275,7 +267,7 @@ export class FeishuApi {
       headers,
       JSON.stringify({
         type: 'card_json',
-        data: JSON.stringify(cardData),
+        data: JSON.stringify(cardData)
       })
     )
 
@@ -290,18 +282,14 @@ export class FeishuApi {
    * Update a card entity content.
    * `sequence` must be strictly incrementing per card_id.
    */
-  async updateCard(
-    cardId: string,
-    content: string,
-    sequence: number
-  ): Promise<boolean> {
+  async updateCard(cardId: string, content: string, sequence: number): Promise<boolean> {
     const headers = await this.authHeaders()
     const cardData = {
       schema: '2.0',
       config: { update_multi: true, streaming_mode: true },
       body: {
-        elements: [{ tag: 'markdown', content }],
-      },
+        elements: [{ tag: 'markdown', content }]
+      }
     }
 
     const res = await request(
@@ -311,9 +299,9 @@ export class FeishuApi {
       JSON.stringify({
         card: {
           type: 'card_json',
-          data: JSON.stringify(cardData),
+          data: JSON.stringify(cardData)
         },
-        sequence,
+        sequence
       })
     )
 
@@ -329,15 +317,12 @@ export class FeishuApi {
    * Send a card message to a chat using an existing card_id.
    * Returns the message_id of the sent card message.
    */
-  async sendCardMessage(
-    chatId: string,
-    cardId: string
-  ): Promise<{ messageId: string }> {
+  async sendCardMessage(chatId: string, cardId: string): Promise<{ messageId: string }> {
     const headers = await this.authHeaders()
     const body = JSON.stringify({
       receive_id: chatId,
       msg_type: 'interactive',
-      content: JSON.stringify({ type: 'card', data: { card_id: cardId } }),
+      content: JSON.stringify({ type: 'card', data: { card_id: cardId } })
     })
 
     const res = await request(
@@ -358,14 +343,11 @@ export class FeishuApi {
    * Reply to a specific message with a card using an existing card_id.
    * Returns the message_id of the reply card message.
    */
-  async replyCardMessage(
-    replyMessageId: string,
-    cardId: string
-  ): Promise<{ messageId: string }> {
+  async replyCardMessage(replyMessageId: string, cardId: string): Promise<{ messageId: string }> {
     const headers = await this.authHeaders()
     const body = JSON.stringify({
       msg_type: 'interactive',
-      content: JSON.stringify({ type: 'card', data: { card_id: cardId } }),
+      content: JSON.stringify({ type: 'card', data: { card_id: cardId } })
     })
 
     const res = await request(
@@ -405,7 +387,7 @@ export class FeishuApi {
           port: 443,
           path: url.pathname + url.search,
           method: 'GET',
-          headers: { Authorization: `Bearer ${token}` },
+          headers: { Authorization: `Bearer ${token}` }
         },
         (res) => {
           const chunks: Buffer[] = []
@@ -439,13 +421,17 @@ export class FeishuApi {
 
     const parts: Buffer[] = []
     // image_type field
-    parts.push(Buffer.from(
-      `--${boundary}\r\nContent-Disposition: form-data; name="image_type"\r\n\r\nmessage\r\n`
-    ))
+    parts.push(
+      Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="image_type"\r\n\r\nmessage\r\n`
+      )
+    )
     // image file field
-    parts.push(Buffer.from(
-      `--${boundary}\r\nContent-Disposition: form-data; name="image"; filename="${fileName}"\r\nContent-Type: application/octet-stream\r\n\r\n`
-    ))
+    parts.push(
+      Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="image"; filename="${fileName}"\r\nContent-Type: application/octet-stream\r\n\r\n`
+      )
+    )
     parts.push(imageBuffer)
     parts.push(Buffer.from(`\r\n--${boundary}--\r\n`))
 
@@ -462,12 +448,14 @@ export class FeishuApi {
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': `multipart/form-data; boundary=${boundary}`,
-            'Content-Length': String(body.byteLength),
-          },
+            'Content-Length': String(body.byteLength)
+          }
         },
         (res) => {
           let responseBody = ''
-          res.on('data', (chunk: Buffer) => { responseBody += chunk.toString() })
+          res.on('data', (chunk: Buffer) => {
+            responseBody += chunk.toString()
+          })
           res.on('end', () => {
             try {
               const data = JSON.parse(responseBody)
@@ -504,15 +492,21 @@ export class FeishuApi {
     const boundary = `----FormBoundary${Date.now()}`
 
     const parts: Buffer[] = []
-    parts.push(Buffer.from(
-      `--${boundary}\r\nContent-Disposition: form-data; name="file_type"\r\n\r\n${fileType}\r\n`
-    ))
-    parts.push(Buffer.from(
-      `--${boundary}\r\nContent-Disposition: form-data; name="file_name"\r\n\r\n${fileName}\r\n`
-    ))
-    parts.push(Buffer.from(
-      `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${fileName}"\r\nContent-Type: application/octet-stream\r\n\r\n`
-    ))
+    parts.push(
+      Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="file_type"\r\n\r\n${fileType}\r\n`
+      )
+    )
+    parts.push(
+      Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="file_name"\r\n\r\n${fileName}\r\n`
+      )
+    )
+    parts.push(
+      Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${fileName}"\r\nContent-Type: application/octet-stream\r\n\r\n`
+      )
+    )
     parts.push(fileBuffer)
     parts.push(Buffer.from(`\r\n--${boundary}--\r\n`))
 
@@ -529,12 +523,14 @@ export class FeishuApi {
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': `multipart/form-data; boundary=${boundary}`,
-            'Content-Length': String(body.byteLength),
-          },
+            'Content-Length': String(body.byteLength)
+          }
         },
         (res) => {
           let responseBody = ''
-          res.on('data', (chunk: Buffer) => { responseBody += chunk.toString() })
+          res.on('data', (chunk: Buffer) => {
+            responseBody += chunk.toString()
+          })
           res.on('end', () => {
             try {
               const data = JSON.parse(responseBody)
@@ -565,34 +561,38 @@ export class FeishuApi {
   static downloadUrl(url: string): Promise<Buffer> {
     return new Promise((resolve, reject) => {
       const mod = url.startsWith('https') ? https : http
-      mod.get(url, (res) => {
-        if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-          // Follow one redirect
-          FeishuApi.downloadUrl(res.headers.location).then(resolve).catch(reject)
-          return
-        }
-        if (res.statusCode !== 200) {
-          reject(new Error(`Download URL failed: HTTP ${res.statusCode}`))
-          return
-        }
-        const chunks: Buffer[] = []
-        res.on('data', (chunk: Buffer) => chunks.push(chunk))
-        res.on('end', () => resolve(Buffer.concat(chunks)))
-        res.on('error', reject)
-      }).on('error', reject)
+      mod
+        .get(url, (res) => {
+          if (
+            res.statusCode &&
+            res.statusCode >= 300 &&
+            res.statusCode < 400 &&
+            res.headers.location
+          ) {
+            // Follow one redirect
+            FeishuApi.downloadUrl(res.headers.location).then(resolve).catch(reject)
+            return
+          }
+          if (res.statusCode !== 200) {
+            reject(new Error(`Download URL failed: HTTP ${res.statusCode}`))
+            return
+          }
+          const chunks: Buffer[] = []
+          res.on('data', (chunk: Buffer) => chunks.push(chunk))
+          res.on('end', () => resolve(Buffer.concat(chunks)))
+          res.on('error', reject)
+        })
+        .on('error', reject)
     })
   }
 
   /** Send an image message to a chat using an image_key */
-  async sendImageMessage(
-    chatId: string,
-    imageKey: string
-  ): Promise<{ messageId: string }> {
+  async sendImageMessage(chatId: string, imageKey: string): Promise<{ messageId: string }> {
     const headers = await this.authHeaders()
     const body = JSON.stringify({
       receive_id: chatId,
       msg_type: 'image',
-      content: JSON.stringify({ image_key: imageKey }),
+      content: JSON.stringify({ image_key: imageKey })
     })
 
     const res = await request(
@@ -610,15 +610,12 @@ export class FeishuApi {
   }
 
   /** Send a file message to a chat using a file_key */
-  async sendFileMessage(
-    chatId: string,
-    fileKey: string
-  ): Promise<{ messageId: string }> {
+  async sendFileMessage(chatId: string, fileKey: string): Promise<{ messageId: string }> {
     const headers = await this.authHeaders()
     const body = JSON.stringify({
       receive_id: chatId,
       msg_type: 'file',
-      content: JSON.stringify({ file_key: fileKey }),
+      content: JSON.stringify({ file_key: fileKey })
     })
 
     const res = await request(
@@ -645,7 +642,7 @@ export class FeishuApi {
     const headers = await this.authHeaders()
     const body = JSON.stringify({
       user_id_list: userIds,
-      urgent_type: urgentType,
+      urgent_type: urgentType
     })
     const res = await request(
       'POST',
@@ -724,7 +721,9 @@ export class FeishuApi {
     const app = encodeURIComponent(appToken)
     const table = encodeURIComponent(tableId)
     const pageSize = options?.pageSize ?? 50
-    const pageToken = options?.pageToken ? `&page_token=${encodeURIComponent(options.pageToken)}` : ''
+    const pageToken = options?.pageToken
+      ? `&page_token=${encodeURIComponent(options.pageToken)}`
+      : ''
     const filter = options?.filter ? `&filter=${encodeURIComponent(options.filter)}` : ''
     const res = await request(
       'GET',
@@ -850,7 +849,7 @@ export class FeishuApi {
           sender_name: '',
           content,
           create_time: item.create_time,
-          raw: item,
+          raw: item
         }
       }
     )

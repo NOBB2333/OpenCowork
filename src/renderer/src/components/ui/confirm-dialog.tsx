@@ -8,7 +8,7 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialogTitle
 } from '@renderer/components/ui/alert-dialog'
 
 // ── Types ──
@@ -46,7 +46,11 @@ export function confirm(options: ConfirmOptions): Promise<boolean> {
   return new Promise<boolean>((resolve) => {
     if (!_setDialog) {
       console.warn('[confirm] ConfirmDialogProvider is not mounted, falling back to window.confirm')
-      resolve(window.confirm(options.description ? `${options.title}\n${options.description}` : options.title))
+      resolve(
+        window.confirm(
+          options.description ? `${options.title}\n${options.description}` : options.title
+        )
+      )
       return
     }
     _setDialog({ ...options, resolve })

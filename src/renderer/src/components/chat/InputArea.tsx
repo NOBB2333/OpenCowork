@@ -744,11 +744,15 @@ export function InputArea({
     getCaretAtEnd
   })
   const activeFileMention = React.useMemo(() => {
-    if (editorSelection.start !== editorSelection.end) return null
-    return getSelectFileMentionQuery(plainText, editorSelection.end)
+    if (editorSelection.start === editorSelection.end) {
+      const selectionMention = getSelectFileMentionQuery(plainText, editorSelection.end)
+      if (selectionMention) return selectionMention
+    }
+
+    return getSelectFileMentionQuery(plainText, plainText.length)
   }, [editorSelection.end, editorSelection.start, plainText])
   const fileQuery = activeFileMention?.query.trim() ?? ''
-  const fileMenuOpen = Boolean(activeFileMention && fileQuery && workingFolder)
+  const fileMenuOpen = Boolean(activeFileMention)
   const slashQuery = React.useMemo(() => getSlashCommandQuery(plainText), [plainText])
   const filteredSlashCommands = React.useMemo(() => {
     const query = slashQuery ?? ''
@@ -800,7 +804,13 @@ export function InputArea({
   }, [fileQuery])
 
   React.useEffect(() => {
-    if (!fileMenuOpen || !workingFolder) {
+    if (!fileMenuOpen) {
+      setFileSearchResults([])
+      setFileSearchLoading(false)
+      return
+    }
+
+    if (!workingFolder) {
       setFileSearchResults([])
       setFileSearchLoading(false)
       return
@@ -1216,6 +1226,33 @@ export function InputArea({
     [scrollFileBarItemIntoView]
   )
 
+  const handleReferencePreview = React.useCallback(
+    (fileId: string) => {
+      const file = selectedFilesRef.current.find((item) => item.id === fileId)
+      if (file) handlePreviewFile(file)
+    },
+    [handlePreviewFile]
+  )
+
+  const handleEditorDocumentChange = React.useCallback(
+    (nextDocument: EditorDocumentNode[]) => {
+      clearHistoryNavigation()
+      setEditorDocument(nextDocument)
+      setHighlightedFileId(null)
+    },
+    [clearHistoryNavigation]
+  )
+
+  const handleEditorSelectionChange = React.useCallback(
+    (selection: { start: number; end: number }) => {
+      setInputSelection((current) =>
+        current.start === selection.start && current.end === selection.end ? current : selection
+      )
+      handleRecommendationSelectionChange()
+    },
+    [handleRecommendationSelectionChange]
+  )
+
   const handleRemoveSelectedFile = React.useCallback(
     (fileId: string) => {
       clearHistoryNavigation()
@@ -1250,19 +1287,6 @@ export function InputArea({
     },
     [clearHistoryNavigation]
   )
-
-  const handleSelectFilesFromSystem = React.useCallback(async () => {
-    const result = (await ipcClient.invoke('fs:select-file', {
-      multiSelections: true
-    })) as { canceled?: boolean; paths?: string[]; path?: string }
-
-    if (result?.canceled) return
-    const paths = Array.isArray(result?.paths) ? result.paths : result?.path ? [result.path] : []
-    if (paths.length === 0) return
-
-    clearHistoryNavigation()
-    addFilesToEditor(paths)
-  }, [addFilesToEditor, clearHistoryNavigation])
 
   const findAdjacentReferenceNode = React.useCallback(
     (cursor: number, direction: 'before' | 'after') => {
@@ -2088,7 +2112,7 @@ export function InputArea({
               onRemove={handleRemoveSelectedFile}
               onClear={handleClearSelectedFiles}
             />
-            <div className="relative flex-1 min-h-[60px]">
+            <div className="relative z-0 flex-1 min-h-[60px]">
               {shouldAutoAcceptRecommendation &&
                 autoAcceptCountdown !== null &&
                 suggestionText &&
@@ -2106,27 +2130,17 @@ export function InputArea({
                   effectivePlaceholder ?? t(placeholderKeys[mode] ?? 'input.placeholder')
                 }
                 suggestionText={suggestionText}
-                showSuggestion={!hasFileReferences}
+                showSuggestion={!hasFileReferences && !activeFileMention && !slashMenuOpen}
                 highlightedFileId={highlightedFileId}
-                onDocumentChange={(nextDocument) => {
-                  clearHistoryNavigation()
-                  setEditorDocument(nextDocument)
-                  setHighlightedFileId(null)
-                }}
-                onSelectionChange={(selection) => {
-                  setInputSelection(selection)
-                  handleRecommendationSelectionChange()
-                }}
+                onDocumentChange={handleEditorDocumentChange}
+                onSelectionChange={handleEditorSelectionChange}
                 onFocus={handleRecommendationFocus}
                 onBlur={handleRecommendationBlur}
                 onKeyDown={handleKeyDown}
                 onPaste={handlePaste}
                 onCompositionStart={handleRecommendationCompositionStart}
                 onCompositionEnd={handleRecommendationCompositionEnd}
-                onReferencePreview={(fileId) => {
-                  const file = selectedFiles.find((item) => item.id === fileId)
-                  if (file) handlePreviewFile(file)
-                }}
+                onReferencePreview={handleReferencePreview}
                 onReferenceLocate={handleLocateReferenceToBar}
                 onReferenceDelete={handleRemoveReference}
               />
@@ -2136,11 +2150,23 @@ export function InputArea({
                     <Command className="size-3.5" />
                     <span>{t('input.fileSuggestions', { defaultValue: '文件建议' })}</span>
                     <span className="ml-auto rounded-full border border-border/60 bg-background/80 px-1.5 py-0.5 text-[10px]">
-                      @{fileQuery}
+                      @{fileQuery || ''}
                     </span>
                   </div>
                   <div className="max-h-64 overflow-y-auto p-1.5">
-                    {fileSearchLoading ? (
+                    {!workingFolder ? (
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 rounded-lg px-2.5 py-3 text-left text-xs text-amber-600 transition-colors hover:bg-amber-500/10 dark:text-amber-400"
+                        onMouseDown={(event) => {
+                          event.preventDefault()
+                          onSelectFolder?.()
+                        }}
+                      >
+                        <FolderOpen className="size-3.5 shrink-0" />
+                        <span>{t('input.noWorkingFolderSelected', { defaultValue: '请先选择工作目录' })}</span>
+                      </button>
+                    ) : fileSearchLoading ? (
                       <div className="flex items-center gap-2 px-2 py-3 text-xs text-muted-foreground">
                         <Spinner className="size-3.5" />
                         <span>{t('input.loadingFiles', { defaultValue: '搜索文件中...' })}</span>
@@ -2264,7 +2290,7 @@ export function InputArea({
           />
 
           {/* Bottom toolbar */}
-          <div className="flex items-center justify-between gap-2 px-2 pb-2 mt-1">
+          <div className="relative z-20 mt-1 flex items-center justify-between gap-2 px-2 pb-2">
             {/* Left tools */}
             <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto pr-1">
               <ModelSwitcher />
@@ -2354,23 +2380,6 @@ export function InputArea({
                   <TooltipContent>{t('input.attachImages')}</TooltipContent>
                 </Tooltip>
               )}
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-8 rounded-lg text-muted-foreground hover:text-foreground"
-                    onClick={() => void handleSelectFilesFromSystem()}
-                    disabled={disabled || isOptimizing}
-                  >
-                    <FileUp className="size-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {t('input.selectFiles', { defaultValue: '选择文件' })}
-                </TooltipContent>
-              </Tooltip>
 
               {/* Attachment / Folder button */}
               {onSelectFolder && (

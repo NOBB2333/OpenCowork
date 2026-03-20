@@ -6,6 +6,4 @@ import { NotifyWindow } from './components/notify/NotifyWindow'
 
 const isNotifyWindow = window.location.hash.startsWith('#notify')
 
-createRoot(document.getElementById('root')!).render(
-  isNotifyWindow ? <NotifyWindow /> : <App />
-)
+createRoot(document.getElementById('root')!).render(isNotifyWindow ? <NotifyWindow /> : <App />)

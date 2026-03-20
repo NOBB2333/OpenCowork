@@ -72,7 +72,14 @@ export const cronEvents = {
   on(listener: CronEventListener): () => void {
     listeners.add(listener)
     return () => listeners.delete(listener)
-  },
+  }
 }
 
-export type { CronFiredEvent, CronJobRemovedEvent, CronRunStartedEvent, CronRunProgressEvent, CronRunFinishedEvent, CronEvent }
+export type {
+  CronFiredEvent,
+  CronJobRemovedEvent,
+  CronRunStartedEvent,
+  CronRunProgressEvent,
+  CronRunFinishedEvent,
+  CronEvent
+}

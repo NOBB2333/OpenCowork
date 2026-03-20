@@ -20,7 +20,7 @@ const LANGUAGE_ALIASES: Record<string, string> = {
   htm: 'markup',
   xml: 'markup',
   svg: 'markup',
-  text: 'plaintext',
+  text: 'plaintext'
 }
 
 const LANGUAGE_LOADERS: Record<string, () => Promise<{ default: unknown }>> = {
@@ -55,7 +55,7 @@ const LANGUAGE_LOADERS: Record<string, () => Promise<{ default: unknown }>> = {
   dart: () => import('react-syntax-highlighter/dist/esm/languages/prism/dart'),
   toml: () => import('react-syntax-highlighter/dist/esm/languages/prism/toml'),
   ini: () => import('react-syntax-highlighter/dist/esm/languages/prism/ini'),
-  markup: () => import('react-syntax-highlighter/dist/esm/languages/prism/markup'),
+  markup: () => import('react-syntax-highlighter/dist/esm/languages/prism/markup')
 }
 
 let runtimePromise: Promise<HighlighterRuntime> | null = null
@@ -72,10 +72,10 @@ async function ensureRuntime(): Promise<HighlighterRuntime> {
   if (runtimePromise) return runtimePromise
   runtimePromise = Promise.all([
     import('react-syntax-highlighter/dist/esm/prism-async-light'),
-    import('react-syntax-highlighter/dist/esm/styles/prism'),
+    import('react-syntax-highlighter/dist/esm/styles/prism')
   ]).then(([highlighterMod, styleMod]) => ({
     Highlighter: highlighterMod.default as unknown as AsyncLightHighlighter,
-    style: styleMod.oneDark,
+    style: styleMod.oneDark
   }))
   return runtimePromise
 }

@@ -49,9 +49,7 @@ export function TopBar(): React.JSX.Element {
   )
   const updateSessionMode = useChatStore((s) => s.updateSessionMode)
   const autoApprove = useSettingsStore((s) => s.autoApprove)
-  const clarifyAutoAcceptRecommended = useSettingsStore(
-    (s) => s.clarifyAutoAcceptRecommended
-  )
+  const clarifyAutoAcceptRecommended = useSettingsStore((s) => s.clarifyAutoAcceptRecommended)
   const pendingApprovals = useAgentStore((s) => s.pendingToolCalls.length)
   const errorCount = useAgentStore((s) =>
     s.executedToolCalls.reduce(

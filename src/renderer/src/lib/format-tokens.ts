@@ -52,7 +52,10 @@ export function getBillableTotalTokens(
  * Prices in AIModelConfig are per **million** tokens.
  * Returns null if pricing info is unavailable.
  */
-export function calculateCost(usage: TokenUsage, model: AIModelConfig | null | undefined): number | null {
+export function calculateCost(
+  usage: TokenUsage,
+  model: AIModelConfig | null | undefined
+): number | null {
   if (!model || model.inputPrice == null || model.outputPrice == null) return null
 
   const cacheRead = usage.cacheReadTokens ?? 0

@@ -92,18 +92,21 @@ export function registerPromptsHandlers(): void {
     }
   })
 
-  ipcMain.handle('prompts:load', async (_event, args: { name: string }): Promise<{ content: string } | { error: string }> => {
-    try {
-      const name = args?.name?.trim()
-      if (!name) return { error: 'Prompt name is required' }
+  ipcMain.handle(
+    'prompts:load',
+    async (_event, args: { name: string }): Promise<{ content: string } | { error: string }> => {
+      try {
+        const name = args?.name?.trim()
+        if (!name) return { error: 'Prompt name is required' }
 
-      const promptPath = resolvePromptPath(name)
-      if (!promptPath) return { error: `Prompt "${name}" not found` }
+        const promptPath = resolvePromptPath(name)
+        if (!promptPath) return { error: `Prompt "${name}" not found` }
 
-      const content = fs.readFileSync(promptPath, 'utf-8')
-      return { content }
-    } catch (err) {
-      return { error: String(err) }
+        const content = fs.readFileSync(promptPath, 'utf-8')
+        return { content }
+      } catch (err) {
+        return { error: String(err) }
+      }
     }
-  })
+  )
 }

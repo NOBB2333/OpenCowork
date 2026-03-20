@@ -40,7 +40,7 @@ function normalizeUnknown(value: unknown, depth = 0): unknown {
     const out: JsonRecord = {
       name: value.name,
       message: value.message,
-      stack: value.stack,
+      stack: value.stack
     }
     const withCause = value as Error & { cause?: unknown }
     if (withCause.cause !== undefined) {
@@ -72,7 +72,7 @@ function truncatePayload(payload: unknown): unknown {
     return {
       truncated: true,
       totalChars: raw.length,
-      preview: raw.slice(0, MAX_PAYLOAD_CHARS),
+      preview: raw.slice(0, MAX_PAYLOAD_CHARS)
     }
   } catch {
     return payload
@@ -112,11 +112,9 @@ export function writeCrashLog(event: string, payload?: unknown): void {
         electron: process.versions.electron,
         node: process.versions.node,
         chrome: process.versions.chrome,
-        v8: process.versions.v8,
+        v8: process.versions.v8
       },
-      ...(payload === undefined
-        ? {}
-        : { payload: truncatePayload(normalizeUnknown(payload)) }),
+      ...(payload === undefined ? {} : { payload: truncatePayload(normalizeUnknown(payload)) })
     }
     appendFileSync(getLogFilePath(now), `${JSON.stringify(entry)}\n`, 'utf8')
   } catch (err) {
@@ -127,4 +125,3 @@ export function writeCrashLog(event: string, payload?: unknown): void {
 export function getCrashLogDir(): string {
   return LOG_DIR
 }
-

@@ -13,11 +13,11 @@ export const taskListTool: ToolHandler = {
         status: {
           type: 'string',
           enum: ['pending', 'in_progress', 'completed', 'all'],
-          description: 'Filter tasks by status. Defaults to "all".',
-        },
+          description: 'Filter tasks by status. Defaults to "all".'
+        }
       },
-      required: [],
-    },
+      required: []
+    }
   },
   execute: async (input) => {
     const team = useTeamStore.getState().activeTeam
@@ -26,9 +26,7 @@ export const taskListTool: ToolHandler = {
     }
 
     const filter = String(input.status ?? 'all')
-    const tasks = filter === 'all'
-      ? team.tasks
-      : team.tasks.filter((t) => t.status === filter)
+    const tasks = filter === 'all' ? team.tasks : team.tasks.filter((t) => t.status === filter)
 
     return encodeStructuredToolResult({
       team_name: team.name,
@@ -39,9 +37,9 @@ export const taskListTool: ToolHandler = {
         subject: t.subject,
         status: t.status,
         owner: t.owner,
-        depends_on: t.dependsOn,
-      })),
+        depends_on: t.dependsOn
+      }))
     })
   },
-  requiresApproval: () => false,
+  requiresApproval: () => false
 }

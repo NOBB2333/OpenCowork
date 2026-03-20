@@ -46,12 +46,7 @@ export function LoadingIndicator({
   return (
     <div className={`flex items-center gap-1.5 text-xs ${className}`}>
       <span className="font-medium">{arrow}</span>
-      <TokenCounter
-        target={tokens}
-        startFrom={startFrom}
-        animate={shouldAnimate}
-        duration={500}
-      />
+      <TokenCounter target={tokens} startFrom={startFrom} animate={shouldAnimate} duration={500} />
     </div>
   )
 }

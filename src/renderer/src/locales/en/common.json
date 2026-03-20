@@ -100,11 +100,19 @@
     "update": {
       "availableTitle": "🎉 Version {{version}} is available",
       "availableDescription": "Click \"Update now\" to start downloading",
+      "buttonLabel": "Update v{{version}}",
+      "buttonTooltip": "A new version is available. Click to view release notes.",
+      "currentVersion": "Current v{{version}}",
+      "latestVersion": "Latest v{{version}}",
+      "releaseNotes": "Release notes",
+      "noReleaseNotes": "No release notes were provided for this version.",
+      "downloading": "Downloading update...",
+      "downloadingShort": "{{progress}}%",
+      "downloadingProgress": "Downloading update {{progress}}%",
       "actions": {
         "updateNow": "Update now",
         "remindLater": "Remind me later"
       },
-      "downloading": "Downloading update...",
       "downloadFailed": "Download failed",
       "delayed": "Update postponed",
       "downloadedTitle": "Update downloaded",

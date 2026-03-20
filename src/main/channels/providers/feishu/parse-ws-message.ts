@@ -32,7 +32,7 @@ export function parseFeishuWsMessage(raw: string): ChannelIncomingMessageData | 
         senderName: sender?.sender_id?.open_id ?? '',
         content,
         messageId: message?.message_id ?? '',
-        timestamp,
+        timestamp
       }
     }
 
@@ -44,7 +44,7 @@ export function parseFeishuWsMessage(raw: string): ChannelIncomingMessageData | 
         senderName: data.senderName ?? '',
         content: data.content,
         messageId: data.messageId ?? '',
-        timestamp: data.timestamp ?? Date.now(),
+        timestamp: data.timestamp ?? Date.now()
       }
     }
 

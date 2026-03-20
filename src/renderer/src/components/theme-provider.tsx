@@ -5,7 +5,10 @@ interface ThemeProviderProps {
   defaultTheme?: string
 }
 
-export function ThemeProvider({ children, defaultTheme = 'system' }: ThemeProviderProps): React.JSX.Element {
+export function ThemeProvider({
+  children,
+  defaultTheme = 'system'
+}: ThemeProviderProps): React.JSX.Element {
   return (
     <NextThemesProvider
       attribute="class"

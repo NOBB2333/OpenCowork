@@ -150,7 +150,18 @@ function LazyPageFallback(): React.JSX.Element {
   )
 }
 
-export function Layout(): React.JSX.Element {
+interface LayoutUpdateInfo {
+  newVersion: string
+  downloading: boolean
+  downloadProgress: number | null
+}
+
+interface LayoutProps {
+  updateInfo: LayoutUpdateInfo | null
+  onOpenUpdateDialog: () => void
+}
+
+export function Layout({ updateInfo, onOpenUpdateDialog }: LayoutProps): React.JSX.Element {
   const { t } = useTranslation('layout')
   const { t: tCommon } = useTranslation('common')
   const { t: tChat } = useTranslation('chat')
@@ -762,7 +773,7 @@ export function Layout(): React.JSX.Element {
     <TooltipProvider delayDuration={0}>
       <div className="flex h-screen flex-col overflow-hidden">
         {/* Full-width title bar */}
-        <TitleBar />
+        <TitleBar updateInfo={updateInfo} onOpenUpdateDialog={onOpenUpdateDialog} />
 
         <div className="flex flex-1 overflow-hidden px-1 pt-1 pb-1.5">
           <div className="flex flex-1 overflow-hidden rounded-lg border border-border/60 bg-background/85 shadow-[0_12px_40px_-20px_rgba(0,0,0,0.55)] backdrop-blur-sm">

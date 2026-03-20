@@ -93,7 +93,10 @@ interface CronStore {
   appendAgentLog: (entry: CronAgentLogEntry) => void
   clearAgentLogs: (jobId: string) => void
   setExecutionStarted: (jobId: string) => void
-  updateExecutionProgress: (jobId: string, progress: { iteration: number; toolCalls: number; currentStep?: string }) => void
+  updateExecutionProgress: (
+    jobId: string,
+    progress: { iteration: number; toolCalls: number; currentStep?: string }
+  ) => void
   clearExecutionState: (jobId: string) => void
 }
 
@@ -120,7 +123,7 @@ export const useCronStore = create<CronStore>((set) => ({
     try {
       const result = await ipcClient.invoke(IPC.CRON_RUNS, {
         jobId,
-        limit: MAX_RUNS,
+        limit: MAX_RUNS
       })
       if (Array.isArray(result)) {
         set({ runs: result as CronRunEntry[] })
@@ -130,18 +133,16 @@ export const useCronStore = create<CronStore>((set) => ({
     }
   },
 
-  addJob: (job) =>
-    set((s) => ({ jobs: [job, ...s.jobs] })),
+  addJob: (job) => set((s) => ({ jobs: [job, ...s.jobs] })),
 
-  removeJob: (id) =>
-    set((s) => ({ jobs: s.jobs.filter((j) => j.id !== id) })),
+  removeJob: (id) => set((s) => ({ jobs: s.jobs.filter((j) => j.id !== id) })),
 
   updateJob: (id, patch) =>
     set((s) => ({ jobs: s.jobs.map((j) => (j.id === id ? { ...j, ...patch } : j)) })),
 
   recordRun: (run) =>
     set((s) => ({
-      runs: [run, ...s.runs.filter((entry) => entry.id !== run.id)].slice(0, MAX_RUNS),
+      runs: [run, ...s.runs.filter((entry) => entry.id !== run.id)].slice(0, MAX_RUNS)
     })),
 
   appendAgentLog: (entry) =>
@@ -150,8 +151,8 @@ export const useCronStore = create<CronStore>((set) => ({
       return {
         agentLogs: {
           ...s.agentLogs,
-          [entry.jobId]: [...prev, entry].slice(-MAX_AGENT_LOG_ENTRIES),
-        },
+          [entry.jobId]: [...prev, entry].slice(-MAX_AGENT_LOG_ENTRIES)
+        }
       }
     }),
 
@@ -168,14 +169,12 @@ export const useCronStore = create<CronStore>((set) => ({
         j.id === jobId
           ? { ...j, executing: true, executionStartedAt: Date.now(), executionProgress: null }
           : j
-      ),
+      )
     })),
 
   updateExecutionProgress: (jobId, progress) =>
     set((s) => ({
-      jobs: s.jobs.map((j) =>
-        j.id === jobId ? { ...j, executionProgress: progress } : j
-      ),
+      jobs: s.jobs.map((j) => (j.id === jobId ? { ...j, executionProgress: progress } : j))
     })),
 
   clearExecutionState: (jobId) =>
@@ -184,6 +183,6 @@ export const useCronStore = create<CronStore>((set) => ({
         j.id === jobId
           ? { ...j, executing: false, executionStartedAt: null, executionProgress: null }
           : j
-      ),
-    })),
+      )
+    }))
 }))

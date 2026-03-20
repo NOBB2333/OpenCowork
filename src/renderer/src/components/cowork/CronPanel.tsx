@@ -25,7 +25,7 @@ import {
   CalendarDays,
   ListFilter,
   FileText,
-  Calendar,
+  Calendar
 } from 'lucide-react'
 import { cn } from '@renderer/lib/utils'
 import { Button } from '@renderer/components/ui/button'
@@ -35,7 +35,7 @@ import {
   type CronJobEntry,
   type CronRunEntry,
   type CronAgentLogEntry,
-  type CronSchedule,
+  type CronSchedule
 } from '@renderer/stores/cron-store'
 import { ipcClient } from '@renderer/lib/ipc/ipc-client'
 import { IPC } from '@renderer/lib/ipc/channels'
@@ -117,13 +117,9 @@ function scheduleKindBadge(kind: CronSchedule['kind']): React.JSX.Element {
   const colors = {
     at: 'bg-amber-500/10 text-amber-400',
     every: 'bg-cyan-500/10 text-cyan-400',
-    cron: 'bg-violet-500/10 text-violet-400',
+    cron: 'bg-violet-500/10 text-violet-400'
   }
-  return (
-    <span className={cn('rounded px-1 py-px text-[8px]', colors[kind])}>
-      {labels[kind]}
-    </span>
-  )
+  return <span className={cn('rounded px-1 py-px text-[8px]', colors[kind])}>{labels[kind]}</span>
 }
 
 // ── Agent Log Panel ──────────────────────────────────────────────
@@ -161,14 +157,14 @@ function AgentLogPanel({ jobId }: { jobId: string }): React.JSX.Element | null {
 
   return (
     <div className="border-t bg-muted/20">
-      <div
-        ref={scrollRef}
-        className="max-h-[160px] overflow-y-auto px-3 py-2 space-y-1"
-      >
+      <div ref={scrollRef} className="max-h-[160px] overflow-y-auto px-3 py-2 space-y-1">
         {logs.map((entry, i) => (
           <div key={i} className="flex items-start gap-1.5 text-[10px]">
             <span className="mt-px shrink-0">{logIcon(entry.type)}</span>
-            <span className="text-muted-foreground/40 shrink-0 tabular-nums" style={{ fontFamily: MONO_FONT }}>
+            <span
+              className="text-muted-foreground/40 shrink-0 tabular-nums"
+              style={{ fontFamily: MONO_FONT }}
+            >
               {new Date(entry.timestamp).toLocaleTimeString()}
             </span>
             <span
@@ -193,7 +189,7 @@ function CronJobCard({
   runs,
   onToggle,
   onRemove,
-  onRunNow,
+  onRunNow
 }: {
   job: CronJobEntry
   runs: CronRunEntry[]
@@ -231,9 +227,10 @@ function CronJobCard({
       {/* Execution progress bar (indeterminate) */}
       {job.executing && (
         <div className="h-[2px] w-full bg-blue-500/10 overflow-hidden">
-          <div className="h-full w-1/3 bg-blue-500/60 rounded-full animate-[slideRight_1.5s_ease-in-out_infinite]"
+          <div
+            className="h-full w-1/3 bg-blue-500/60 rounded-full animate-[slideRight_1.5s_ease-in-out_infinite]"
             style={{
-              animation: 'slideRight 1.5s ease-in-out infinite',
+              animation: 'slideRight 1.5s ease-in-out infinite'
             }}
           />
           <style>{`
@@ -306,13 +303,9 @@ function CronJobCard({
               </span>
             )}
             {job.deliveryMode !== 'desktop' && (
-              <span className="text-[9px] text-muted-foreground/40">
-                投递: {job.deliveryMode}
-              </span>
+              <span className="text-[9px] text-muted-foreground/40">投递: {job.deliveryMode}</span>
             )}
-            <span className="text-[9px] text-muted-foreground/40">
-              触发 {job.fireCount} 次
-            </span>
+            <span className="text-[9px] text-muted-foreground/40">触发 {job.fireCount} 次</span>
             {job.lastFiredAt && (
               <span className="text-[9px] text-muted-foreground/40">
                 上次: {formatRelative(job.lastFiredAt)}
@@ -325,13 +318,14 @@ function CronJobCard({
             <div className="flex items-center gap-2 mt-1.5 text-[10px]">
               <Loader2 className="size-3 text-blue-400 animate-spin shrink-0" />
               <span className="text-blue-400/80 font-medium">执行中</span>
-              {job.executionStartedAt && (
-                <ElapsedTimer startedAt={job.executionStartedAt} />
-              )}
+              {job.executionStartedAt && <ElapsedTimer startedAt={job.executionStartedAt} />}
               {job.executionProgress && (
                 <>
                   <span className="text-muted-foreground/40">·</span>
-                  <span className="text-muted-foreground/60 tabular-nums" style={{ fontFamily: MONO_FONT }}>
+                  <span
+                    className="text-muted-foreground/60 tabular-nums"
+                    style={{ fontFamily: MONO_FONT }}
+                  >
                     {job.executionProgress.toolCalls} tool calls
                   </span>
                   {job.executionProgress.currentStep && (
@@ -417,16 +411,12 @@ function CronJobCard({
       </div>
 
       {/* Agent execution logs (real-time) — always visible when executing */}
-      {job.executing && hasAgentLogs && (
-        <AgentLogPanel jobId={job.id} />
-      )}
+      {job.executing && hasAgentLogs && <AgentLogPanel jobId={job.id} />}
 
       {/* Expanded: agent logs (post-execution) + run history */}
       {expanded && (
         <>
-          {!job.executing && hasAgentLogs && (
-            <AgentLogPanel jobId={job.id} />
-          )}
+          {!job.executing && hasAgentLogs && <AgentLogPanel jobId={job.id} />}
           {jobRuns.length > 0 && (
             <div className="border-t px-3 py-2 space-y-1.5">
               <p className="text-[9px] text-muted-foreground/50 uppercase tracking-wider flex items-center gap-1">
@@ -465,7 +455,10 @@ function RunHistoryItem({ run }: { run: CronRunEntry }): React.JSX.Element {
         ) : (
           <CheckCircle2 className="size-3 shrink-0 text-green-500 mt-px" />
         )}
-        <span className="text-muted-foreground/50 shrink-0 tabular-nums" style={{ fontFamily: MONO_FONT }}>
+        <span
+          className="text-muted-foreground/50 shrink-0 tabular-nums"
+          style={{ fontFamily: MONO_FONT }}
+        >
           {new Date(run.startedAt).toLocaleTimeString()}
         </span>
         {duration != null && (
@@ -473,7 +466,10 @@ function RunHistoryItem({ run }: { run: CronRunEntry }): React.JSX.Element {
             {formatDuration(duration)}
           </span>
         )}
-        <span className="text-muted-foreground/60 shrink-0 tabular-nums" style={{ fontFamily: MONO_FONT }}>
+        <span
+          className="text-muted-foreground/60 shrink-0 tabular-nums"
+          style={{ fontFamily: MONO_FONT }}
+        >
           {run.toolCallCount} tools
         </span>
         {run.error ? (
@@ -494,7 +490,10 @@ function RunHistoryItem({ run }: { run: CronRunEntry }): React.JSX.Element {
         )}
       </button>
       {showOutput && (run.outputSummary || run.error) && (
-        <div className="ml-[18px] rounded bg-muted/30 px-2 py-1.5 text-[10px] text-muted-foreground/60 whitespace-pre-wrap break-words max-h-[200px] overflow-y-auto" style={{ fontFamily: MONO_FONT }}>
+        <div
+          className="ml-[18px] rounded bg-muted/30 px-2 py-1.5 text-[10px] text-muted-foreground/60 whitespace-pre-wrap break-words max-h-[200px] overflow-y-auto"
+          style={{ fontFamily: MONO_FONT }}
+        >
           {run.error || run.outputSummary?.slice(0, 500)}
         </div>
       )}
@@ -564,9 +563,11 @@ function jobRunsOnDate(job: CronJobEntry, date: Date): boolean {
   if (schedule.kind === 'at') {
     if (!schedule.at) return false
     const at = new Date(schedule.at)
-    return at.getFullYear() === date.getFullYear() &&
+    return (
+      at.getFullYear() === date.getFullYear() &&
       at.getMonth() === date.getMonth() &&
       at.getDate() === date.getDate()
+    )
   }
 
   if (schedule.kind === 'every') {
@@ -582,12 +583,14 @@ function jobRunsOnDate(job: CronJobEntry, date: Date): boolean {
     const parts = schedule.expr.trim().split(/\s+/)
     if (parts.length < 5) return false
     // fields: minute hour day-of-month month day-of-week
-    const dom = parts[2]   // 1-31
+    const dom = parts[2] // 1-31
     const month = parts[3] // 1-12
-    const dow = parts[4]   // 0-6 (0=Sun)
-    return matchesCronField(dom, date.getDate()) &&
+    const dow = parts[4] // 0-6 (0=Sun)
+    return (
+      matchesCronField(dom, date.getDate()) &&
       matchesCronField(month, date.getMonth() + 1) &&
       matchesCronField(dow, date.getDay())
+    )
   }
 
   return false
@@ -606,7 +609,11 @@ function getCalendarDays(year: number, month: number): Date[] {
 }
 
 function isSameDay(a: Date, b: Date): boolean {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  )
 }
 
 // ── CronCalendarView ──────────────────────────────────────────────
@@ -616,7 +623,7 @@ function CronCalendarView({
   runs,
   onToggle,
   onRemove,
-  onRunNow,
+  onRunNow
 }: {
   jobs: CronJobEntry[]
   runs: CronRunEntry[]
@@ -651,12 +658,16 @@ function CronCalendarView({
   }, [selectedDate, jobs])
 
   const goPrev = (): void => {
-    if (month === 0) { setYear(year - 1); setMonth(11) }
-    else setMonth(month - 1)
+    if (month === 0) {
+      setYear(year - 1)
+      setMonth(11)
+    } else setMonth(month - 1)
   }
   const goNext = (): void => {
-    if (month === 11) { setYear(year + 1); setMonth(0) }
-    else setMonth(month + 1)
+    if (month === 11) {
+      setYear(year + 1)
+      setMonth(0)
+    } else setMonth(month + 1)
   }
   const goToday = (): void => {
     const now = new Date()
@@ -715,18 +726,18 @@ function CronCalendarView({
                 isCurrentMonth ? 'text-foreground/80' : 'text-muted-foreground/30',
                 isToday && !isSelected && 'bg-blue-500/10 text-blue-400 font-medium',
                 isSelected && 'bg-blue-500/20 text-blue-400 font-medium ring-1 ring-blue-500/30',
-                !isSelected && !isToday && 'hover:bg-muted/50',
+                !isSelected && !isToday && 'hover:bg-muted/50'
               )}
               onClick={() => setSelectedDate(day)}
             >
               <span>{day.getDate()}</span>
               {/* Job indicator dots */}
               <div className="flex items-center gap-px mt-0.5 h-[4px]">
-                {jobCount > 0 && jobCount <= 3 && (
+                {jobCount > 0 &&
+                  jobCount <= 3 &&
                   Array.from({ length: jobCount }).map((_, di) => (
                     <span key={di} className="size-[3px] rounded-full bg-green-500/70" />
-                  ))
-                )}
+                  ))}
                 {jobCount > 3 && (
                   <>
                     <span className="size-[3px] rounded-full bg-green-500/70" />
@@ -747,11 +758,17 @@ function CronCalendarView({
           <div className="space-y-1.5">
             <p className="text-[10px] text-muted-foreground/60 flex items-center gap-1">
               <CalendarDays className="size-3" />
-              {selectedDate.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' })}
+              {selectedDate.toLocaleDateString('zh-CN', {
+                month: 'long',
+                day: 'numeric',
+                weekday: 'short'
+              })}
               <span className="text-muted-foreground/40">· {selectedJobs.length} 个任务</span>
             </p>
             {selectedJobs.length === 0 && (
-              <p className="text-[10px] text-muted-foreground/40 py-4 text-center">当天无定时任务</p>
+              <p className="text-[10px] text-muted-foreground/40 py-4 text-center">
+                当天无定时任务
+              </p>
             )}
             {selectedJobs.map((job) => (
               <CronJobCard
@@ -786,7 +803,7 @@ function formatDate(ts: number): string {
 
 function HistoryRunCard({
   run,
-  jobName,
+  jobName
 }: {
   run: CronRunEntry
   jobName: string
@@ -796,19 +813,37 @@ function HistoryRunCard({
   const hasContent = !!(run.outputSummary || run.error)
 
   const statusConfig = {
-    success: { icon: <CheckCircle2 className="size-3.5 text-green-500" />, label: '成功', color: 'text-green-500' },
-    error: { icon: <XCircle className="size-3.5 text-destructive" />, label: '失败', color: 'text-destructive' },
-    aborted: { icon: <StopCircle className="size-3.5 text-amber-400" />, label: '中止', color: 'text-amber-400' },
-    running: { icon: <Loader2 className="size-3.5 text-blue-400 animate-spin" />, label: '执行中', color: 'text-blue-400' },
+    success: {
+      icon: <CheckCircle2 className="size-3.5 text-green-500" />,
+      label: '成功',
+      color: 'text-green-500'
+    },
+    error: {
+      icon: <XCircle className="size-3.5 text-destructive" />,
+      label: '失败',
+      color: 'text-destructive'
+    },
+    aborted: {
+      icon: <StopCircle className="size-3.5 text-amber-400" />,
+      label: '中止',
+      color: 'text-amber-400'
+    },
+    running: {
+      icon: <Loader2 className="size-3.5 text-blue-400 animate-spin" />,
+      label: '执行中',
+      color: 'text-blue-400'
+    }
   }
   const cfg = statusConfig[run.status] ?? statusConfig.running
 
   return (
-    <div className={cn(
-      'rounded-lg border bg-card transition-colors overflow-hidden',
-      run.status === 'error' && 'border-destructive/20',
-      run.status === 'running' && 'border-blue-500/20',
-    )}>
+    <div
+      className={cn(
+        'rounded-lg border bg-card transition-colors overflow-hidden',
+        run.status === 'error' && 'border-destructive/20',
+        run.status === 'running' && 'border-blue-500/20'
+      )}
+    >
       <button
         className="flex items-start gap-2.5 px-3 py-2.5 w-full text-left hover:bg-muted/20 transition-colors"
         onClick={() => hasContent && setExpanded((v) => !v)}
@@ -817,7 +852,9 @@ function HistoryRunCard({
         <div className="min-w-0 flex-1 space-y-0.5">
           {/* Row 1: Job name + status */}
           <div className="flex items-center gap-1.5">
-            <span className="text-[11px] font-medium text-foreground/80 truncate flex-1">{jobName}</span>
+            <span className="text-[11px] font-medium text-foreground/80 truncate flex-1">
+              {jobName}
+            </span>
             <span className={cn('text-[9px] font-medium shrink-0', cfg.color)}>{cfg.label}</span>
           </div>
           {/* Row 2: Time + duration + tool calls */}
@@ -853,23 +890,37 @@ function HistoryRunCard({
         <div className="border-t px-3 py-2">
           {run.error && (
             <div className="space-y-1">
-              <p className="text-[9px] text-destructive/60 uppercase tracking-wider font-medium">错误信息</p>
-              <pre className="text-[10px] text-destructive/70 whitespace-pre-wrap break-words leading-relaxed max-h-[300px] overflow-y-auto" style={{ fontFamily: MONO_FONT }}>
+              <p className="text-[9px] text-destructive/60 uppercase tracking-wider font-medium">
+                错误信息
+              </p>
+              <pre
+                className="text-[10px] text-destructive/70 whitespace-pre-wrap break-words leading-relaxed max-h-[300px] overflow-y-auto"
+                style={{ fontFamily: MONO_FONT }}
+              >
                 {run.error}
               </pre>
             </div>
           )}
           {run.outputSummary && (
             <div className={cn('space-y-1', run.error && 'mt-2')}>
-              <p className="text-[9px] text-muted-foreground/50 uppercase tracking-wider font-medium">执行输出</p>
-              <pre className="text-[10px] text-muted-foreground/60 whitespace-pre-wrap break-words leading-relaxed max-h-[400px] overflow-y-auto" style={{ fontFamily: MONO_FONT }}>
+              <p className="text-[9px] text-muted-foreground/50 uppercase tracking-wider font-medium">
+                执行输出
+              </p>
+              <pre
+                className="text-[10px] text-muted-foreground/60 whitespace-pre-wrap break-words leading-relaxed max-h-[400px] overflow-y-auto"
+                style={{ fontFamily: MONO_FONT }}
+              >
                 {run.outputSummary}
               </pre>
             </div>
           )}
           <div className="mt-2 flex items-center gap-3 text-[9px] text-muted-foreground/40">
-            <span>Run ID: <span style={{ fontFamily: MONO_FONT }}>{run.id}</span></span>
-            <span>Job ID: <span style={{ fontFamily: MONO_FONT }}>{run.jobId}</span></span>
+            <span>
+              Run ID: <span style={{ fontFamily: MONO_FONT }}>{run.id}</span>
+            </span>
+            <span>
+              Job ID: <span style={{ fontFamily: MONO_FONT }}>{run.jobId}</span>
+            </span>
           </div>
         </div>
       )}
@@ -879,7 +930,7 @@ function HistoryRunCard({
 
 function CronHistoryView({
   jobs,
-  runs,
+  runs
 }: {
   jobs: CronJobEntry[]
   runs: CronRunEntry[]
@@ -921,7 +972,10 @@ function CronHistoryView({
     const total = filteredRuns.length
     const success = filteredRuns.filter((r) => r.status === 'success').length
     const errors = filteredRuns.filter((r) => r.status === 'error').length
-    const totalDuration = filteredRuns.reduce((acc, r) => acc + (r.finishedAt ? r.finishedAt - r.startedAt : 0), 0)
+    const totalDuration = filteredRuns.reduce(
+      (acc, r) => acc + (r.finishedAt ? r.finishedAt - r.startedAt : 0),
+      0
+    )
     return { total, success, errors, avgDuration: total > 0 ? totalDuration / total : 0 }
   }, [filteredRuns])
 
@@ -932,7 +986,7 @@ function CronHistoryView({
         <button
           className={cn(
             'flex items-center gap-1 text-[10px] px-2 py-1 rounded-md transition-colors',
-            showFilter ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/50',
+            showFilter ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/50'
           )}
           onClick={() => setShowFilter((v) => !v)}
         >
@@ -955,7 +1009,9 @@ function CronHistoryView({
           <button
             className={cn(
               'text-[10px] px-2 py-0.5 rounded transition-colors',
-              !filterJobId ? 'bg-blue-500/20 text-blue-400' : 'bg-muted/50 text-muted-foreground hover:bg-muted',
+              !filterJobId
+                ? 'bg-blue-500/20 text-blue-400'
+                : 'bg-muted/50 text-muted-foreground hover:bg-muted'
             )}
             onClick={() => setFilterJobId(null)}
           >
@@ -966,7 +1022,9 @@ function CronHistoryView({
               key={j.id}
               className={cn(
                 'text-[10px] px-2 py-0.5 rounded transition-colors truncate max-w-[120px]',
-                filterJobId === j.id ? 'bg-blue-500/20 text-blue-400' : 'bg-muted/50 text-muted-foreground hover:bg-muted',
+                filterJobId === j.id
+                  ? 'bg-blue-500/20 text-blue-400'
+                  : 'bg-muted/50 text-muted-foreground hover:bg-muted'
               )}
               onClick={() => setFilterJobId(j.id)}
             >
@@ -1026,10 +1084,7 @@ export function CronPanel(): React.JSX.Element {
   const handleRefresh = async (): Promise<void> => {
     setRefreshing(true)
     try {
-      await Promise.all([
-        loadJobs(),
-        loadRuns(),
-      ])
+      await Promise.all([loadJobs(), loadRuns()])
     } finally {
       setRefreshing(false)
     }
@@ -1043,7 +1098,9 @@ export function CronPanel(): React.JSX.Element {
   }, [view, loadRuns])
 
   const handleToggle = async (id: string, enabled: boolean): Promise<void> => {
-    const result = await ipcClient.invoke(IPC.CRON_TOGGLE, { jobId: id, enabled }) as { error?: string }
+    const result = (await ipcClient.invoke(IPC.CRON_TOGGLE, { jobId: id, enabled })) as {
+      error?: string
+    }
     if (result.error) {
       toast.error('操作失败', { description: result.error })
       return
@@ -1053,7 +1110,7 @@ export function CronPanel(): React.JSX.Element {
   }
 
   const handleRemove = async (id: string): Promise<void> => {
-    const result = await ipcClient.invoke(IPC.CRON_REMOVE, { jobId: id }) as { error?: string }
+    const result = (await ipcClient.invoke(IPC.CRON_REMOVE, { jobId: id })) as { error?: string }
     if (result.error) {
       toast.error('删除失败', { description: result.error })
       return
@@ -1063,7 +1120,7 @@ export function CronPanel(): React.JSX.Element {
   }
 
   const handleRunNow = async (id: string): Promise<void> => {
-    const result = await ipcClient.invoke(IPC.CRON_RUN_NOW, { jobId: id }) as { error?: string }
+    const result = (await ipcClient.invoke(IPC.CRON_RUN_NOW, { jobId: id })) as { error?: string }
     if (result.error) {
       toast.error('执行失败', { description: result.error })
       return
@@ -1079,7 +1136,9 @@ export function CronPanel(): React.JSX.Element {
           <button
             className={cn(
               'flex items-center gap-1 text-[10px] px-2 py-1 rounded-md transition-colors',
-              view === 'tasks' ? 'bg-muted text-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted/50',
+              view === 'tasks'
+                ? 'bg-muted text-foreground shadow-sm'
+                : 'text-muted-foreground hover:bg-muted/50'
             )}
             onClick={() => setView('tasks')}
           >
@@ -1092,7 +1151,9 @@ export function CronPanel(): React.JSX.Element {
           <button
             className={cn(
               'flex items-center gap-1 text-[10px] px-2 py-1 rounded-md transition-colors',
-              view === 'history' ? 'bg-muted text-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted/50',
+              view === 'history'
+                ? 'bg-muted text-foreground shadow-sm'
+                : 'text-muted-foreground hover:bg-muted/50'
             )}
             onClick={() => setView('history')}
           >
@@ -1105,7 +1166,9 @@ export function CronPanel(): React.JSX.Element {
           <button
             className={cn(
               'flex items-center gap-1 text-[10px] px-2 py-1 rounded-md transition-colors',
-              view === 'calendar' ? 'bg-muted text-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted/50',
+              view === 'calendar'
+                ? 'bg-muted text-foreground shadow-sm'
+                : 'text-muted-foreground hover:bg-muted/50'
             )}
             onClick={() => setView('calendar')}
           >
@@ -1159,7 +1222,9 @@ export function CronPanel(): React.JSX.Element {
             <>
               {enabledJobs.length > 0 && <Separator />}
               <div className="space-y-1">
-                <p className="text-[9px] text-muted-foreground/40 uppercase tracking-wider px-1">已暂停</p>
+                <p className="text-[9px] text-muted-foreground/40 uppercase tracking-wider px-1">
+                  已暂停
+                </p>
                 <div className="space-y-2">
                   {disabledJobs.map((job) => (
                     <CronJobCard
@@ -1179,8 +1244,8 @@ export function CronPanel(): React.JSX.Element {
           {/* Hint */}
           <div className="rounded-md bg-muted/30 px-3 py-2 text-[10px] text-muted-foreground/50 space-y-0.5">
             <p className="flex items-center gap-1">
-              <Plus className="size-2.5" />
-              让 AI 调用 <span className="font-mono text-blue-400/60 mx-0.5">CronAdd</span> 创建新任务
+              <Plus className="size-2.5" />让 AI 调用{' '}
+              <span className="font-mono text-blue-400/60 mx-0.5">CronAdd</span> 创建新任务
             </p>
             <p className="flex items-center gap-1">
               <AlertCircle className="size-2.5" />
@@ -1191,9 +1256,7 @@ export function CronPanel(): React.JSX.Element {
       )}
 
       {/* === History View === */}
-      {view === 'history' && (
-        <CronHistoryView jobs={jobs} runs={runs} />
-      )}
+      {view === 'history' && <CronHistoryView jobs={jobs} runs={runs} />}
 
       {/* === Calendar View === */}
       {view === 'calendar' && (

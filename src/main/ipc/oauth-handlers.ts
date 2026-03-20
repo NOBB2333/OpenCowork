@@ -19,7 +19,13 @@ interface OAuthCallbackPayload {
 
 const servers = new Map<
   string,
-  { server: http.Server; port: number; path: string; sender: Electron.WebContents; expectedState?: string }
+  {
+    server: http.Server
+    port: number
+    path: string
+    sender: Electron.WebContents
+    expectedState?: string
+  }
 >()
 
 function buildCallbackHtml(message: string): string {
@@ -83,7 +89,7 @@ export function registerOauthHandlers(): void {
               requestId,
               error: 'state_mismatch',
               errorDescription: 'OAuth state mismatch',
-              state,
+              state
             }
             sender.send('oauth:callback', payload)
             res.statusCode = 400
@@ -98,7 +104,7 @@ export function registerOauthHandlers(): void {
             code,
             state,
             error,
-            errorDescription,
+            errorDescription
           }
           sender.send('oauth:callback', payload)
 
@@ -110,7 +116,7 @@ export function registerOauthHandlers(): void {
           const payload: OAuthCallbackPayload = {
             requestId,
             error: 'callback_error',
-            errorDescription: err instanceof Error ? err.message : String(err),
+            errorDescription: err instanceof Error ? err.message : String(err)
           }
           sender.send('oauth:callback', payload)
           res.statusCode = 500
@@ -132,7 +138,7 @@ export function registerOauthHandlers(): void {
           port: actualPort,
           path,
           sender,
-          expectedState: args.expectedState,
+          expectedState: args.expectedState
         })
         resolve({ port: actualPort, redirectUri: `http://localhost:${actualPort}${path}` })
       })

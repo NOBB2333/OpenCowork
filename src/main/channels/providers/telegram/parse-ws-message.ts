@@ -20,7 +20,7 @@ export function parseTelegramWsMessage(raw: string): ChannelIncomingMessageData 
         senderName: [msg.from?.first_name, msg.from?.last_name].filter(Boolean).join(' ') || '',
         content: msg.text ?? '',
         messageId: String(msg.message_id ?? ''),
-        timestamp,
+        timestamp
       }
     }
 
@@ -32,7 +32,7 @@ export function parseTelegramWsMessage(raw: string): ChannelIncomingMessageData 
         senderName: data.senderName ?? '',
         content: data.content,
         messageId: data.messageId ?? '',
-        timestamp: data.timestamp ?? Date.now(),
+        timestamp: data.timestamp ?? Date.now()
       }
     }
 

@@ -85,10 +85,7 @@ export function AppPluginPanel(): React.JSX.Element {
     [providers]
   )
 
-  const visibleDescriptors = useMemo(
-    () => APP_PLUGIN_DESCRIPTORS.filter((d) => !d.hidden),
-    []
-  )
+  const visibleDescriptors = useMemo(() => APP_PLUGIN_DESCRIPTORS.filter((d) => !d.hidden), [])
   const selectedPlugin = plugins.find((plugin) => plugin.id === selectedPluginId) ?? null
   const selectedDescriptor =
     visibleDescriptors.find((descriptor) => descriptor.id === selectedPluginId) ??

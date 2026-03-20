@@ -36,11 +36,11 @@ function createSkillHandler(): ToolHandler {
         properties: {
           SkillName: {
             type: 'string',
-            description: 'The name of the skill to load. Must match one of the available skills.',
-          },
+            description: 'The name of the skill to load. Must match one of the available skills.'
+          }
         },
-        required: ['SkillName'],
-      },
+        required: ['SkillName']
+      }
     },
     execute: async (input, ctx) => {
       const skillName = input.SkillName as string
@@ -48,7 +48,7 @@ function createSkillHandler(): ToolHandler {
         return encodeToolError('SkillName is required')
       }
       try {
-        const result = await ctx.ipc.invoke('skills:load', { name: skillName }) as
+        const result = (await ctx.ipc.invoke('skills:load', { name: skillName })) as
           | { content: string; workingDirectory: string }
           | { error: string }
         if ('error' in result) {
@@ -59,7 +59,7 @@ function createSkillHandler(): ToolHandler {
         return encodeToolError(err instanceof Error ? err.message : String(err))
       }
     },
-    requiresApproval: () => false,
+    requiresApproval: () => false
   }
 }
 

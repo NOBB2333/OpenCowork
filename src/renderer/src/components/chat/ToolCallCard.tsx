@@ -541,7 +541,9 @@ function GrepOutputBlock({
   const { t } = useTranslation('chat')
   const parsed = React.useMemo(() => {
     const decoded = decodeStructuredToolResult(output)
-    return Array.isArray(decoded) ? (decoded as Array<{ file: string; line: number; text: string }>) : null
+    return Array.isArray(decoded)
+      ? (decoded as Array<{ file: string; line: number; text: string }>)
+      : null
   }, [output])
 
   // Group by file - must be called before early return to maintain hook order

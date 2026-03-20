@@ -34,6 +34,8 @@
     "unknownProject": "未知项目",
     "pinnedProjects": "置顶项目",
     "projects": "项目",
+    "expandOlderSessions": "展开历史记录（{{count}}）",
+    "collapseOlderSessions": "收起历史记录",
     "sessions": "会话",
     "msgs": "消息"
   },

@@ -19,7 +19,9 @@ export interface TaskRow {
 
 export function listTasksBySession(sessionId: string): TaskRow[] {
   const db = getDb()
-  return db.prepare('SELECT * FROM tasks WHERE session_id = ? ORDER BY sort_order ASC').all(sessionId) as TaskRow[]
+  return db
+    .prepare('SELECT * FROM tasks WHERE session_id = ? ORDER BY sort_order ASC')
+    .all(sessionId) as TaskRow[]
 }
 
 export function getTask(id: string): TaskRow | undefined {
@@ -84,16 +86,46 @@ export function updateTask(
   const sets: string[] = []
   const values: unknown[] = []
 
-  if (patch.subject !== undefined) { sets.push('subject = ?'); values.push(patch.subject) }
-  if (patch.description !== undefined) { sets.push('description = ?'); values.push(patch.description) }
-  if (patch.activeForm !== undefined) { sets.push('active_form = ?'); values.push(patch.activeForm) }
-  if (patch.status !== undefined) { sets.push('status = ?'); values.push(patch.status) }
-  if (patch.owner !== undefined) { sets.push('owner = ?'); values.push(patch.owner) }
-  if (patch.blocks !== undefined) { sets.push('blocks = ?'); values.push(JSON.stringify(patch.blocks)) }
-  if (patch.blockedBy !== undefined) { sets.push('blocked_by = ?'); values.push(JSON.stringify(patch.blockedBy)) }
-  if (patch.metadata !== undefined) { sets.push('metadata = ?'); values.push(patch.metadata ? JSON.stringify(patch.metadata) : null) }
-  if (patch.sortOrder !== undefined) { sets.push('sort_order = ?'); values.push(patch.sortOrder) }
-  if (patch.updatedAt !== undefined) { sets.push('updated_at = ?'); values.push(patch.updatedAt) }
+  if (patch.subject !== undefined) {
+    sets.push('subject = ?')
+    values.push(patch.subject)
+  }
+  if (patch.description !== undefined) {
+    sets.push('description = ?')
+    values.push(patch.description)
+  }
+  if (patch.activeForm !== undefined) {
+    sets.push('active_form = ?')
+    values.push(patch.activeForm)
+  }
+  if (patch.status !== undefined) {
+    sets.push('status = ?')
+    values.push(patch.status)
+  }
+  if (patch.owner !== undefined) {
+    sets.push('owner = ?')
+    values.push(patch.owner)
+  }
+  if (patch.blocks !== undefined) {
+    sets.push('blocks = ?')
+    values.push(JSON.stringify(patch.blocks))
+  }
+  if (patch.blockedBy !== undefined) {
+    sets.push('blocked_by = ?')
+    values.push(JSON.stringify(patch.blockedBy))
+  }
+  if (patch.metadata !== undefined) {
+    sets.push('metadata = ?')
+    values.push(patch.metadata ? JSON.stringify(patch.metadata) : null)
+  }
+  if (patch.sortOrder !== undefined) {
+    sets.push('sort_order = ?')
+    values.push(patch.sortOrder)
+  }
+  if (patch.updatedAt !== undefined) {
+    sets.push('updated_at = ?')
+    values.push(patch.updatedAt)
+  }
 
   if (sets.length === 0) return
 

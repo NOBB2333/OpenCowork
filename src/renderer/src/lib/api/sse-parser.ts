@@ -7,9 +7,7 @@ export interface SSEEvent {
   data: string
 }
 
-export async function* parseSSEStream(
-  response: Response
-): AsyncIterable<SSEEvent> {
+export async function* parseSSEStream(response: Response): AsyncIterable<SSEEvent> {
   const reader = response.body!.getReader()
   const decoder = new TextDecoder()
   let buffer = ''

@@ -1,14 +1,14 @@
-'use client';
+'use client'
 
-import * as React from 'react';
-import { AnimatePresence, motion, type HTMLMotionProps } from 'motion/react';
+import * as React from 'react'
+import { AnimatePresence, motion, type HTMLMotionProps } from 'motion/react'
 
 import {
   Highlight,
   HighlightItem,
   type HighlightItemProps,
-  type HighlightProps,
-} from '@renderer/components/animate-ui/primitives/effects/highlight';
+  type HighlightProps
+} from '@renderer/components/animate-ui/primitives/effects/highlight'
 import {
   Accordion,
   AccordionItem,
@@ -19,57 +19,47 @@ import {
   type AccordionItemProps,
   type AccordionHeaderProps,
   type AccordionTriggerProps,
-  type AccordionContentProps,
-} from '@renderer/components/animate-ui/primitives/radix/accordion';
-import { getStrictContext } from '@renderer/lib/get-strict-context';
-import { useControlledState } from '@renderer/hooks/use-controlled-state';
+  type AccordionContentProps
+} from '@renderer/components/animate-ui/primitives/radix/accordion'
+import { getStrictContext } from '@renderer/lib/get-strict-context'
+import { useControlledState } from '@renderer/hooks/use-controlled-state'
 
 type FilesContextType = {
-  open: string[];
-};
+  open: string[]
+}
 
 type FolderContextType = {
-  isOpen: boolean;
-};
+  isOpen: boolean
+}
 
-const [FilesProvider, useFiles] =
-  getStrictContext<FilesContextType>('FilesContext');
+const [FilesProvider, useFiles] = getStrictContext<FilesContextType>('FilesContext')
 
-const [FolderProvider, useFolder] =
-  getStrictContext<FolderContextType>('FolderContext');
+const [FolderProvider, useFolder] = getStrictContext<FolderContextType>('FolderContext')
 
 type BaseFilesProps = {
-  children: React.ReactNode;
-} & Omit<AccordionProps, 'type' | 'defaultValue' | 'value' | 'onValueChange'>;
+  children: React.ReactNode
+} & Omit<AccordionProps, 'type' | 'defaultValue' | 'value' | 'onValueChange'>
 
 type ControlledFilesProps = {
-  defaultOpen?: never;
-  open?: string[];
-  onOpenChange?: (open: string[]) => void;
-};
+  defaultOpen?: never
+  open?: string[]
+  onOpenChange?: (open: string[]) => void
+}
 
 type UncontrolledFilesProps = {
-  defaultOpen: string[];
-  open?: never;
-  onOpenChange?: never;
-};
+  defaultOpen: string[]
+  open?: never
+  onOpenChange?: never
+}
 
-type FilesProps = BaseFilesProps &
-  (ControlledFilesProps | UncontrolledFilesProps);
+type FilesProps = BaseFilesProps & (ControlledFilesProps | UncontrolledFilesProps)
 
-function Files({
-  children,
-  defaultOpen = [],
-  open,
-  onOpenChange,
-  style,
-  ...props
-}: FilesProps) {
+function Files({ children, defaultOpen = [], open, onOpenChange, style, ...props }: FilesProps) {
   const [openValue, setOpenValue] = useControlledState({
     value: open,
     defaultValue: defaultOpen,
-    onChange: onOpenChange,
-  });
+    onChange: onOpenChange
+  })
 
   return (
     <FilesProvider value={{ open: openValue ?? [] }}>
@@ -82,76 +72,70 @@ function Files({
         style={{
           position: 'relative',
           overflow: 'auto',
-          ...style,
+          ...style
         }}
         {...props}
       >
         {children}
       </Accordion>
     </FilesProvider>
-  );
+  )
 }
 
-type FilesHighlightProps = Omit<HighlightProps, 'controlledItems' | 'mode'>;
+type FilesHighlightProps = Omit<HighlightProps, 'controlledItems' | 'mode'>
 
 function FilesHighlight({ hover = true, ...props }: FilesHighlightProps) {
   return (
-    <Highlight
-      data-slot="files-highlight"
-      controlledItems
-      mode="parent"
-      hover={hover}
-      {...props}
-    />
-  );
+    <Highlight data-slot="files-highlight" controlledItems mode="parent" hover={hover} {...props} />
+  )
 }
 
-type FolderItemProps = AccordionItemProps;
+type FolderItemProps = AccordionItemProps
 
 function FolderItem({ value, ...props }: FolderItemProps) {
-  const { open } = useFiles();
+  const { open } = useFiles()
 
   return (
     <FolderProvider value={{ isOpen: open.includes(value) }}>
       <AccordionItem data-slot="folder-item" value={value} {...props} />
     </FolderProvider>
-  );
+  )
 }
 
-type FolderHeaderProps = AccordionHeaderProps;
+type FolderHeaderProps = AccordionHeaderProps
 
 function FolderHeader(props: FolderHeaderProps) {
-  return <AccordionHeader data-slot="folder-header" {...props} />;
+  return <AccordionHeader data-slot="folder-header" {...props} />
 }
 
-type FolderTriggerProps = AccordionTriggerProps;
+type FolderTriggerProps = AccordionTriggerProps
 
 function FolderTrigger(props: FolderTriggerProps) {
-  return <AccordionTrigger data-slot="folder-trigger" {...props} />;
+  return <AccordionTrigger data-slot="folder-trigger" {...props} />
 }
 
-type FolderContentProps = AccordionContentProps;
+type FolderContentProps = AccordionContentProps
 
 function FolderContent(props: FolderContentProps) {
-  return <AccordionContent data-slot="folder-content" {...props} />;
+  return <AccordionContent data-slot="folder-content" {...props} />
 }
 
-type FolderHighlightProps = HighlightItemProps;
+type FolderHighlightProps = HighlightItemProps
 
 function FolderHighlight(props: FolderHighlightProps) {
-  return <HighlightItem data-slot="folder-highlight" {...props} />;
+  return <HighlightItem data-slot="folder-highlight" {...props} />
 }
 
-type FolderProps = React.ComponentProps<'div'>;
+type FolderProps = React.ComponentProps<'div'>
 
 function Folder(props: FolderProps) {
-  return <div data-slot="folder" {...props} />;
+  return <div data-slot="folder" {...props} />
 }
 
 type FolderIconProps = HTMLMotionProps<'span'> & {
-  closeIcon: React.ReactNode;
-  openIcon: React.ReactNode;
-};
+  closeIcon: React.ReactNode
+  openIcon: React.ReactNode
+}
 
 function FolderIcon({
   closeIcon,
@@ -159,7 +143,7 @@ function FolderIcon({
   transition = { duration: 0.15 },
   ...props
 }: FolderIconProps) {
-  const { isOpen } = useFolder();
+  const { isOpen } = useFolder()
 
   return (
     <AnimatePresence mode="wait">
@@ -175,37 +159,37 @@ function FolderIcon({
         {isOpen ? openIcon : closeIcon}
       </motion.span>
     </AnimatePresence>
-  );
+  )
 }
 
-type FolderLabelProps = React.ComponentProps<'span'>;
+type FolderLabelProps = React.ComponentProps<'span'>
 
 function FolderLabel(props: FolderLabelProps) {
-  return <span data-slot="folder-label" {...props} />;
+  return <span data-slot="folder-label" {...props} />
 }
 
-type FileHighlightProps = HighlightItemProps;
+type FileHighlightProps = HighlightItemProps
 
 function FileHighlight(props: FileHighlightProps) {
-  return <HighlightItem data-slot="file-highlight" {...props} />;
+  return <HighlightItem data-slot="file-highlight" {...props} />
 }
 
-type FileProps = React.ComponentProps<'div'>;
+type FileProps = React.ComponentProps<'div'>
 
 function File(props: FileProps) {
-  return <div data-slot="file" {...props} />;
+  return <div data-slot="file" {...props} />
 }
 
-type FileIconProps = React.ComponentProps<'span'>;
+type FileIconProps = React.ComponentProps<'span'>
 
 function FileIcon(props: FileIconProps) {
-  return <span data-slot="file-icon" {...props} />;
+  return <span data-slot="file-icon" {...props} />
 }
 
-type FileLabelProps = React.ComponentProps<'span'>;
+type FileLabelProps = React.ComponentProps<'span'>
 
 function FileLabel(props: FileLabelProps) {
-  return <span data-slot="file-label" {...props} />;
+  return <span data-slot="file-label" {...props} />
 }
 
 export {
@@ -240,5 +224,5 @@ export {
   type FolderIconProps,
   type FolderLabelProps,
   type FilesContextType,
-  type FolderContextType,
-};
+  type FolderContextType
+}

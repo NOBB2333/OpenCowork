@@ -624,13 +624,13 @@ export const routinAiPreset: BuiltinProviderPreset = {
       maxOutputTokens: 128_000,
       supportsVision: true,
       supportsFunctionCall: false,
-      inputPrice: 0.20,
+      inputPrice: 0.2,
       outputPrice: 1.25,
       cacheHitPrice: 0.02,
       supportsThinking: true,
       thinkingConfig: {
         bodyParams: {},
-        reasoningEffortLevels: ["none", 'low', 'medium', 'high', 'xhigh'],
+        reasoningEffortLevels: ['none', 'low', 'medium', 'high', 'xhigh'],
         defaultReasoningEffort: 'medium'
       },
       responseSummary: 'detailed',
@@ -649,12 +649,12 @@ export const routinAiPreset: BuiltinProviderPreset = {
       supportsVision: true,
       supportsFunctionCall: false,
       inputPrice: 0.75,
-      outputPrice: 4.50,
+      outputPrice: 4.5,
       cacheHitPrice: 0.075,
       supportsThinking: true,
       thinkingConfig: {
         bodyParams: {},
-        reasoningEffortLevels: ["none", 'low', 'medium', 'high', 'xhigh'],
+        reasoningEffortLevels: ['none', 'low', 'medium', 'high', 'xhigh'],
         defaultReasoningEffort: 'medium'
       },
       responseSummary: 'detailed',
@@ -678,7 +678,7 @@ export const routinAiPreset: BuiltinProviderPreset = {
       supportsThinking: true,
       thinkingConfig: {
         bodyParams: {},
-        reasoningEffortLevels: ["none", 'low', 'medium', 'high', 'xhigh'],
+        reasoningEffortLevels: ['none', 'low', 'medium', 'high', 'xhigh'],
         defaultReasoningEffort: 'medium'
       },
       responseSummary: 'detailed',

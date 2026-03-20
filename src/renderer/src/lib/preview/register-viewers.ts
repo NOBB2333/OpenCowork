@@ -40,42 +40,42 @@ export function registerAllViewers(): void {
   viewerRegistry.register({
     type: 'html',
     extensions: ['.html', '.htm'],
-    component: HtmlViewer,
+    component: HtmlViewer
   })
 
   viewerRegistry.register({
     type: 'spreadsheet',
     extensions: ['.csv', '.tsv', '.xlsx', '.xls'],
-    component: SpreadsheetViewer,
+    component: SpreadsheetViewer
   })
 
   viewerRegistry.register({
     type: 'markdown',
     extensions: ['.md', '.mdx', '.markdown'],
-    component: MarkdownViewer,
+    component: MarkdownViewer
   })
 
   viewerRegistry.register({
     type: 'image',
     extensions: ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.svg', '.ico'],
-    component: ImageViewer,
+    component: ImageViewer
   })
 
   viewerRegistry.register({
     type: 'docx',
     extensions: ['.docx'],
-    component: DocxViewer,
+    component: DocxViewer
   })
 
   viewerRegistry.register({
     type: 'pdf',
     extensions: ['.pdf'],
-    component: PdfViewer,
+    component: PdfViewer
   })
 
   viewerRegistry.register({
     type: 'fallback',
     extensions: [],
-    component: FallbackViewer,
+    component: FallbackViewer
   })
 }
