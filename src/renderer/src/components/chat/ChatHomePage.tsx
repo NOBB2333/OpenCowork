@@ -35,7 +35,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@renderer/components/ui/dropdown-menu'
-import { renderModeTooltipContent, type ModeOption } from '@renderer/lib/mode-tooltips'
+import {
+  renderModeTooltipContent,
+  type ModeOption,
+  type SelectableMode
+} from '@renderer/lib/mode-tooltips'
 import { AnimatePresence, motion } from 'motion/react'
 
 const modes: ModeOption[] = [
@@ -46,10 +50,22 @@ const modes: ModeOption[] = [
 
 const MODE_SWITCH_TRANSITION = {
   type: 'spring',
-  stiffness: 380,
-  damping: 30,
-  mass: 0.8
+  stiffness: 320,
+  damping: 26,
+  mass: 0.7
 } as const
+
+const MODE_SWITCH_HIGHLIGHT_CLASS: Record<SelectableMode, string> = {
+  clarify: 'border-amber-500/15 bg-amber-500/5 shadow-sm',
+  cowork: 'border-emerald-500/15 bg-emerald-500/5 shadow-sm',
+  code: 'border-violet-500/15 bg-violet-500/5 shadow-sm'
+}
+
+const MODE_SWITCH_ACTIVE_TEXT_CLASS: Record<SelectableMode, string> = {
+  clarify: 'text-foreground',
+  cowork: 'text-foreground',
+  code: 'text-foreground'
+}
 
 const DEFAULT_SSH_WORKDIR = ''
 interface DesktopDirectoryOption {
@@ -340,9 +356,9 @@ export function ChatHomePage(): React.JSX.Element {
                     variant="ghost"
                     size="sm"
                     className={cn(
-                      'relative h-8 gap-1.5 overflow-hidden rounded-lg px-3 text-xs font-medium transition-all duration-200',
+                      'relative h-8 gap-1.5 overflow-hidden rounded-lg px-3 text-xs font-medium transition-colors duration-200',
                       mode === m.value
-                        ? 'text-foreground'
+                        ? cn(MODE_SWITCH_ACTIVE_TEXT_CLASS[m.value], 'font-semibold')
                         : 'text-muted-foreground hover:text-foreground'
                     )}
                     onClick={() => setMode(m.value)}
@@ -351,7 +367,10 @@ export function ChatHomePage(): React.JSX.Element {
                       {mode === m.value && (
                         <motion.span
                           layoutId="home-mode-switch-highlight"
-                          className="pointer-events-none absolute inset-0 rounded-lg border border-border/50 bg-background shadow-sm"
+                          className={cn(
+                            'pointer-events-none absolute inset-0 rounded-lg border',
+                            MODE_SWITCH_HIGHLIGHT_CLASS[m.value]
+                          )}
                           transition={MODE_SWITCH_TRANSITION}
                         />
                       )}
