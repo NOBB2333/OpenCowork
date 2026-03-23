@@ -489,7 +489,7 @@ export const routinAiPreset: BuiltinProviderPreset = {
         reasoningEffortLevels: ['minimal', 'low', 'medium', 'high'],
         defaultReasoningEffort: 'medium'
       },
-      responseSummary: 'low',
+      responseSummary: 'detailed',
       enablePromptCache: true,
       enableSystemPromptCache: true,
       type: 'openai-responses'
