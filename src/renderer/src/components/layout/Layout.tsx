@@ -37,6 +37,7 @@ import { SettingsDialog } from '@renderer/components/settings/SettingsDialog'
 import { ChatHomePage } from '@renderer/components/chat/ChatHomePage'
 import { KeyboardShortcutsDialog } from '@renderer/components/settings/KeyboardShortcutsDialog'
 import { PermissionDialog } from '@renderer/components/cowork/PermissionDialog'
+import { ConversationGuideDialog } from '@renderer/components/chat/ConversationGuideDialog'
 import { CommandPalette } from './CommandPalette'
 import { ErrorBoundary } from '@renderer/components/error-boundary'
 import { useUIStore, type AppMode } from '@renderer/stores/ui-store'
@@ -323,6 +324,8 @@ export function Layout({ updateInfo, onOpenUpdateDialog }: LayoutProps): React.J
 
   const setSettingsOpen = useUIStore((s) => s.setSettingsOpen)
   const settingsPageOpen = useUIStore((s) => s.settingsPageOpen)
+  const conversationGuideOpen = useUIStore((s) => s.conversationGuideOpen)
+  const setConversationGuideOpen = useUIStore((s) => s.setConversationGuideOpen)
   const skillsPageOpen = useUIStore((s) => s.skillsPageOpen)
   const resourcesPageOpen = useUIStore((s) => s.resourcesPageOpen)
   const drawPageOpen = useUIStore((s) => s.drawPageOpen)
@@ -939,7 +942,7 @@ export function Layout({ updateInfo, onOpenUpdateDialog }: LayoutProps): React.J
                     >
                       <div className="flex flex-1 overflow-hidden">
                         {/* Center: Chat Area */}
-                        <div className="flex min-w-0 flex-1 flex-col bg-gradient-to-b from-background to-muted/20">
+                        <div className="flex min-w-0 flex-1 flex-col bg-gradient-to-b from-background to-muted/20 relative">
                           {/* Mode selector toolbar */}
                           <div className="flex shrink-0 items-center gap-2 px-3 py-2">
                             {!leftSidebarOpen && (

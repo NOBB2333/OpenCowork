@@ -151,7 +151,9 @@
     "artifacts": "Artifacts",
     "context": "Context",
     "skills": "Tools",
-    "cron": "Cron"
+    "cron": "Cron",
+    "expand": "Expand",
+    "collapse": "Collapse"
   },
   "detailPanel": {
     "team": "Team",

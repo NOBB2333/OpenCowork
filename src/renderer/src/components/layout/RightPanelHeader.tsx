@@ -1,11 +1,5 @@
-import { ChevronDown, MoreHorizontal, X } from 'lucide-react'
+import { MoreHorizontal, X } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
-} from '@renderer/components/ui/dropdown-menu'
 import type { RightPanelTab } from '@renderer/stores/ui-store'
 import type { RightPanelTabDef } from './right-panel-defs'
 

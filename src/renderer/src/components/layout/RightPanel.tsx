@@ -1,4 +1,4 @@
-import { Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@renderer/components/ui/button'
 import { useUIStore, type RightPanelTab } from '@renderer/stores/ui-store'
@@ -24,7 +24,6 @@ import {
   RIGHT_PANEL_SECTION_DEFS,
   RIGHT_PANEL_TAB_DEFS,
   RIGHT_PANEL_RAIL_WIDTH,
-  RIGHT_PANEL_RAIL_SLIM_WIDTH,
   clampRightPanelWidth
 } from './right-panel-defs'
 
@@ -253,105 +252,102 @@ export function RightPanel({ compact = false }: { compact?: boolean }): React.JS
     setTab(nextTab)
   }
 
-  const [isRailHovered, setIsRailHovered] = useState(false)
-
   return (
-    <aside
-      className="relative flex h-full shrink-0 z-10 transition-[width] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]"
-      style={{ 
-        width: rightPanelOpen 
-          ? targetPanelWidth + RIGHT_PANEL_RAIL_WIDTH 
-          : (isRailHovered ? RIGHT_PANEL_RAIL_WIDTH : RIGHT_PANEL_RAIL_SLIM_WIDTH)
+    <div
+      className="relative flex h-full shrink-0 z-40 transition-[width] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]"
+      style={{
+        width: rightPanelOpen ? targetPanelWidth + RIGHT_PANEL_RAIL_WIDTH : RIGHT_PANEL_RAIL_WIDTH
       }}
     >
-      {/* Rail is always visible or serves as the toggle area */}
-      <RightPanelRail
-        visibleTabs={visibleTabs}
-        activeTab={tab}
-        onSelectTab={handleSelectTab}
-        isOpen={rightPanelOpen}
-        onToggle={() => setRightPanelOpen(!rightPanelOpen)}
-        onHoverChange={setIsRailHovered}
-      />
+      <aside className="relative flex h-full w-full transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] bg-background/40 backdrop-blur-sm before:absolute before:left-0 before:top-2 before:bottom-2 before:w-px before:rounded-full before:bg-border/40">
+        <div className="flex h-full w-full overflow-hidden">
+          {/* Rail */}
+          <RightPanelRail
+            visibleTabs={visibleTabs}
+            activeTab={tab}
+            onSelectTab={handleSelectTab}
+            showTabs
+            isExpanded={rightPanelOpen}
+            onToggle={() => setRightPanelOpen(!rightPanelOpen)}
+          />
 
-      {/* Resize Handle */}
-      {rightPanelOpen && (
-        <div
-          className="absolute left-0 top-0 z-[60] h-full w-1.5 cursor-col-resize hover:bg-primary/30 transition-colors"
-          onMouseDown={startResize}
-          style={{ left: RIGHT_PANEL_RAIL_WIDTH }}
-        />
-      )}
+          {/* Content Area */}
+          <div
+            className={cn(
+              'flex-1 min-w-0 border-l border-border/40 transition-all duration-500',
+              rightPanelOpen ? 'opacity-100' : 'w-0 opacity-0 pointer-events-none'
+            )}
+          >
+            {activeTabDef && (
+              <div className="flex flex-col h-full w-full" style={{ width: targetPanelWidth }}>
+                <RightPanelHeader
+                  activeTabDef={activeTabDef}
+                  onClose={() => setRightPanelOpen(false)}
+                  t={t}
+                />
+
+                <div className="flex-1 overflow-auto bg-background/5 p-4">
+                  <AnimatePresence mode="wait">
+                    {tab === 'steps' && (
+                      <FadeIn key="steps" className="h-full">
+                        <StepsPanel />
+                      </FadeIn>
+                    )}
+
+                    {tab === 'team' && (
+                      <FadeIn key="team" className="h-full">
+                        <TeamPanel />
+                      </FadeIn>
+                    )}
+
+                    {tab === 'files' && (
+                      <FadeIn key="files" className="h-full">
+                        {activeSession?.sshConnectionId ? (
+                          <SshFilesPanel
+                            connectionId={activeSession.sshConnectionId}
+                            rootPath={activeSession.workingFolder}
+                          />
+                        ) : (
+                          <FileTreePanel />
+                        )}
+                      </FadeIn>
+                    )}
+
+                    {tab === 'artifacts' && (
+                      <FadeIn key="artifacts" className="h-full">
+                        <ArtifactsPanel />
+                      </FadeIn>
+                    )}
+
+                    {tab === 'context' && (
+                      <FadeIn key="context" className="h-full">
+                        <ContextPanel />
+                      </FadeIn>
+                    )}
+
+                    {tab === 'plan' && (
+                      <FadeIn key="plan" className="h-full">
+                        <PlanPanel />
+                      </FadeIn>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Resize Handle */}
+        {rightPanelOpen && (
+          <div
+            className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-primary/30 transition-colors z-[60]"
+            onMouseDown={startResize}
+            style={{ left: RIGHT_PANEL_RAIL_WIDTH }}
+          />
+        )}
+      </aside>
 
       {isDragging && <div className="fixed inset-0 z-[100] cursor-col-resize" />}
-
-      {/* Clipping Wrapper for content */}
-      <div
-        className={cn(
-          'h-full overflow-hidden bg-background/40 backdrop-blur-sm transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]',
-          rightPanelOpen ? 'opacity-100 pointer-events-auto' : 'w-0 opacity-0 pointer-events-none'
-        )}
-        style={{ width: rightPanelOpen ? targetPanelWidth : 0 }}
-      >
-        <div className="h-full border-l border-border/40" style={{ width: targetPanelWidth }}>
-          {activeTabDef && (
-            <div className="flex flex-col h-full w-full">
-              <RightPanelHeader
-                activeTabDef={activeTabDef}
-                onClose={() => setRightPanelOpen(false)}
-                t={t}
-              />
-
-              <div className="flex-1 overflow-auto bg-background/20 p-4">
-                <AnimatePresence mode="wait">
-                  {tab === 'steps' && (
-                    <FadeIn key="steps" className="h-full">
-                      <StepsPanel />
-                    </FadeIn>
-                  )}
-
-                  {tab === 'team' && (
-                    <FadeIn key="team" className="h-full">
-                      <TeamPanel />
-                    </FadeIn>
-                  )}
-
-                  {tab === 'files' && (
-                    <FadeIn key="files" className="h-full">
-                      {activeSession?.sshConnectionId ? (
-                        <SshFilesPanel
-                          connectionId={activeSession.sshConnectionId}
-                          rootPath={activeSession.workingFolder}
-                        />
-                      ) : (
-                        <FileTreePanel />
-                      )}
-                    </FadeIn>
-                  )}
-
-                  {tab === 'artifacts' && (
-                    <FadeIn key="artifacts" className="h-full">
-                      <ArtifactsPanel />
-                    </FadeIn>
-                  )}
-
-                  {tab === 'context' && (
-                    <FadeIn key="context" className="h-full">
-                      <ContextPanel />
-                    </FadeIn>
-                  )}
-
-                  {tab === 'plan' && (
-                    <FadeIn key="plan" className="h-full">
-                      <PlanPanel />
-                    </FadeIn>
-                  )}
-                </AnimatePresence>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </aside>
+    </div>
   )
 }

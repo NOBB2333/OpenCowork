@@ -144,6 +144,9 @@ interface UIStore {
 
   setRightPanelWidth: (width: number) => void
 
+  isHoveringRightPanel: boolean
+  setIsHoveringRightPanel: (hovering: boolean) => void
+
   settingsOpen: boolean
 
   setSettingsOpen: (open: boolean) => void
@@ -181,6 +184,9 @@ interface UIStore {
   shortcutsOpen: boolean
 
   setShortcutsOpen: (open: boolean) => void
+
+  conversationGuideOpen: boolean
+  setConversationGuideOpen: (open: boolean) => void
 
   /** Text to insert into chat input (consumed by InputArea) */
 
@@ -275,6 +281,9 @@ export const useUIStore = create<UIStore>((set, get) => ({
   rightPanelWidth: 384,
 
   setRightPanelWidth: (width) => set({ rightPanelWidth: width }),
+
+  isHoveringRightPanel: false,
+  setIsHoveringRightPanel: (hovering) => set({ isHoveringRightPanel: hovering }),
 
   settingsOpen: false,
 
@@ -384,6 +393,9 @@ export const useUIStore = create<UIStore>((set, get) => ({
   shortcutsOpen: false,
 
   setShortcutsOpen: (open) => set({ shortcutsOpen: open }),
+
+  conversationGuideOpen: false,
+  setConversationGuideOpen: (open) => set({ conversationGuideOpen: open }),
 
   pendingInsertText: null,
 
