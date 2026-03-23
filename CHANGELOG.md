@@ -3,6 +3,29 @@
 All notable changes to **OpenCowork** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com).
 
+## [0.6.3] - 2026-03-23
+
+### Added
+
+- Guided conversation onboarding tour with step-by-step focus highlights for the project/session sidebar, composer, quick actions, and right execution panel.
+- Personal Weixin integration guide in the docs site, including setup screenshots and usage notes.
+- Conversation guide entry points from the chat home page and title bar, plus persistent onboarding state.
+
+### Changed
+
+- Refined the right panel rail interaction model with improved expand/collapse behavior, panel toggling, and related layout copy.
+- Upgraded the conversation onboarding flow from a static dialog to an anchored in-app walkthrough with localized English and Chinese copy.
+- Synced the application version from `0.6.2` to `0.6.3` and updated the docs homepage release badge.
+
+### Fixed
+
+- Feishu streaming replies now rotate long responses across cards more reliably during incremental updates.
+- Personal Weixin QR binding now handles remote QR pages more robustly, including refresh support and better in-app preview rendering.
+
+### Documentation
+
+- Added personal Weixin to the plugin documentation index and overview listing.
+
 ## [0.6.2] - 2026-03-20
 
 ### Added
