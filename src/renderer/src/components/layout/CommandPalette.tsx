@@ -31,6 +31,7 @@ import {
 import { useChatStore } from '@renderer/stores/chat-store'
 import { useUIStore, type AppMode } from '@renderer/stores/ui-store'
 import { useSettingsStore } from '@renderer/stores/settings-store'
+import { abortSession, clearPendingSessionMessages } from '@renderer/hooks/use-chat-actions'
 import { useTheme } from 'next-themes'
 import type { ProviderType } from '@renderer/lib/api/types'
 import { sessionToMarkdown } from '@renderer/lib/utils/export-chat'
@@ -307,7 +308,15 @@ export function CommandPalette(): React.JSX.Element {
                 </span>
               </CommandItem>
               {sessions.length > 1 && (
-                <CommandItem onSelect={() => runAndClose(() => deleteSession(activeSessionId!))}>
+                <CommandItem
+                  onSelect={() =>
+                    runAndClose(() => {
+                      abortSession(activeSessionId!)
+                      clearPendingSessionMessages(activeSessionId!)
+                      deleteSession(activeSessionId!)
+                    })
+                  }
+                >
                   <Trash2 className="size-4 text-destructive" />
                   <span className="text-destructive">
                     {t('commandPalette.deleteCurrentSession')}

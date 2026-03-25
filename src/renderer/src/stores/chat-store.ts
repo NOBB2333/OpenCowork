@@ -187,6 +187,15 @@ function dbFlushMessageImmediate(msg: UnifiedMessage): void {
   dbUpdateMessage(msg.id, msg.content, msg.usage)
 }
 
+function clearPendingMessageFlushes(messageIds: string[]): void {
+  for (const messageId of messageIds) {
+    const pending = _pendingFlush.get(messageId)
+    if (!pending) continue
+    clearTimeout(pending)
+    _pendingFlush.delete(messageId)
+  }
+}
+
 // --- Store ---
 
 interface ChatStore {
@@ -559,9 +568,11 @@ export const useChatStore = create<ChatStore>()(
     },
 
     deleteProject: async (projectId) => {
-      const localSessionIds = get()
-        .sessions.filter((session) => session.projectId === projectId)
-        .map((session) => session.id)
+      const localSessions = get().sessions.filter((session) => session.projectId === projectId)
+      const localSessionIds = localSessions.map((session) => session.id)
+      const deletedMessageIds = localSessions.flatMap((session) =>
+        session.messages.map((message) => message.id)
+      )
 
       let deletedSessionIds = localSessionIds
       try {
@@ -633,6 +644,7 @@ export const useChatStore = create<ChatStore>()(
         }
         taskState.deleteSessionTasks(sessionId)
       }
+      clearPendingMessageFlushes(deletedMessageIds)
       agentState.clearToolCalls()
 
       if (nextActiveSessionId) {
@@ -981,6 +993,7 @@ export const useChatStore = create<ChatStore>()(
     },
 
     deleteSession: (id) => {
+      const deletedSession = get().sessions.find((session) => session.id === id)
       let nextActiveId: string | null = null
       set((state) => {
         const idx = state.sessions.findIndex((s) => s.id === id)
@@ -1019,6 +1032,7 @@ export const useChatStore = create<ChatStore>()(
       const plan = usePlanStore.getState().getPlanBySession(id)
       if (plan) usePlanStore.getState().deletePlan(plan.id)
       useTaskStore.getState().deleteSessionTasks(id)
+      clearPendingMessageFlushes(deletedSession?.messages.map((message) => message.id) ?? [])
       dbDeleteSession(id)
     },
 
@@ -1470,19 +1484,21 @@ export const useChatStore = create<ChatStore>()(
 
     addMessage: (sessionId, msg) => {
       let sortOrder = 0
+      let shouldPersist = false
       set((state) => {
         const session = state.sessions.find((s) => s.id === sessionId)
-        if (session) {
-          sortOrder = session.messageCount
-          if (!session.messagesLoaded) {
-            session.messagesLoaded = true
-            session.messages = []
-          }
-          session.messages.push(msg)
-          session.messageCount += 1
-          session.updatedAt = Date.now()
+        if (!session) return
+        shouldPersist = true
+        sortOrder = session.messageCount
+        if (!session.messagesLoaded) {
+          session.messagesLoaded = true
+          session.messages = []
         }
+        session.messages.push(msg)
+        session.messageCount += 1
+        session.updatedAt = Date.now()
       })
+      if (!shouldPersist) return
       dbAddMessage(sessionId, msg, sortOrder)
       dbUpdateSession(sessionId, { updatedAt: Date.now() })
     },

@@ -554,6 +554,7 @@ export function SessionListPanel(): React.JSX.Element {
       .sessions.filter((session) => session.projectId === projectDeleteTarget.id)
       .map((session) => session.id)
     for (const sessionId of relatedSessionIds) {
+      abortSession(sessionId)
       clearPendingSessionMessages(sessionId)
     }
 
