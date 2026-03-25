@@ -10,7 +10,7 @@ function getSettingsPath(): string {
   return path.join(DATA_DIR, SETTINGS_FILE)
 }
 
-function readSettings(): Record<string, unknown> {
+export function readSettings(): Record<string, unknown> {
   try {
     const filePath = getSettingsPath()
     if (fs.existsSync(filePath)) {

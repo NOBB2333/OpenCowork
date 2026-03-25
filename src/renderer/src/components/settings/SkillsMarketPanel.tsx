@@ -18,11 +18,6 @@ export function SkillsMarketPanel(): React.JSX.Element {
   const [testing, setTesting] = useState(false)
 
   const handleTestConnection = useCallback(async () => {
-    if (!settings.skillsMarketApiKey) {
-      toast.error(t('skillsmarket.apiKeyRequired'))
-      return
-    }
-
     setTesting(true)
     try {
       const result = (await ipcClient.invoke('skills:market-list', {
@@ -117,7 +112,7 @@ export function SkillsMarketPanel(): React.JSX.Element {
           size="sm"
           className="gap-1.5 text-xs"
           onClick={() => void handleTestConnection()}
-          disabled={testing || !settings.skillsMarketApiKey}
+          disabled={testing}
         >
           <RefreshCw className={`size-3.5 ${testing ? 'animate-spin' : ''}`} />
           {testing ? t('skillsmarket.testing') : t('skillsmarket.test')}

@@ -3,6 +3,7 @@ import { dirname } from 'node:path'
 import { app, BrowserWindow, ipcMain } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { writeCrashLog } from './crash-logger'
+import { readSettings } from './ipc/settings-handlers'
 
 type WindowGetter = () => BrowserWindow | null
 type QuitMarker = () => void
@@ -17,6 +18,25 @@ const notifiedAvailableVersions = new Set<string>()
 let checkForUpdatesPromise: Promise<unknown> | null = null
 let downloadUpdatePromise: Promise<unknown> | null = null
 let macUpdaterUnsupportedReason: string | null | undefined
+
+function isAutoUpdateEnabled(): boolean {
+  const settings = readSettings()
+  const persistedSettings = settings['opencowork-settings']
+
+  if (!persistedSettings || typeof persistedSettings !== 'object') {
+    return true
+  }
+
+  const state = (
+    'state' in persistedSettings &&
+    persistedSettings.state &&
+    typeof persistedSettings.state === 'object'
+      ? persistedSettings.state
+      : persistedSettings
+  ) as Record<string, unknown>
+
+  return state.autoUpdateEnabled !== false
+}
 
 function getValidWindow(getMainWindow: WindowGetter): BrowserWindow | undefined {
   const win = getMainWindow()
@@ -425,6 +445,17 @@ export function setupAutoUpdater(options: AutoUpdateOptions): void {
 
   autoUpdater.on('update-available', (info) => {
     void handleUpdateAvailable(info, options)
+
+    if (!isAutoUpdateEnabled()) {
+      console.log('[Updater] Auto update is disabled. Waiting for manual download.')
+      return
+    }
+
+    void downloadUpdateSafely().catch((error) => {
+      const message = formatErrorMessage(error)
+      console.error('[Updater] Auto download failed:', error)
+      writeCrashLog('updater_auto_download_failed', { message, error })
+    })
   })
 
   autoUpdater.on('update-not-available', (info) => {
@@ -450,6 +481,11 @@ export function setupAutoUpdater(options: AutoUpdateOptions): void {
       win.webContents.send('update:error', { error: message })
     }
   })
+
+  if (!isAutoUpdateEnabled()) {
+    console.log('[Updater] Auto update is disabled. Skip startup update check.')
+    return
+  }
 
   // Check for updates immediately on startup
   void checkForUpdatesSafely().catch((error) => {

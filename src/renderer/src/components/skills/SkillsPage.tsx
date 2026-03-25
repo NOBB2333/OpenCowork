@@ -16,7 +16,6 @@ import {
   Loader2,
   Settings2,
   ExternalLink,
-  AlertCircle,
   KeyRound
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -285,9 +284,6 @@ export function SkillsPage(): React.JSX.Element {
   const setEditContent = useSkillsStore((s) => s.setEditContent)
   const setMarketQuery = useSkillsStore((s) => s.setMarketQuery)
 
-  // Skills market provider settings
-  const marketApiKey = useSettingsStore((s) => s.skillsMarketApiKey)
-
   // Installed tab search
   const [installedQuery, setInstalledQuery] = useState('')
 
@@ -414,8 +410,6 @@ export function SkillsPage(): React.JSX.Element {
 
   // ── MARKET TAB — full-width grid ─────────────────────────────────────
   if (activeTab === 'market') {
-    const needsApiKey = !marketApiKey
-
     return (
       <div className="flex h-full flex-col">
         {TopBar}
@@ -430,30 +424,6 @@ export function SkillsPage(): React.JSX.Element {
               </span>
             </div>
             <p className="text-sm text-muted-foreground">{t('skillsPage.marketDescription')}</p>
-
-            {/* API key missing banner */}
-            {needsApiKey && (
-              <div className="mt-4 flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
-                <AlertCircle className="size-4 text-amber-500 shrink-0 mt-0.5" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
-                    {t('skillsPage.noApiKeyTitle')}
-                  </p>
-                  <p className="text-[11px] text-amber-600/80 dark:text-amber-400/70 mt-0.5">
-                    {t('skillsPage.noApiKeyDesc')}
-                  </p>
-                </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-xs shrink-0 border-amber-500/40 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10"
-                  onClick={() => window.open(SKILLS_MARKET_DASHBOARD_URL, '_blank', 'noopener')}
-                >
-                  <ExternalLink className="size-3 mr-1" />
-                  {t('skillsPage.getApiKey')}
-                </Button>
-              </div>
-            )}
           </div>
 
           {/* Grid */}

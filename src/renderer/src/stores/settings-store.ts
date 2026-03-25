@@ -42,6 +42,7 @@ interface SettingsStore {
   theme: 'light' | 'dark' | 'system'
   language: 'en' | 'zh'
   autoApprove: boolean
+  autoUpdateEnabled: boolean
   clarifyAutoAcceptRecommended: boolean
   devMode: boolean
   thinkingEnabled: boolean
@@ -107,6 +108,7 @@ export const useSettingsStore = create<SettingsStore>()(
       theme: 'system',
       language: getSystemLanguage(),
       autoApprove: false,
+      autoUpdateEnabled: true,
       clarifyAutoAcceptRecommended: false,
       devMode: false,
       thinkingEnabled: false,
@@ -155,7 +157,7 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: 'opencowork-settings',
-      version: 7,
+      version: 8,
       storage: createJSONStorage(() => ipcStorage),
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>
@@ -211,6 +213,9 @@ export const useSettingsStore = create<SettingsStore>()(
         } else {
           state.leftSidebarWidth = clampLeftSidebarWidth(state.leftSidebarWidth)
         }
+        if (state.autoUpdateEnabled === undefined) {
+          state.autoUpdateEnabled = true
+        }
         if (state.clarifyAutoAcceptRecommended === undefined) {
           state.clarifyAutoAcceptRecommended = false
         }
@@ -239,6 +244,7 @@ export const useSettingsStore = create<SettingsStore>()(
         theme: state.theme,
         language: state.language,
         autoApprove: state.autoApprove,
+        autoUpdateEnabled: state.autoUpdateEnabled,
         clarifyAutoAcceptRecommended: state.clarifyAutoAcceptRecommended,
         devMode: state.devMode,
         thinkingEnabled: state.thinkingEnabled,

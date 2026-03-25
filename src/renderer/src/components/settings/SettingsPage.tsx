@@ -18,7 +18,8 @@ import {
   BookOpen,
   Save,
   RefreshCw,
-  Puzzle
+  Puzzle,
+  PanelLeftOpen
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { AnimatePresence } from 'motion/react'
@@ -398,8 +399,12 @@ function GeneralPanel(): React.JSX.Element {
   }, [])
 
   useEffect(() => {
+    if (!settings.autoUpdateEnabled) {
+      return
+    }
+
     void checkForUpdates()
-  }, [checkForUpdates])
+  }, [checkForUpdates, settings.autoUpdateEnabled])
 
   const updateAvailable = isNewerVersion(latestVersion, currentVersion)
 
@@ -538,6 +543,16 @@ function GeneralPanel(): React.JSX.Element {
             Current v{currentVersion}
             {latestVersion && <> · Latest v{latestVersion}</>}
           </span>
+        </div>
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-background/70 px-3 py-2">
+          <div>
+            <label className="text-sm font-medium">{t('general.autoUpdate')}</label>
+            <p className="text-xs text-muted-foreground">{t('general.autoUpdateDesc')}</p>
+          </div>
+          <Switch
+            checked={settings.autoUpdateEnabled}
+            onCheckedChange={(checked) => settings.updateSettings({ autoUpdateEnabled: checked })}
+          />
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button
@@ -1040,6 +1055,7 @@ function GeneralPanel(): React.JSX.Element {
               fontSize: 16,
               animationsEnabled: true,
               toolbarCollapsedByDefault: false,
+              autoUpdateEnabled: true,
               apiKey: currentKey
             })
             setTheme('system')
@@ -2173,6 +2189,8 @@ export function SettingsPage(): React.JSX.Element {
   const { t } = useTranslation('settings')
   const settingsTab = useUIStore((s) => s.settingsTab)
   const setSettingsTab = useUIStore((s) => s.setSettingsTab)
+  const leftSidebarOpen = useUIStore((s) => s.leftSidebarOpen)
+  const toggleLeftSidebar = useUIStore((s) => s.toggleLeftSidebar)
 
   const effectiveSettingsTab = settingsTab === 'channel' ? 'general' : settingsTab
   const ActivePanel = panelMap[effectiveSettingsTab]
@@ -2209,7 +2227,9 @@ export function SettingsPage(): React.JSX.Element {
                 >
                   <span
                     className={`flex items-center justify-center size-5 ${
-                      effectiveSettingsTab === item.id ? 'text-accent-foreground' : 'text-muted-foreground'
+                      effectiveSettingsTab === item.id
+                        ? 'text-accent-foreground'
+                        : 'text-muted-foreground'
                     }`}
                   >
                     {item.icon}
@@ -2227,6 +2247,18 @@ export function SettingsPage(): React.JSX.Element {
 
       {/* Right Content */}
       <div className="relative flex-1 min-h-0 flex flex-col min-w-0 overflow-hidden px-6 py-4">
+        {!leftSidebarOpen && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute left-6 top-4 z-20 size-8 rounded-lg border border-border/60 bg-background/80 backdrop-blur-sm"
+            onClick={toggleLeftSidebar}
+            title={t('page.title')}
+          >
+            <PanelLeftOpen className="size-4" />
+          </Button>
+        )}
+
         {/* Content */}
         <AnimatePresence mode="wait">
           {effectiveSettingsTab === 'provider' ||
@@ -2244,7 +2276,7 @@ export function SettingsPage(): React.JSX.Element {
             </div>
           ) : (
             <div className="flex-1 overflow-y-auto" key="scroll-panel">
-              <div className="mx-auto max-w-2xl px-8 pb-16">
+              <div className="mx-auto max-w-2xl px-8 pb-16 pt-10">
                 <FadeIn key={effectiveSettingsTab} duration={0.25}>
                   <ActivePanel />
                 </FadeIn>

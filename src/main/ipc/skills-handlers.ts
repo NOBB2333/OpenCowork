@@ -738,7 +738,7 @@ export function registerSkillsHandlers(): void {
     query?: string
     offset?: number
     limit?: number
-    apiKey: string
+    apiKey?: string
   }): Promise<{ total: number; skills: MarketSkillInfo[] }> {
     const query = (args.query ?? '').trim()
     const page = Math.floor((args.offset ?? 0) / (args.limit ?? 20)) + 1
@@ -755,7 +755,7 @@ export function registerSkillsHandlers(): void {
 
     const res = await fetch(`${SKILLS_MARKET_API_BASE_URL}/skills/search?${params.toString()}`, {
       headers: {
-        Authorization: `Bearer ${args.apiKey}`,
+        ...(args.apiKey ? { Authorization: `Bearer ${args.apiKey}` } : {}),
         Accept: 'application/json'
       }
     })
@@ -780,7 +780,7 @@ export function registerSkillsHandlers(): void {
 
   /**
    * skills:market-list — return paginated market skills with optional search.
-   * Requires a Skills Marketplace API key.
+   * Uses a Skills Marketplace API key when provided.
    */
   ipcMain.handle(
     'skills:market-list',
@@ -797,7 +797,6 @@ export function registerSkillsHandlers(): void {
       total: number
       skills: MarketSkillInfo[]
     }> => {
-      if (!args.apiKey) return { total: 0, skills: [] }
       if (args.provider && args.provider !== 'skillsmp') return { total: 0, skills: [] }
 
       try {
