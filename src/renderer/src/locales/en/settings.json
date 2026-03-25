@@ -121,6 +121,38 @@
       "daily": "Keeps short-term notes for today that can later be distilled into MEMORY.md."
     }
   },
+  "analytics": {
+    "title": "Analytics",
+    "subtitle": "Inspect request-level usage by day, model, and provider",
+    "range7d": "Last 7 days",
+    "range30d": "Last 30 days",
+    "range90d": "Last 90 days",
+    "overview": "Overview",
+    "daily": "Daily",
+    "models": "By Model",
+    "providers": "By Provider",
+    "details": "Details",
+    "requests": "Requests",
+    "inputTokens": "Input Tokens",
+    "outputTokens": "Output Tokens",
+    "cacheCreationTokens": "Cache Creation Tokens",
+    "cacheReadTokens": "Cache Hit Tokens",
+    "costUsd": "Cost (USD)",
+    "avgTtft": "Avg TTFT",
+    "avgTotal": "Avg Total",
+    "time": "Time",
+    "provider": "Provider",
+    "model": "Model",
+    "source": "Source",
+    "ttft": "TTFT",
+    "totalMs": "Total Time",
+    "empty": "No analytics data yet",
+    "allProviders": "All Providers",
+    "allModels": "All Models",
+    "allSources": "All Sources",
+    "chartCost": "Cost Trend",
+    "chartTokens": "Token Trend"
+  },
   "model": {
     "title": "Model Configuration",
     "subtitle": "Select AI provider and model, adjust generation parameters",
@@ -180,6 +212,10 @@
     "random": "Random",
     "maxTokens": "Max Tokens",
     "maxTokensDesc": "Maximum token limit per response"
+  },
+  "provider": {
+    "contextCompressionThreshold": "Context compression threshold (%)",
+    "contextCompressionThresholdDesc": "Trigger full compression at this context usage ratio. Range: {{min}}% - {{max}}%"
   },
   "plugin": {
     "title": "Plugins",

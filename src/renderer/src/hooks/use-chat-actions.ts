@@ -57,7 +57,11 @@ import {
 } from '@renderer/lib/commands/system-command'
 import type { AgentEvent, AgentLoopConfig } from '@renderer/lib/agent/types'
 import { ApiStreamError } from '@renderer/lib/ipc/api-stream'
-import { compressMessages } from '@renderer/lib/agent/context-compression'
+import { recordUsageEvent } from '@renderer/lib/usage-analytics'
+import {
+  compressMessages,
+  resolveCompressionThreshold
+} from '@renderer/lib/agent/context-compression'
 import type { CompressionConfig } from '@renderer/lib/agent/context-compression'
 import { useChannelStore } from '@renderer/stores/channel-store'
 import { useAppPluginStore } from '@renderer/stores/app-plugin-store'
@@ -1519,7 +1523,7 @@ export function useChatActions(): {
             ? {
                 enabled: true,
                 contextLength: resolvedModelConfig.contextLength,
-                threshold: 0.8,
+                threshold: resolveCompressionThreshold(resolvedModelConfig),
                 preCompressThreshold: 0.65
               }
             : null
@@ -1677,7 +1681,13 @@ export function useChatActions(): {
 
           if (shouldInjectContext && messagesToSend.length > 0) {
             const { buildDynamicContext } = await import('@renderer/lib/agent/dynamic-context')
-            const dynamicContext = buildDynamicContext({ sessionId, memorySnapshot, sessionScope })
+            const dynamicContext = await buildDynamicContext({
+              sessionId,
+              memorySnapshot,
+              sessionScope,
+              providerConfig: agentProviderConfig,
+              modelConfig: resolvedModelConfig
+            })
 
             if (dynamicContext) {
               // Find the last user message and prepend dynamic context to its content
@@ -2042,9 +2052,23 @@ export function useChatActions(): {
                   accumulatedUsage.requestTimings = [...requestTimings]
                 }
                 if (event.usage || event.timing) {
-                  useChatStore
-                    .getState()
-                    .updateMessage(sessionId!, assistantMsgId, { usage: { ...accumulatedUsage } })
+                  useChatStore.getState().updateMessage(sessionId!, assistantMsgId, {
+                    usage: { ...accumulatedUsage },
+                    ...(event.providerResponseId ? { providerResponseId: event.providerResponseId } : {})
+                  })
+                }
+                if (event.usage) {
+                  void recordUsageEvent({
+                    sessionId,
+                    messageId: assistantMsgId,
+                    sourceKind: 'agent',
+                    usage: {
+                      ...event.usage,
+                      contextTokens: event.usage.contextTokens ?? event.usage.inputTokens
+                    },
+                    timing: event.timing,
+                    providerResponseId: event.providerResponseId
+                  })
                 }
                 break
 
@@ -2618,11 +2642,24 @@ async function runSimpleChat(
             useChatStore.getState().completeThinking(sessionId, assistantMsgId)
           }
           if (event.usage) {
+            const normalizedUsage = {
+              ...event.usage,
+              contextTokens: event.usage.contextTokens ?? event.usage.inputTokens
+            }
             useChatStore.getState().updateMessage(sessionId, assistantMsgId, {
-              usage: {
-                ...event.usage,
-                contextTokens: event.usage.contextTokens ?? event.usage.inputTokens
-              }
+              usage: normalizedUsage,
+              ...(event.providerResponseId ? { providerResponseId: event.providerResponseId } : {})
+            })
+            void recordUsageEvent({
+              sessionId,
+              messageId: assistantMsgId,
+              sourceKind: 'chat',
+              providerId: config.providerId,
+              modelId: config.model,
+              usage: normalizedUsage,
+              timing: event.timing,
+              debugInfo: event.debugInfo,
+              providerResponseId: event.providerResponseId
             })
           }
           break

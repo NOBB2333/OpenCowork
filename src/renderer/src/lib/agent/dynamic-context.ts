@@ -1,44 +1,39 @@
 import { useUIStore } from '../../stores/ui-store'
 import { useChatStore } from '../../stores/chat-store'
+import { ipcClient } from '../ipc/ipc-client'
+import { estimateTokens } from '../format-tokens'
+import type { AIModelConfig, ProviderConfig } from '../api/types'
 import type { LayeredMemorySnapshot, SessionMemoryScope } from './memory-files'
+
+const FILE_CONTEXT_BUDGET_RATIO = 0.25
+const FILE_CONTEXT_BUDGET_MAX_TOKENS = 24_000
+const FILE_CONTEXT_FALLBACK_TOKENS = 12_000
 
 /**
  * Build dynamic context for the first user message in a session.
- * Includes selected files and layered memory content (if any).
- *
- * @returns A <system-reminder> block, or empty string if no context
+ * Includes selected file contents and layered memory content (if any).
  */
-export function buildDynamicContext(options: {
+export async function buildDynamicContext(options: {
   sessionId: string
   memorySnapshot?: LayeredMemorySnapshot
   sessionScope?: SessionMemoryScope
-}): string {
-  const { sessionId, memorySnapshot, sessionScope = 'main' } = options
+  providerConfig?: ProviderConfig | null
+  modelConfig?: AIModelConfig | null
+}): Promise<string> {
+  const { sessionId, memorySnapshot, sessionScope = 'main', modelConfig } = options
 
   const parts: string[] = []
-
-  // ── Selected Files ──
   const selectedFiles = useUIStore.getState().selectedFiles ?? []
   const session = useChatStore.getState().sessions.find((s) => s.id === sessionId)
   const workingFolder = session?.workingFolder
 
   if (selectedFiles.length > 0) {
-    const fileParts: string[] = []
-    fileParts.push(
-      `- Selected Files: ${selectedFiles.length} file${selectedFiles.length > 1 ? 's' : ''}`
-    )
-    for (const filePath of selectedFiles) {
-      let displayPath = filePath
-      if (workingFolder && filePath.startsWith(workingFolder)) {
-        displayPath = filePath.slice(workingFolder.length).replace(/^[\\/]/, '')
-      }
-      fileParts.push(`  - ${displayPath}`)
+    const selectedFileContext = await buildSelectedFileContext(selectedFiles, workingFolder, modelConfig)
+    if (selectedFileContext) {
+      parts.push(selectedFileContext)
     }
-    parts.push('Current Context:')
-    parts.push(fileParts.join('\n'))
   }
 
-  // ── Memory Context ──
   if (memorySnapshot) {
     appendMemoryContext(parts, memorySnapshot, sessionScope)
   }
@@ -48,6 +43,93 @@ export function buildDynamicContext(options: {
   }
 
   return `<system-reminder>\n${parts.join('\n')}\n</system-reminder>`
+}
+
+async function buildSelectedFileContext(
+  selectedFiles: string[],
+  workingFolder?: string,
+  modelConfig?: AIModelConfig | null
+): Promise<string> {
+  const budget = resolveFileContextBudget(modelConfig)
+  let usedTokens = 0
+  const fileSections: string[] = []
+  const skipped: string[] = []
+
+  for (const filePath of selectedFiles) {
+    const displayPath =
+      workingFolder && filePath.startsWith(workingFolder)
+        ? filePath.slice(workingFolder.length).replace(/^[\\/]/, '')
+        : filePath
+
+    try {
+      const content = await ipcClient.invoke('fs:read-file', { path: filePath })
+      if (typeof content !== 'string') {
+        skipped.push(`${displayPath} [unreadable]`)
+        continue
+      }
+
+      const section = [`## ${displayPath}`, content].join('\n')
+      const sectionTokens = estimateTokens(section)
+      if (usedTokens + sectionTokens <= budget) {
+        fileSections.push(section)
+        usedTokens += sectionTokens
+        continue
+      }
+
+      const remainingBudget = budget - usedTokens
+      if (remainingBudget <= 0) {
+        skipped.push(`${displayPath} [skipped: context budget exceeded]`)
+        continue
+      }
+
+      const truncated = truncateToTokenBudget(content, remainingBudget)
+      if (!truncated.trim()) {
+        skipped.push(`${displayPath} [skipped: context budget exceeded]`)
+        continue
+      }
+
+      fileSections.push(`## ${displayPath}\n${truncated}\n[Truncated due to context budget]`)
+      usedTokens = budget
+    } catch {
+      skipped.push(`${displayPath} [read failed]`)
+    }
+  }
+
+  if (fileSections.length === 0 && skipped.length === 0) {
+    return ''
+  }
+
+  const lines = ['<selected_files>', `Selected Files: ${selectedFiles.length}`]
+  if (fileSections.length > 0) {
+    lines.push(...fileSections)
+  }
+  if (skipped.length > 0) {
+    lines.push('## Skipped Files', ...skipped.map((item) => `- ${item}`))
+  }
+  lines.push('</selected_files>')
+  return lines.join('\n')
+}
+
+function resolveFileContextBudget(modelConfig?: AIModelConfig | null): number {
+  const contextLength = modelConfig?.contextLength
+  if (typeof contextLength !== 'number' || contextLength <= 0) {
+    return FILE_CONTEXT_FALLBACK_TOKENS
+  }
+  return Math.min(FILE_CONTEXT_BUDGET_MAX_TOKENS, Math.max(4_000, Math.floor(contextLength * FILE_CONTEXT_BUDGET_RATIO)))
+}
+
+function truncateToTokenBudget(content: string, tokenBudget: number): string {
+  if (!content || tokenBudget <= 0) return ''
+  const lines = content.split(/\r?\n/)
+  const kept: string[] = []
+  for (const line of lines) {
+    const candidate = kept.length > 0 ? `${kept.join('\n')}\n${line}` : line
+    if (estimateTokens(candidate) > tokenBudget) {
+      break
+    }
+    kept.push(line)
+  }
+  return kept.join('\n')
 }
 
 function appendMemoryContext(

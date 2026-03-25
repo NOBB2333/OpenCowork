@@ -71,6 +71,12 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui
 import { ipcStreamRequest } from '@renderer/lib/ipc/api-stream'
 import { loadPrompt } from '@renderer/lib/prompts/prompt-loader'
 import { ProviderIcon, ModelIcon } from './provider-icons'
+import {
+  clampCompressionThreshold,
+  DEFAULT_CONTEXT_COMPRESSION_THRESHOLD,
+  MAX_CONTEXT_COMPRESSION_THRESHOLD,
+  MIN_CONTEXT_COMPRESSION_THRESHOLD
+} from '@renderer/lib/agent/context-compression'
 
 const MODEL_ICON_OPTIONS = [
   'openai',
@@ -289,6 +295,11 @@ function ModelFormDialog({
   const [category, setCategory] = useState<ModelCategory>(initial?.category ?? 'chat')
   const [contextLength, setContextLength] = useState(initial?.contextLength?.toString() ?? '')
   const [maxOutputTokens, setMaxOutputTokens] = useState(initial?.maxOutputTokens?.toString() ?? '')
+  const [contextCompressionThreshold, setContextCompressionThreshold] = useState(
+    Math.round(
+      clampCompressionThreshold(initial?.contextCompressionThreshold ?? DEFAULT_CONTEXT_COMPRESSION_THRESHOLD) * 100
+    ).toString()
+  )
   const [inputPrice, setInputPrice] = useState(initial?.inputPrice?.toString() ?? '')
   const [outputPrice, setOutputPrice] = useState(initial?.outputPrice?.toString() ?? '')
   const [cacheCreationPrice, setCacheCreationPrice] = useState(
@@ -328,6 +339,12 @@ function ModelFormDialog({
     if (maxOutputTokens.trim()) {
       const v = parseInt(maxOutputTokens)
       if (!isNaN(v)) model.maxOutputTokens = v
+    }
+    if (contextCompressionThreshold.trim()) {
+      const v = parseFloat(contextCompressionThreshold)
+      if (!isNaN(v)) {
+        model.contextCompressionThreshold = clampCompressionThreshold(v / 100)
+      }
     }
     if (inputPrice.trim()) {
       const v = parseFloat(inputPrice)
@@ -479,6 +496,27 @@ function ModelFormDialog({
                 className="text-xs"
               />
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium">
+              {t('provider.contextCompressionThreshold')}
+            </label>
+            <p className="text-[11px] text-muted-foreground">
+              {t('provider.contextCompressionThresholdDesc', {
+                min: Math.round(MIN_CONTEXT_COMPRESSION_THRESHOLD * 100),
+                max: Math.round(MAX_CONTEXT_COMPRESSION_THRESHOLD * 100)
+              })}
+            </p>
+            <Input
+              type="number"
+              min={Math.round(MIN_CONTEXT_COMPRESSION_THRESHOLD * 100)}
+              max={Math.round(MAX_CONTEXT_COMPRESSION_THRESHOLD * 100)}
+              placeholder="80"
+              value={contextCompressionThreshold}
+              onChange={(e) => setContextCompressionThreshold(e.target.value)}
+              className="text-xs"
+            />
           </div>
 
           {/* Pricing */}

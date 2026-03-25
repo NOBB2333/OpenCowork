@@ -4,6 +4,7 @@
     "placeholderClarify": "Describe your idea and I will keep probing until the requirements are clear...",
     "placeholderCowork": "Ask the assistant to help with your project...",
     "placeholderCode": "Describe what you want to build, like fixing bugs, writing scripts, or using /commit to commit the repository...",
+    "placeholderAcp": "Describe the goal, context, constraints, and acceptance criteria. I will design and delegate first instead of coding directly...",
     "noApiKey": "No API key configured. Click here to open Settings.",
     "attachImages": "Attach images (paste or drag & drop also supported)",
     "dropImages": "Drop images or files",
@@ -12,6 +13,7 @@
     "enableThinking": "Enable deep thinking",
     "thinkingOff": "Off",
     "noModelSettings": "No extra settings for this model (e.g. deep thinking, fast mode)",
+    "contextCompressionThreshold": "Context compression threshold",
     "thinkingLevel": "Thinking: {{level}}",
     "effortDesc": {
       "none": "No reasoning",

@@ -28,6 +28,12 @@ import {
 } from '@renderer/components/settings/provider-icons'
 import { cn } from '@renderer/lib/utils'
 import type { AIModelConfig, AIProvider, ReasoningEffortLevel } from '@renderer/lib/api/types'
+import {
+  clampCompressionThreshold,
+  DEFAULT_CONTEXT_COMPRESSION_THRESHOLD,
+  MAX_CONTEXT_COMPRESSION_THRESHOLD,
+  MIN_CONTEXT_COMPRESSION_THRESHOLD
+} from '@renderer/lib/agent/context-compression'
 
 function formatContextLength(length?: number): string | null {
   if (!length) return null
@@ -135,6 +141,7 @@ function ModelSettingsPopover({
 }): React.JSX.Element | null {
   const supportsThinking = model?.supportsThinking ?? false
   const supportsFastMode = supportsPriorityServiceTier(model)
+  const supportsContextCompression = !!model
   const levels = model?.thinkingConfig?.reasoningEffortLevels
   const defaultLevel = model?.thinkingConfig?.defaultReasoningEffort ?? 'medium'
   const thinkingEnabled = useSettingsStore((s) => s.thinkingEnabled)
@@ -154,7 +161,22 @@ function ModelSettingsPopover({
     useSettingsStore.getState().updateSettings({ reasoningEffort: level, thinkingEnabled: true })
   }, [])
 
-  const hasAnySetting = supportsThinking || supportsFastMode
+  const hasAnySetting = supportsThinking || supportsFastMode || supportsContextCompression
+
+  const contextCompressionPercent = Math.round(
+    clampCompressionThreshold(model?.contextCompressionThreshold ?? DEFAULT_CONTEXT_COMPRESSION_THRESHOLD) * 100
+  )
+
+  const updateContextCompressionThreshold = useCallback((value: number) => {
+    if (!model?.id) return
+    const normalized = clampCompressionThreshold(value / 100)
+    const providerStore = useProviderStore.getState()
+    const activeProviderId = providerStore.activeProviderId
+    if (!activeProviderId) return
+    providerStore.updateModel(activeProviderId, model.id, {
+      contextCompressionThreshold: normalized
+    })
+  }, [model])
 
   return (
     <Popover>
@@ -283,6 +305,28 @@ function ModelSettingsPopover({
                   )}
                 />
               </button>
+            </>
+          )}
+
+          {supportsContextCompression && (
+            <>
+              {(supportsThinking || supportsFastMode) && <div className="my-1 border-t border-border/50" />}
+              <div className="flex items-center gap-1.5 px-1 pb-1 pt-1 text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wider">
+                <Settings2 className="size-3" />
+                {tChat('input.contextCompressionThreshold')}
+              </div>
+              <div className="flex items-center gap-2 rounded-md px-2.5 py-2 text-xs text-foreground/80">
+                <input
+                  type="range"
+                  min={Math.round(MIN_CONTEXT_COMPRESSION_THRESHOLD * 100)}
+                  max={Math.round(MAX_CONTEXT_COMPRESSION_THRESHOLD * 100)}
+                  step={1}
+                  value={contextCompressionPercent}
+                  onChange={(e) => updateContextCompressionThreshold(Number(e.target.value))}
+                  className="w-full"
+                />
+                <span className="shrink-0 text-[10px] text-muted-foreground">{contextCompressionPercent}%</span>
+              </div>
             </>
           )}
         </div>

@@ -121,6 +121,38 @@
       "daily": "记录今天的短期上下文，后续可整理进 MEMORY.md。"
     }
   },
+  "analytics": {
+    "title": "数据统计",
+    "subtitle": "按天、模型与服务商查看请求级消费明细",
+    "range7d": "最近 7 天",
+    "range30d": "最近 30 天",
+    "range90d": "最近 90 天",
+    "overview": "概览",
+    "daily": "按天",
+    "models": "按模型",
+    "providers": "按服务商",
+    "details": "明细",
+    "requests": "请求数",
+    "inputTokens": "输入 Token",
+    "outputTokens": "输出 Token",
+    "cacheCreationTokens": "缓存创建 Token",
+    "cacheReadTokens": "缓存命中 Token",
+    "costUsd": "消费 (USD)",
+    "avgTtft": "平均首 Token",
+    "avgTotal": "平均总耗时",
+    "time": "时间",
+    "provider": "服务商",
+    "model": "模型",
+    "source": "来源",
+    "ttft": "首 Token",
+    "totalMs": "总耗时",
+    "empty": "暂无统计数据",
+    "allProviders": "全部服务商",
+    "allModels": "全部模型",
+    "allSources": "全部来源",
+    "chartCost": "费用趋势",
+    "chartTokens": "Token 趋势"
+  },
   "model": {
     "title": "模型配置",
     "subtitle": "选择 AI 服务商和模型，调整生成参数",
@@ -180,6 +212,10 @@
     "random": "随机",
     "maxTokens": "最大 Token 数",
     "maxTokensDesc": "单次响应的最大 Token 限制"
+  },
+  "provider": {
+    "contextCompressionThreshold": "上下文压缩阈值 (%)",
+    "contextCompressionThresholdDesc": "达到模型上下文窗口使用率后触发正式压缩，范围 {{min}}% - {{max}}%"
   },
   "plugin": {
     "title": "插件",
