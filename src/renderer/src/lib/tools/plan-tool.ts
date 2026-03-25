@@ -2,6 +2,7 @@ import { toolRegistry } from '../agent/tool-registry'
 import { usePlanStore } from '../../stores/plan-store'
 import { useUIStore } from '../../stores/ui-store'
 import { useChatStore } from '../../stores/chat-store'
+import { useSettingsStore } from '../../stores/settings-store'
 import { encodeStructuredToolResult, encodeToolError } from './tool-result-format'
 import type { ToolHandler, ToolContext } from './tool-types'
 
@@ -75,6 +76,11 @@ const enterPlanModeHandler: ToolHandler = {
     const plan = usePlanStore.getState().createPlan(session.id, reason)
 
     if (!uiStore.isPlanModeEnabled(session.id)) uiStore.enterPlanMode(session.id)
+    const autoSwitchTarget = useSettingsStore.getState().clarifyPlanModeAutoSwitchTarget
+    if (session.mode === 'clarify' && autoSwitchTarget !== 'off') {
+      uiStore.setMode(autoSwitchTarget)
+      useChatStore.getState().updateSessionMode(session.id, autoSwitchTarget)
+    }
     if (useChatStore.getState().activeSessionId === session.id) {
       uiStore.setRightPanelTab('plan')
       uiStore.setRightPanelOpen(true)

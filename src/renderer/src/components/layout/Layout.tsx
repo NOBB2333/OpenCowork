@@ -3,6 +3,7 @@ import {
   CircleHelp,
   Briefcase,
   Code2,
+  ShieldCheck,
   ClipboardCopy,
   Check,
   ImageDown,
@@ -29,13 +30,14 @@ import { cn } from '@renderer/lib/utils'
 import { TitleBar } from './TitleBar'
 import { WorkspaceSidebar } from './WorkspaceSidebar'
 import { RightPanel } from './RightPanel'
-import { DetailPanel } from './DetailPanel'
+import { RIGHT_PANEL_TAB_ORDER } from './right-panel-defs'
 import { MessageList } from '@renderer/components/chat/MessageList'
 import { InputArea } from '@renderer/components/chat/InputArea'
 import { SettingsDialog } from '@renderer/components/settings/SettingsDialog'
 import { ChatHomePage } from '@renderer/components/chat/ChatHomePage'
 import { ProjectHomePage } from '@renderer/components/chat/ProjectHomePage'
 import { ProjectArchivePage } from '@renderer/components/chat/ProjectArchivePage'
+import { ProjectWikiPage } from '@renderer/components/chat/ProjectWikiPage'
 import { KeyboardShortcutsDialog } from '@renderer/components/settings/KeyboardShortcutsDialog'
 import { PermissionDialog } from '@renderer/components/cowork/PermissionDialog'
 import { ConversationGuideDialog } from '@renderer/components/chat/ConversationGuideDialog'
@@ -63,7 +65,8 @@ import {
 const modes: ModeOption[] = [
   { value: 'clarify', labelKey: 'mode.clarify', icon: <CircleHelp className="size-3.5" /> },
   { value: 'cowork', labelKey: 'mode.cowork', icon: <Briefcase className="size-3.5" /> },
-  { value: 'code', labelKey: 'mode.code', icon: <Code2 className="size-3.5" /> }
+  { value: 'code', labelKey: 'mode.code', icon: <Code2 className="size-3.5" /> },
+  { value: 'acp', labelKey: 'mode.acp', icon: <ShieldCheck className="size-3.5" /> }
 ]
 
 const MODE_SWITCH_TRANSITION = {
@@ -76,13 +79,15 @@ const MODE_SWITCH_TRANSITION = {
 const MODE_SWITCH_HIGHLIGHT_CLASS: Record<SelectableMode, string> = {
   clarify: 'border-amber-500/15 bg-amber-500/5 shadow-sm',
   cowork: 'border-emerald-500/15 bg-emerald-500/5 shadow-sm',
-  code: 'border-violet-500/15 bg-violet-500/5 shadow-sm'
+  code: 'border-violet-500/15 bg-violet-500/5 shadow-sm',
+  acp: 'border-cyan-500/15 bg-cyan-500/5 shadow-sm'
 }
 
 const MODE_SWITCH_ACTIVE_TEXT_CLASS: Record<SelectableMode, string> = {
   clarify: 'text-foreground',
   cowork: 'text-foreground',
-  code: 'text-foreground'
+  code: 'text-foreground',
+  acp: 'text-foreground'
 }
 
 const DEFAULT_SSH_WORKDIR = ''
@@ -103,11 +108,6 @@ interface DesktopDirectoryErrorResult {
 }
 
 type DesktopDirectoryResult = DesktopDirectorySuccessResult | DesktopDirectoryErrorResult
-
-const PreviewPanel = lazy(async () => {
-  const mod = await import('./PreviewPanel')
-  return { default: mod.PreviewPanel }
-})
 
 const SettingsPage = lazy(async () => {
   const mod = await import('@renderer/components/settings/SettingsPage')
@@ -171,8 +171,6 @@ export function Layout({ updateInfo, onOpenUpdateDialog }: LayoutProps): React.J
   const setMode = useUIStore((s) => s.setMode)
   const leftSidebarOpen = useUIStore((s) => s.leftSidebarOpen)
   const toolbarCollapsedByDefault = useSettingsStore((s) => s.toolbarCollapsedByDefault)
-  const detailPanelOpen = useUIStore((s) => s.detailPanelOpen)
-  const previewPanelOpen = useUIStore((s) => s.previewPanelOpen)
   const chatView = useUIStore((s) => s.chatView)
   const activeSessionView = useChatStore(
     useShallow((s) => {
@@ -515,15 +513,8 @@ export function Layout({ updateInfo, onOpenUpdateDialog }: LayoutProps): React.J
           ui.setRightPanelOpen(true)
           return
         }
-        const tabs: Array<'steps' | 'plan' | 'team' | 'files' | 'artifacts' | 'context'> = [
-          'steps',
-          'plan',
-          'team',
-          'files',
-          'artifacts',
-          'context'
-        ]
-        const idx = tabs.indexOf(ui.rightPanelTab)
+        const tabs = RIGHT_PANEL_TAB_ORDER.filter((tab) => tab !== 'acp')
+        const idx = tabs.indexOf(ui.rightPanelTab === 'acp' ? 'steps' : ui.rightPanelTab)
         ui.setRightPanelTab(tabs[(idx + 1) % tabs.length])
         return
       }
@@ -633,7 +624,8 @@ export function Layout({ updateInfo, onOpenUpdateDialog }: LayoutProps): React.J
     stopStreaming,
     streamingMessageId,
     t,
-    getActiveSessionSnapshot
+    getActiveSessionSnapshot,
+    handleModeChange
   ])
 
   const resolveActiveProjectId = async (): Promise<string | null> => {
@@ -922,6 +914,13 @@ export function Layout({ updateInfo, onOpenUpdateDialog }: LayoutProps): React.J
                     className="flex flex-1 min-w-0 flex-col overflow-hidden"
                   >
                     <ProjectArchivePage />
+                  </PageTransition>
+                ) : chatView === 'wiki' ? (
+                  <PageTransition
+                    key="project-wiki"
+                    className="flex flex-1 min-w-0 flex-col overflow-hidden"
+                  >
+                    <ProjectWikiPage />
                   </PageTransition>
                 ) : (
                   <PageTransition
@@ -1365,36 +1364,8 @@ export function Layout({ updateInfo, onOpenUpdateDialog }: LayoutProps): React.J
                           )}
                         </div>
 
-                        {/* Preview Panel */}
-                        <AnimatePresence>
-                          {previewPanelOpen && (
-                            <PanelTransition
-                              side="right"
-                              disabled={isStreaming}
-                              className="h-full border-l border-border/50 shadow-sm z-10"
-                            >
-                              <Suspense fallback={<LazyPageFallback />}>
-                                <PreviewPanel />
-                              </Suspense>
-                            </PanelTransition>
-                          )}
-                        </AnimatePresence>
-
-                        {/* Middle: Detail Panel */}
-                        <AnimatePresence>
-                          {detailPanelOpen && (
-                            <PanelTransition
-                              side="right"
-                              disabled={isStreaming}
-                              className="h-full border-l border-border/50 shadow-sm z-10"
-                            >
-                              <DetailPanel />
-                            </PanelTransition>
-                          )}
-                        </AnimatePresence>
-
                         {/* Right: Cowork/Code Panel */}
-                        {mode !== 'chat' && <RightPanel compact={previewPanelOpen} />}
+                        {mode !== 'chat' && <RightPanel />}
                       </div>
                     </ErrorBoundary>
                   </PageTransition>

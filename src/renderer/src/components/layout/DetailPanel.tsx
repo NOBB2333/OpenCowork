@@ -570,7 +570,7 @@ function TerminalDetailView({ processId }: { processId: string }): React.JSX.Ele
 
 // ── Main DetailPanel ─────────────────────────────────────────────
 
-export function DetailPanel(): React.JSX.Element {
+export function DetailPanel({ embedded = false }: { embedded?: boolean }): React.JSX.Element {
   const { t } = useTranslation('layout')
   const content = useUIStore((s) => s.detailPanelContent)
   const closeDetailPanel = useUIStore((s) => s.closeDetailPanel)
@@ -600,7 +600,12 @@ export function DetailPanel(): React.JSX.Element {
     )
 
   return (
-    <aside className="flex w-[480px] shrink-0 flex-col border-l bg-background/50 backdrop-blur-sm">
+    <aside
+      className={cn(
+        'flex shrink-0 flex-col bg-background/50 backdrop-blur-sm',
+        embedded ? 'h-full w-full' : 'w-[480px] border-l'
+      )}
+    >
       {/* Header */}
       <div className="flex h-10 items-center gap-2 px-3">
         {icon}

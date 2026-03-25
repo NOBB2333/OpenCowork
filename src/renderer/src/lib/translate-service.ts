@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid'
 import { createProvider } from '@renderer/lib/api/provider'
-import type { ProviderConfig, UnifiedMessage } from '@renderer/lib/api/types'
+import type { ProviderConfig, RequestTiming, TokenUsage, UnifiedMessage } from '@renderer/lib/api/types'
 
 export interface StreamAiTranslationOptions {
   text: string
@@ -9,6 +9,11 @@ export interface StreamAiTranslationOptions {
   providerConfig: ProviderConfig
   signal: AbortSignal
   onTextDelta?: (chunk: string) => void
+  onMessageEnd?: (payload: {
+    usage?: TokenUsage
+    timing?: RequestTiming
+    providerResponseId?: string
+  }) => void
 }
 
 const LANGUAGE_NAMES: Record<string, string> = {
@@ -68,7 +73,8 @@ export async function streamAiTranslation({
   targetLanguage,
   providerConfig,
   signal,
-  onTextDelta
+  onTextDelta,
+  onMessageEnd
 }: StreamAiTranslationOptions): Promise<void> {
   const provider = createProvider(providerConfig)
   const systemPrompt = buildTranslationSystemPrompt(sourceLanguage, targetLanguage)
@@ -96,6 +102,15 @@ export async function streamAiTranslation({
 
     if (event.type === 'text_delta' && event.text) {
       onTextDelta?.(stripThinkTags(event.text))
+      continue
+    }
+
+    if (event.type === 'message_end') {
+      onMessageEnd?.({
+        usage: event.usage,
+        timing: event.timing,
+        providerResponseId: event.providerResponseId
+      })
       continue
     }
 

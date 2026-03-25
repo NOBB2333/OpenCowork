@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { useTranslation } from 'react-i18next'
 import { useChatStore } from '@renderer/stores/chat-store'
 import { useUIStore } from '@renderer/stores/ui-store'
@@ -60,11 +61,20 @@ interface RenderableMetaBuildResult {
   hasAssistantMessages: boolean
 }
 
+type VirtualRow =
+  | { type: 'load-more'; key: string }
+  | { type: 'message'; key: string; data: RenderableMessage }
+
 const EMPTY_MESSAGES: UnifiedMessage[] = []
 const INITIAL_VISIBLE_MESSAGE_COUNT = 120
 const LOAD_MORE_MESSAGE_STEP = 80
 const AUTO_SCROLL_BOTTOM_THRESHOLD = 80
 const STREAMING_AUTO_SCROLL_BOTTOM_THRESHOLD = 150
+const LOAD_MORE_ROW_KEY = '__load_more__'
+const LOAD_MORE_ROW_ESTIMATED_HEIGHT = 56
+const MESSAGE_ESTIMATED_HEIGHT = 320
+const VIRTUAL_OVERSCAN = 6
+const TAIL_STATIC_MESSAGE_COUNT = 4
 
 function isToolResultOnlyUserMessage(message: UnifiedMessage): boolean {
   return (
@@ -172,6 +182,8 @@ export function MessageList({
   const [isAtBottom, setIsAtBottom] = React.useState(true)
   const pendingInitialScrollSessionIdRef = React.useRef<string | null>(null)
   const shouldStickToBottomRef = React.useRef(true)
+  const preserveScrollOnPrependRef = React.useRef<{ offset: number; size: number } | null>(null)
+  const scheduledScrollFrameRef = React.useRef<number | null>(null)
 
   const activeSessionLoaded = activeSession?.messagesLoaded ?? true
   const activeSessionMessageCount = activeSession?.messageCount ?? 0
@@ -198,8 +210,8 @@ export function MessageList({
     void renderableStructureSignature
     if (!activeSessionId) return EMPTY_MESSAGES
     return (
-      useChatStore.getState().sessions.find((session) => session.id === activeSessionId)
-        ?.messages ?? EMPTY_MESSAGES
+      useChatStore.getState().sessions.find((session) => session.id === activeSessionId)?.messages ??
+      EMPTY_MESSAGES
     )
   }, [activeSessionId, renderableStructureSignature])
   const renderableMeta = React.useMemo(
@@ -232,24 +244,56 @@ export function MessageList({
   )
   const olderUnloadedMessageCount = Math.max(0, activeSessionMessageCount - messages.length)
   const hiddenMessageCount = hiddenLoadedMessageCount + olderUnloadedMessageCount
-  const contentRef = React.useRef<HTMLDivElement>(null)
-  const scheduledScrollFrameRef = React.useRef<number | null>(null)
+  const hasLoadMoreRow = hiddenMessageCount > 0
 
-  const scrollToBottomImmediate = React.useCallback(() => {
-    const container = scrollContainerRef.current
-    if (!container) return
-    container.scrollTop = container.scrollHeight
-  }, [])
+  const virtualRows = React.useMemo<VirtualRow[]>(() => {
+    const rows: VirtualRow[] = visibleRenderableMessages.map((message) => ({
+      type: 'message',
+      key: message.messageId,
+      data: message
+    }))
+    if (hasLoadMoreRow) {
+      rows.unshift({ type: 'load-more', key: LOAD_MORE_ROW_KEY })
+    }
+    return rows
+  }, [hasLoadMoreRow, visibleRenderableMessages])
+
+  const virtualizer = useVirtualizer({
+    count: virtualRows.length,
+    getScrollElement: () => scrollContainerRef.current,
+    estimateSize: (index) =>
+      virtualRows[index]?.type === 'load-more'
+        ? LOAD_MORE_ROW_ESTIMATED_HEIGHT
+        : MESSAGE_ESTIMATED_HEIGHT,
+    overscan: VIRTUAL_OVERSCAN,
+    getItemKey: (index) => virtualRows[index]?.key ?? index
+  })
+
+  const lastMessageRowIndex = React.useMemo(() => {
+    for (let i = virtualRows.length - 1; i >= 0; i--) {
+      if (virtualRows[i]?.type === 'message') return i
+    }
+    return -1
+  }, [virtualRows])
+
+  const scrollToBottomImmediate = React.useCallback(
+    (behavior: ScrollBehavior = 'auto') => {
+      const lastIndex = virtualRows.length - 1
+      if (lastIndex < 0) return
+      virtualizer.scrollToIndex(lastIndex, { align: 'end', behavior })
+    },
+    [virtualRows.length, virtualizer]
+  )
 
   const scheduleScrollToBottom = React.useCallback(() => {
     if (scheduledScrollFrameRef.current !== null) return
     scheduledScrollFrameRef.current = window.requestAnimationFrame(() => {
       scheduledScrollFrameRef.current = null
-      if (shouldStickToBottomRef.current) {
-        scrollToBottomImmediate()
-      }
+      if (!shouldStickToBottomRef.current) return
+      virtualizer.measure()
+      scrollToBottomImmediate()
     })
-  }, [scrollToBottomImmediate])
+  }, [scrollToBottomImmediate, virtualizer])
 
   React.useEffect(() => {
     return () => {
@@ -264,14 +308,17 @@ export function MessageList({
     setIsAtBottom(true)
     pendingInitialScrollSessionIdRef.current = activeSessionId ?? null
     shouldStickToBottomRef.current = true
+    preserveScrollOnPrependRef.current = null
   }, [activeSessionId])
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     if (!activeSessionId) return
     if (pendingInitialScrollSessionIdRef.current !== activeSessionId) return
 
+    virtualizer.measure()
     scrollToBottomImmediate()
     const timer = window.setTimeout(() => {
+      virtualizer.measure()
       scrollToBottomImmediate()
     }, 100)
 
@@ -280,10 +327,8 @@ export function MessageList({
     }
 
     return () => window.clearTimeout(timer)
-  }, [activeSessionId, messageCount, scrollToBottomImmediate, streamingMessageId])
+  }, [activeSessionId, messageCount, scrollToBottomImmediate, streamingMessageId, virtualizer])
 
-  // Track if user is near the bottom via scroll position
-  // Use larger threshold during streaming so rapid content growth doesn't break auto-scroll
   React.useEffect(() => {
     const container = scrollContainerRef.current
     if (!container) return
@@ -304,31 +349,57 @@ export function MessageList({
     return () => container.removeEventListener('scroll', handleScroll)
   }, [activeSessionId, streamingMessageId])
 
-  // Auto-scroll to bottom on new messages, streaming content, and tool call state changes
+  React.useLayoutEffect(() => {
+    const pending = preserveScrollOnPrependRef.current
+    const container = scrollContainerRef.current
+    if (!pending || !container) return
+    preserveScrollOnPrependRef.current = null
+    virtualizer.measure()
+    const delta = virtualizer.getTotalSize() - pending.size
+    if (delta > 0) {
+      container.scrollTop = pending.offset + delta
+    }
+  }, [virtualRows.length, virtualizer])
+
   React.useEffect(() => {
     if (!shouldStickToBottomRef.current) return
     scheduleScrollToBottom()
-  }, [messageCount, scheduleScrollToBottom, streamingMessageId])
+  }, [messageCount, scheduleScrollToBottom, streamingMessageId, virtualRows.length])
 
   React.useEffect(() => {
-    const content = contentRef.current
-    if (!content) return
+    if (!streamingMessageId || !shouldStickToBottomRef.current) return
+    const timer = window.setTimeout(() => {
+      virtualizer.measure()
+      scrollToBottomImmediate()
+    }, 40)
+    return () => window.clearTimeout(timer)
+  }, [streamingMessageId, scrollToBottomImmediate, virtualRows.length, virtualizer])
+
+  React.useEffect(() => {
+    if (lastMessageRowIndex < 0 || !shouldStickToBottomRef.current) return
+    const element = scrollContainerRef.current?.querySelector<HTMLElement>(
+      `[data-index="${lastMessageRowIndex}"]`
+    )
+    if (!element) return
 
     const observer = new ResizeObserver(() => {
       if (!shouldStickToBottomRef.current) return
-      scheduleScrollToBottom()
+      virtualizer.measure()
+      scrollToBottomImmediate()
     })
-    observer.observe(content)
+    observer.observe(element)
+
     return () => {
       observer.disconnect()
     }
-  }, [activeSessionId, scheduleScrollToBottom])
+  }, [lastMessageRowIndex, scrollToBottomImmediate, virtualizer])
 
   const scrollToBottom = React.useCallback(() => {
     shouldStickToBottomRef.current = true
     setIsAtBottom(true)
-    scrollToBottomImmediate()
-  }, [scrollToBottomImmediate])
+    virtualizer.measure()
+    scrollToBottomImmediate('smooth')
+  }, [scrollToBottomImmediate, virtualizer])
 
   const applySuggestedPrompt = React.useCallback((prompt: string) => {
     const textarea = document.querySelector('textarea')
@@ -474,64 +545,107 @@ export function MessageList({
   return (
     <div className="relative flex-1" data-message-list>
       <div ref={scrollContainerRef} className="absolute inset-0 overflow-y-auto">
-        <div
-          ref={contentRef}
-          data-message-content
-          className="mx-auto max-w-3xl space-y-6 p-4 overflow-hidden"
-        >
-          {hiddenMessageCount > 0 && (
-            <div className="flex justify-center">
-              <button
-                className="rounded-md border px-3 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
-                onClick={() => {
-                  if (hiddenLoadedMessageCount > 0) {
-                    setVisibleCount((prev) => prev + LOAD_MORE_MESSAGE_STEP)
-                    return
-                  }
-                  if (!activeSessionId || olderUnloadedMessageCount === 0) return
-                  void useChatStore
-                    .getState()
-                    .loadOlderSessionMessages(activeSessionId, LOAD_MORE_MESSAGE_STEP)
-                    .then((loaded) => {
-                      if (loaded > 0) {
-                        setVisibleCount((prev) => prev + loaded)
-                      }
-                    })
-                }}
-              >
-                {t('messageList.loadMoreMessages', { defaultValue: '加载更早消息' })} (
-                {hiddenMessageCount})
-              </button>
-            </div>
-          )}
-          {visibleRenderableMessages.map(
-            ({
-              messageId,
-              messageIndex,
-              isLastUserMessage,
-              isLastAssistantMessage,
-              toolResults
-            }) => {
+        <div className="mx-auto max-w-3xl p-4 overflow-hidden">
+          <div
+            data-message-content
+            style={{
+              height: virtualizer.getTotalSize(),
+              position: 'relative',
+              width: '100%'
+            }}
+          >
+            {virtualizer.getVirtualItems().map((virtualItem) => {
+              const row = virtualRows[virtualItem.index]
+              if (!row) return null
+
+              if (row.type === 'load-more') {
+                return (
+                  <div
+                    key={row.key}
+                    ref={virtualizer.measureElement}
+                    data-index={virtualItem.index}
+                    className="absolute left-0 top-0 w-full"
+                    style={{ transform: `translateY(${virtualItem.start}px)` }}
+                  >
+                    <div className="flex justify-center pb-6">
+                      <button
+                        className="rounded-md border px-3 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
+                        onClick={() => {
+                          const container = scrollContainerRef.current
+                          preserveScrollOnPrependRef.current = container
+                            ? { offset: container.scrollTop, size: virtualizer.getTotalSize() }
+                            : null
+
+                          if (hiddenLoadedMessageCount > 0) {
+                            setVisibleCount((prev) => prev + LOAD_MORE_MESSAGE_STEP)
+                            return
+                          }
+                          if (!activeSessionId || olderUnloadedMessageCount === 0) {
+                            preserveScrollOnPrependRef.current = null
+                            return
+                          }
+                          void useChatStore
+                            .getState()
+                            .loadOlderSessionMessages(activeSessionId, LOAD_MORE_MESSAGE_STEP)
+                            .then((loaded) => {
+                              if (loaded > 0) {
+                                setVisibleCount((prev) => prev + loaded)
+                                return
+                              }
+                              preserveScrollOnPrependRef.current = null
+                            })
+                            .catch(() => {
+                              preserveScrollOnPrependRef.current = null
+                            })
+                        }}
+                      >
+                        {t('messageList.loadMoreMessages', { defaultValue: '加载更早消息' })} (
+                        {hiddenMessageCount})
+                      </button>
+                    </div>
+                  </div>
+                )
+              }
+
+              const {
+                messageId,
+                messageIndex,
+                isLastUserMessage,
+                isLastAssistantMessage,
+                toolResults
+              } = row.data
+
+              const disableAnimation = lastMessageRowIndex >= 0
+                ? virtualItem.index >= Math.max(0, lastMessageRowIndex - (TAIL_STATIC_MESSAGE_COUNT - 1))
+                : false
+
               return (
-                <MessageItem
-                  key={messageId}
-                  message={messages[messageIndex]!}
-                  messageId={messageId}
-                  isStreaming={messageId === streamingMessageId}
-                  isLastUserMessage={isLastUserMessage}
-                  isLastAssistantMessage={isLastAssistantMessage}
-                  onRetryAssistantMessage={onRetry}
-                  onEditUserMessage={onEditUserMessage}
-                  onDeleteMessage={onDeleteMessage}
-                  toolResults={toolResults}
-                />
+                <div
+                  key={row.key}
+                  ref={virtualizer.measureElement}
+                  data-index={virtualItem.index}
+                  className="absolute left-0 top-0 w-full pb-6"
+                  style={{ transform: `translateY(${virtualItem.start}px)` }}
+                >
+                  <MessageItem
+                    message={messages[messageIndex]!}
+                    messageId={messageId}
+                    isStreaming={messageId === streamingMessageId}
+                    isLastUserMessage={isLastUserMessage}
+                    isLastAssistantMessage={isLastAssistantMessage}
+                    disableAnimation={disableAnimation}
+                    onRetryAssistantMessage={onRetry}
+                    onEditUserMessage={onEditUserMessage}
+                    onDeleteMessage={onDeleteMessage}
+                    toolResults={toolResults}
+                  />
+                </div>
               )
-            }
-          )}
+            })}
+          </div>
         </div>
       </div>
 
-      {/* Scroll to bottom button */}
       {!isAtBottom && messageCount > 0 && (
         <button
           onClick={scrollToBottom}

@@ -116,6 +116,7 @@ export type TranslationAgentEvent =
   | { type: 'tool_use'; name: string; input: Record<string, unknown> }
   | { type: 'tool_result'; name: string; output: string; isError?: boolean }
   | { type: 'iteration'; iteration: number }
+  | { type: 'message_end'; usage?: unknown; timing?: unknown; providerResponseId?: string }
   | { type: 'done' }
   | { type: 'error'; message: string }
 
@@ -389,6 +390,15 @@ export async function runTranslationAgent({
             onEvent({ type: 'tool_use', name: endName, input: toolInput })
             break
           }
+
+          case 'message_end':
+            onEvent({
+              type: 'message_end',
+              usage: event.usage,
+              timing: event.timing,
+              providerResponseId: event.providerResponseId
+            })
+            break
 
           case 'error':
             throw new Error(event.error?.message ?? 'API error')

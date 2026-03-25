@@ -65,6 +65,10 @@
     "clarifyAutoAcceptShort": "Auto Q",
     "clarifyAutoAcceptOn": "Clarify auto-accept is enabled — AskUserQuestion recommended answers are selected and submitted automatically",
     "clarifyAutoAcceptOff": "Clarify auto-accept is disabled",
+    "clarifyPlanModeAutoSwitchTooltip": "Auto-switch target mode after Clarify enters Plan Mode",
+    "clarifyPlanModeAutoSwitchOff": "Stay",
+    "clarifyPlanModeAutoSwitchCode": "To Code",
+    "clarifyPlanModeAutoSwitchAcp": "To ACP",
     "autoApproveOn": "Auto-approve is ON — all tools run without confirmation",
     "autoApproveOff": "Auto-approve is OFF — tool calls require confirmation",
     "pendingCount": "{{count}} pending",
@@ -151,6 +155,12 @@
     "files": "Files",
     "artifacts": "Artifacts",
     "context": "Context",
+    "acp": "ACP",
+    "acpTitle": "ACP Mode",
+    "acpDesc": "The main agent handles clarification, architecture, and task delegation. Implementation work must be executed by sub-agents.",
+    "acpRuleNoCode": "The main agent does not write code or modify files directly. It must clarify boundaries and form a design first.",
+    "acpRuleDelegate": "Implementation tasks must be delegated through Task / SubAgent / teammate.",
+    "acpRuleReport": "Every sub-task appends a final summary request and returns a Markdown summary to the main agent.",
     "skills": "Tools",
     "cron": "Cron",
     "expand": "Expand",
@@ -240,6 +250,14 @@
           "Precise implementation: writing features, fixing bugs, refactoring, or completing modules with engineering discipline",
           "When you want clean code output with minimal narration — terse confirmation instead of verbose walk-throughs",
           "Changes that demand strict attention to existing conventions, types, imports, and API contracts"
+        ]
+      },
+      "acp": {
+        "summary": "Best for architecture-controlled execution. The main agent only clarifies, designs, delegates, and summarizes. All implementation work is executed by sub-agents.",
+        "solves": [
+          "Complex tasks that need rich context, boundaries, constraints, and acceptance criteria before implementation",
+          "Workflows where the main agent should focus on architecture, task decomposition, and orchestration instead of coding",
+          "Cases where every sub-task should return a final Markdown summary for continued coordination"
         ]
       }
     }

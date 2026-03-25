@@ -4,7 +4,7 @@ import {
   clampLeftSidebarWidth
 } from '@renderer/components/layout/right-panel-defs'
 
-export type AppMode = 'chat' | 'clarify' | 'cowork' | 'code'
+export type AppMode = 'chat' | 'clarify' | 'cowork' | 'code' | 'acp'
 
 export type NavItem =
   | 'chat'
@@ -16,9 +16,17 @@ export type NavItem =
   | 'ssh'
   | 'tasks'
 
-export type ChatView = 'home' | 'project' | 'archive' | 'channels' | 'session'
+export type ChatView = 'home' | 'project' | 'archive' | 'channels' | 'wiki' | 'session'
 
-export type RightPanelTab = 'steps' | 'team' | 'artifacts' | 'context' | 'files' | 'plan'
+export type RightPanelTab =
+  | 'steps'
+  | 'team'
+  | 'artifacts'
+  | 'context'
+  | 'files'
+  | 'plan'
+  | 'preview'
+  | 'acp'
 export type RightPanelSection = 'execution' | 'resources' | 'collaboration' | 'monitoring'
 
 export type PreviewSource = 'file' | 'dev-server' | 'markdown'
@@ -55,6 +63,7 @@ export interface PreviewPanelState {
 export type SettingsTab =
   | 'general'
   | 'memory'
+  | 'analytics'
   | 'provider'
   | 'model'
   | 'plugin'
@@ -248,6 +257,7 @@ interface UIStore {
   navigateToProject: () => void
   navigateToArchive: () => void
   navigateToChannels: () => void
+  navigateToWiki: () => void
   navigateToSession: () => void
 }
 
@@ -415,7 +425,12 @@ export const useUIStore = create<UIStore>((set, get) => ({
   detailPanelContent: null,
 
   openDetailPanel: (content) =>
-    set({ detailPanelOpen: true, detailPanelContent: content, rightPanelOpen: false }),
+    set({
+      detailPanelOpen: true,
+      detailPanelContent: content,
+      rightPanelTab: 'preview',
+      rightPanelOpen: true
+    }),
 
   closeDetailPanel: () => set({ detailPanelOpen: false, detailPanelContent: null }),
 
@@ -471,7 +486,8 @@ export const useUIStore = create<UIStore>((set, get) => ({
           previewPanelOpen: true,
           previewPanelState: nextPreviewState,
           leftSidebarOpen: false,
-          rightPanelOpen: false
+          rightPanelTab: 'preview',
+          rightPanelOpen: true
         }
       }
 
@@ -489,7 +505,8 @@ export const useUIStore = create<UIStore>((set, get) => ({
         previewPanelOpen: true,
         previewPanelState: nextPreviewState,
         leftSidebarOpen: false,
-        rightPanelOpen: false
+        rightPanelTab: 'preview',
+        rightPanelOpen: true
       }
     }),
   openDevServerPreview: (projectDir, port, sessionId) =>
@@ -508,7 +525,9 @@ export const useUIStore = create<UIStore>((set, get) => ({
         return {
           previewPanelOpen: true,
           previewPanelState: nextPreviewState,
-          leftSidebarOpen: false
+          leftSidebarOpen: false,
+          rightPanelTab: 'preview',
+          rightPanelOpen: true
         }
       }
 
@@ -525,7 +544,9 @@ export const useUIStore = create<UIStore>((set, get) => ({
         previewPanelsBySession: nextPreviewPanelsBySession,
         previewPanelOpen: true,
         previewPanelState: nextPreviewState,
-        leftSidebarOpen: false
+        leftSidebarOpen: false,
+        rightPanelTab: 'preview',
+        rightPanelOpen: true
       }
     }),
   openMarkdownPreview: (title, content, sessionId) =>
@@ -545,7 +566,8 @@ export const useUIStore = create<UIStore>((set, get) => ({
           previewPanelOpen: true,
           previewPanelState: nextPreviewState,
           leftSidebarOpen: false,
-          rightPanelOpen: false
+          rightPanelTab: 'preview',
+          rightPanelOpen: true
         }
       }
 
@@ -563,14 +585,19 @@ export const useUIStore = create<UIStore>((set, get) => ({
         previewPanelOpen: true,
         previewPanelState: nextPreviewState,
         leftSidebarOpen: false,
-        rightPanelOpen: false
+        rightPanelTab: 'preview',
+        rightPanelOpen: true
       }
     }),
   closePreviewPanel: (sessionId) =>
     set((state) => {
       const targetSessionId = resolveScopedSessionId(sessionId, state.activeScopedSessionId)
       if (!targetSessionId) {
-        return { previewPanelOpen: false, previewPanelState: null }
+        return {
+          previewPanelOpen: false,
+          previewPanelState: null,
+          rightPanelTab: state.detailPanelOpen ? 'preview' : 'steps'
+        }
       }
 
       const nextPreviewPanelsBySession = { ...state.previewPanelsBySession }
@@ -583,7 +610,8 @@ export const useUIStore = create<UIStore>((set, get) => ({
       return {
         previewPanelsBySession: nextPreviewPanelsBySession,
         previewPanelOpen: false,
-        previewPanelState: null
+        previewPanelState: null,
+        rightPanelTab: state.detailPanelOpen ? 'preview' : 'steps'
       }
     }),
   setPreviewViewMode: (mode, sessionId) =>
@@ -695,6 +723,17 @@ export const useUIStore = create<UIStore>((set, get) => ({
     set({
       activeNavItem: 'chat',
       chatView: 'channels',
+      settingsPageOpen: false,
+      skillsPageOpen: false,
+      resourcesPageOpen: false,
+      translatePageOpen: false,
+      sshPageOpen: false,
+      tasksPageOpen: false
+    }),
+  navigateToWiki: () =>
+    set({
+      activeNavItem: 'chat',
+      chatView: 'wiki',
       settingsPageOpen: false,
       skillsPageOpen: false,
       resourcesPageOpen: false,

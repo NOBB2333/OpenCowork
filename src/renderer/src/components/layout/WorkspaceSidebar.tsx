@@ -5,9 +5,11 @@ import readmeZh from '../../../../../README.zh.md?raw'
 import changelogMd from '../../../../../CHANGELOG.md?raw'
 import {
   BookOpen,
+  BarChart3,
   CalendarDays,
   ChevronDown,
   CircleHelp,
+  ShieldCheck,
   FolderOpen,
   FolderPlus,
   History,
@@ -76,7 +78,8 @@ const modeIcons: Record<SessionMode, React.ReactNode> = {
   chat: <MessageSquare className="size-4" />,
   clarify: <CircleHelp className="size-4" />,
   cowork: <FolderOpen className="size-4" />,
-  code: <FileText className="size-4" />
+  code: <FileText className="size-4" />,
+  acp: <ShieldCheck className="size-4" />
 }
 
 type SessionListItem = ReturnType<typeof mapSession>
@@ -836,6 +839,12 @@ export function WorkspaceSidebar(): React.JSX.Element {
                   >
                     <BookOpen className="size-4" />
                     {t('sidebar.memoryLabel', { defaultValue: '记忆' })}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => useUIStore.getState().openSettingsPage('analytics')}
+                  >
+                    <BarChart3 className="size-4" />
+                    {t('sidebar.analyticsLabel', { defaultValue: '数据统计' })}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={handleToggleLanguage}>
                     <Languages className="size-4" />

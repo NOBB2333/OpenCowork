@@ -24,6 +24,7 @@ export type PromptRecommendationModelBindings = Record<
 >
 
 export type MainModelSelectionMode = 'auto' | 'manual'
+export type ClarifyPlanModeAutoSwitchTarget = 'off' | 'code' | 'acp'
 
 function getSystemLanguage(): 'en' | 'zh' {
   const lang = navigator.language || navigator.languages?.[0] || 'en'
@@ -44,6 +45,7 @@ interface SettingsStore {
   autoApprove: boolean
   autoUpdateEnabled: boolean
   clarifyAutoAcceptRecommended: boolean
+  clarifyPlanModeAutoSwitchTarget: ClarifyPlanModeAutoSwitchTarget
   devMode: boolean
   thinkingEnabled: boolean
   fastModeEnabled: boolean
@@ -110,6 +112,7 @@ export const useSettingsStore = create<SettingsStore>()(
       autoApprove: false,
       autoUpdateEnabled: true,
       clarifyAutoAcceptRecommended: false,
+      clarifyPlanModeAutoSwitchTarget: 'off',
       devMode: false,
       thinkingEnabled: false,
       fastModeEnabled: false,
@@ -157,7 +160,7 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: 'opencowork-settings',
-      version: 8,
+      version: 9,
       storage: createJSONStorage(() => ipcStorage),
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>
@@ -219,6 +222,9 @@ export const useSettingsStore = create<SettingsStore>()(
         if (state.clarifyAutoAcceptRecommended === undefined) {
           state.clarifyAutoAcceptRecommended = false
         }
+        if (state.clarifyPlanModeAutoSwitchTarget === undefined) {
+          state.clarifyPlanModeAutoSwitchTarget = 'off'
+        }
         if (state.editorWorkspaceEnabled === undefined) {
           state.editorWorkspaceEnabled = false
         }
@@ -246,6 +252,7 @@ export const useSettingsStore = create<SettingsStore>()(
         autoApprove: state.autoApprove,
         autoUpdateEnabled: state.autoUpdateEnabled,
         clarifyAutoAcceptRecommended: state.clarifyAutoAcceptRecommended,
+        clarifyPlanModeAutoSwitchTarget: state.clarifyPlanModeAutoSwitchTarget,
         devMode: state.devMode,
         thinkingEnabled: state.thinkingEnabled,
         fastModeEnabled: state.fastModeEnabled,

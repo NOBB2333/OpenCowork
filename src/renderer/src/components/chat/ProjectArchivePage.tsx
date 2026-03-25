@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { Button } from '@renderer/components/ui/button'
 import { Textarea } from '@renderer/components/ui/textarea'
 import { ChannelPanel } from '@renderer/components/settings/PluginPanel'
+import { McpPanel } from '@renderer/components/settings/McpPanel'
 import { useChatStore } from '@renderer/stores/chat-store'
 import { useUIStore } from '@renderer/stores/ui-store'
 import { ipcClient } from '@renderer/lib/ipc/ipc-client'
@@ -410,7 +411,10 @@ export function ProjectArchivePage(): React.JSX.Element {
         <div className="flex min-h-0 flex-1 overflow-hidden rounded-3xl border border-border/60 bg-background/70 shadow-[0_24px_60px_-30px_rgba(0,0,0,0.55)] backdrop-blur-sm">
           {viewMode === 'channels' ? (
             <div className="min-h-0 flex-1 p-4">
-              <ChannelPanel projectId={activeProjectId ?? undefined} />
+              <div className="grid h-full min-h-0 grid-cols-1 gap-4 xl:grid-cols-2">
+                <ChannelPanel projectId={activeProjectId ?? undefined} />
+                <McpPanel projectId={activeProjectId ?? undefined} />
+              </div>
             </div>
           ) : loading ? (
             <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">

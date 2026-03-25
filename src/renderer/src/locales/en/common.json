@@ -82,7 +82,8 @@
     "chat": "Chat",
     "clarify": "Clarify",
     "cowork": "Cowork",
-    "code": "Code"
+    "code": "Code",
+    "acp": "ACP"
   },
   "contextWindow": "Context window",
   "app": {

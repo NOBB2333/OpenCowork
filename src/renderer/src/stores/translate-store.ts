@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import type { ProviderConfig } from '@renderer/lib/api/types'
 import { streamAiTranslation } from '@renderer/lib/translate-service'
 import { runTranslationAgent } from '@renderer/lib/translate-agent-service'
+import { recordUsageEvent } from '@renderer/lib/usage-analytics'
 import { useProviderStore } from '@renderer/stores/provider-store'
 import { ensureProviderAuthReady } from '@renderer/lib/auth/provider-auth'
 import { useSettingsStore } from '@renderer/stores/settings-store'
@@ -272,6 +273,22 @@ export const useTranslateStore = create<TranslateStore>((set, get) => ({
                   }))
                 }
                 break
+              case 'message_end':
+                void recordUsageEvent({
+                  sourceKind: 'translate',
+                  providerId: requestConfig.providerId,
+                  modelId: requestConfig.model,
+                  usage: event.usage as Parameters<typeof recordUsageEvent>[0]['usage'],
+                  timing: event.timing as Parameters<typeof recordUsageEvent>[0]['timing'],
+                  providerResponseId: event.providerResponseId,
+                  createdAt: Date.now(),
+                  meta: {
+                    mode: 'agent',
+                    sourceLanguage,
+                    targetLanguage
+                  }
+                })
+                break
               case 'error':
                 toast.error('Agent translation failed', { description: event.message })
                 break
@@ -289,6 +306,22 @@ export const useTranslateStore = create<TranslateStore>((set, get) => ({
           onTextDelta: (chunk) => {
             streamedText += chunk
             set({ translatedText: streamedText })
+          },
+          onMessageEnd: (payload) => {
+            void recordUsageEvent({
+              sourceKind: 'translate',
+              providerId: requestConfig.providerId,
+              modelId: requestConfig.model,
+              usage: payload.usage,
+              timing: payload.timing,
+              providerResponseId: payload.providerResponseId,
+              createdAt: Date.now(),
+              meta: {
+                mode: 'simple',
+                sourceLanguage,
+                targetLanguage
+              }
+            })
           }
         })
       }

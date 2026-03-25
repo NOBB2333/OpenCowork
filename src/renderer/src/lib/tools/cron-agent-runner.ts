@@ -33,6 +33,7 @@ import type {
 } from '../api/types'
 import type { AgentLoopConfig } from '../agent/types'
 import type { ToolContext } from './tool-types'
+import { recordUsageEvent } from '../usage-analytics'
 
 const DEFAULT_AGENT = 'CronAgent'
 
@@ -631,6 +632,32 @@ Begin working on this task now.`
           const last = transcriptMessages[transcriptMessages.length - 1]
           if (last?.role === 'assistant') {
             last.usage = event.usage
+            if (event.providerResponseId) {
+              last.providerResponseId = event.providerResponseId
+            }
+          }
+          if (event.usage) {
+            void recordUsageEvent({
+              sessionId: sessionId ?? null,
+              messageId: last?.id,
+              sourceKind: 'cron',
+              providerId: effectiveProviderId,
+              modelId: effectiveModel,
+              usage: {
+                ...event.usage,
+                contextTokens: event.usage.contextTokens ?? event.usage.inputTokens
+              },
+              timing: event.timing,
+              providerResponseId: event.providerResponseId,
+              createdAt: Date.now(),
+              meta: {
+                jobId,
+                runId,
+                sourceSessionTitle,
+                sourceProjectId,
+                sourceProjectName
+              }
+            })
           }
           scheduleTranscriptFlush()
           break

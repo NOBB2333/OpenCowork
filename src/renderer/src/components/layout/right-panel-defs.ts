@@ -5,6 +5,8 @@ import {
   FileOutput,
   FolderTree,
   ListChecks,
+  Monitor,
+  ShieldCheck,
   Users,
   Workflow,
   type LucideIcon
@@ -38,9 +40,11 @@ export const RIGHT_PANEL_TAB_DEFS: RightPanelTabDef[] = [
   { value: 'steps', labelKey: 'steps', section: 'execution', icon: ListChecks },
   { value: 'plan', labelKey: 'plan', section: 'execution', icon: ClipboardList },
   { value: 'files', labelKey: 'files', section: 'resources', icon: FolderTree },
+  { value: 'preview', labelKey: 'preview', section: 'resources', icon: Monitor },
   { value: 'artifacts', labelKey: 'artifacts', section: 'resources', icon: FileOutput },
   { value: 'team', labelKey: 'team', section: 'collaboration', icon: Users },
-  { value: 'context', labelKey: 'context', section: 'monitoring', icon: Database }
+  { value: 'context', labelKey: 'context', section: 'monitoring', icon: Database },
+  { value: 'acp', labelKey: 'acp', section: 'monitoring', icon: ShieldCheck }
 ]
 
 export const RIGHT_PANEL_TAB_ORDER: RightPanelTab[] = RIGHT_PANEL_TAB_DEFS.map((tab) => tab.value)

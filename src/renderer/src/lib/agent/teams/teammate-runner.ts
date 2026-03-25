@@ -1,4 +1,5 @@
 import { nanoid } from 'nanoid'
+import { createProvider } from '../../api/provider'
 import { runAgentLoop } from '../agent-loop'
 import { toolRegistry } from '../tool-registry'
 import { teamEvents } from './events'
@@ -165,7 +166,7 @@ export async function runTeammate(options: RunTeammateOptions): Promise<void> {
     totalIterations = result.iterations
     totalToolCalls = result.toolCalls
     lastStreamingText = result.lastStreamingText
-    fullOutput = result.fullOutput
+    fullOutput = result.finalReportMarkdown || result.fullOutput
     if (result.taskCompleted) tasksCompleted++
     if (result.reason === 'aborted') endReason = 'aborted'
     else if (result.reason === 'shutdown') endReason = 'shutdown'
@@ -216,6 +217,7 @@ interface SingleTaskResult {
   toolCalls: number
   lastStreamingText: string
   fullOutput: string
+  finalReportMarkdown: string
   taskCompleted: boolean
   reason: 'completed' | 'max_iterations' | 'aborted' | 'shutdown' | 'error'
   usage: TokenUsage
@@ -319,6 +321,7 @@ async function runSingleTaskLoop(opts: {
   let iteration = 0
   let streamingText = ''
   let fullOutput = ''
+  const summaryContextParts: string[] = [`## Task Prompt\n${prompt}`]
   let reason: SingleTaskResult['reason'] = 'completed'
   let taskCompleted = false
   let taskAlreadyDone = false
@@ -431,6 +434,9 @@ async function runSingleTaskLoop(opts: {
             } else {
               collectedToolCalls.push(event.toolCall)
             }
+            if (event.type === 'tool_call_result') {
+              summaryContextParts.push(formatTeamToolCallSummary(event.toolCall))
+            }
             teamEvents.emit({
               type: 'team_member_update',
               memberId,
@@ -479,11 +485,29 @@ async function runSingleTaskLoop(opts: {
     flushStreamingText()
   }
 
+  const finalReportMarkdown = await generateTeammateFinalReport({
+    providerConfig,
+    signal: abortController.signal,
+    taskPrompt: prompt,
+    contextParts: summaryContextParts,
+    finalOutput: fullOutput,
+    status: reason
+  })
+
+  if (taskId) {
+    teamEvents.emit({
+      type: 'team_task_update',
+      taskId,
+      patch: { report: finalReportMarkdown }
+    })
+  }
+
   return {
     iterations: iteration,
     toolCalls: collectedToolCalls.length,
     lastStreamingText: streamingText,
     fullOutput,
+    finalReportMarkdown,
     taskCompleted,
     reason,
     usage: accumulatedUsage
@@ -539,7 +563,7 @@ function emitCompletionMessage(
     `Iterations: ${stats.totalIterations}, Tool calls: ${stats.totalToolCalls}, Tasks completed: ${stats.tasksCompleted}.`
   ].join(' ')
 
-  // Priority: task.report (explicit tool submission) > fullOutput > lastStreamingText
+  // Priority: task.report (post-run final markdown) > fullOutput > lastStreamingText
   const task = stats.taskId ? team.tasks.find((t) => t.id === stats.taskId) : null
   const reportText = task?.report || stats.fullOutput || stats.lastStreamingText
   let report = ''
@@ -608,20 +632,16 @@ function buildTeammateSystemPrompt(options: {
   parts.push(
     `\n## Coordination Rules`,
     `- Only modify files related to your assigned task.`,
-    `- When your task is done, call TaskUpdate with status="completed" and report="..." to submit your final report.`,
+    `- When your task is done, call TaskUpdate with status="completed" to finalize task state. The framework will generate the final Markdown report after execution ends.`,
     `- Use SendMessage to communicate with the lead or other teammates if needed.`,
     `- After completing your task, you will stop. The framework will automatically assign remaining pending tasks to new teammates.`,
     `- If you receive a shutdown request, finish your current work promptly and stop.`,
     `- Be concise and efficient — you have limited iterations.`,
     `\n## Reporting`,
-    `IMPORTANT: When completing your task, you MUST submit your report via the TaskUpdate tool:`,
-    `\`TaskUpdate(task_id="...", status="completed", report="your detailed report here")\``,
-    `The report field should contain all findings, data collected, actions taken, and conclusions. Do NOT write reports to files. The report is automatically forwarded to the lead agent.`,
-    `Include in your report:`,
-    `- What was done (actions taken, files read/modified)`,
-    `- Key findings or data collected`,
-    `- Any issues encountered or decisions made`,
-    `- Conclusions or recommendations`
+    `IMPORTANT: Mark task status correctly with the TaskUpdate tool when your assigned work is done:`,
+    `\`TaskUpdate(task_id="...", status="completed")\``,
+    `The framework will generate and forward the final Markdown report automatically after execution ends.`,
+    `Still ensure your actual work, file changes, findings, and decisions are reflected in the execution trace so the final report can summarize them accurately.`
   )
 
   return parts.join('\n')
@@ -631,6 +651,97 @@ function buildTeammateSystemPrompt(options: {
  * Merge incoming TokenUsage into an accumulator (mutates target).
  * Sums inputTokens, outputTokens, and optional cache/reasoning fields.
  */
+async function generateTeammateFinalReport(options: {
+  providerConfig: ProviderConfig
+  signal: AbortSignal
+  taskPrompt: string
+  contextParts: string[]
+  finalOutput: string
+  status: SingleTaskResult['reason']
+}): Promise<string> {
+  const { providerConfig, signal, taskPrompt, contextParts, finalOutput, status } = options
+  const provider = createProvider(providerConfig)
+  const prompt = [
+    'Produce a professional final teammate report in Markdown based strictly on the execution evidence provided below.',
+    'Do not fabricate files, actions, findings, rationale, risks, or unresolved items.',
+    'Write in clear, concise, engineering-oriented English.',
+    'Use exactly the following section headings and preserve this order:',
+    '# Task Summary',
+    '## Objective',
+    '## Outcome',
+    '## Actions Taken',
+    '## Files and Artifacts',
+    '## Key Findings',
+    '## Decision Rationale',
+    '## Risks and Limitations',
+    '## Open Questions',
+    '## Recommended Next Steps',
+    '',
+    `Execution Status: ${status}`,
+    `Original Task:\n${taskPrompt}`,
+    contextParts.join('\n\n'),
+    `\n## Final Output\n${finalOutput || '(empty)'}`
+  ].join('\n')
+
+  const messages: UnifiedMessage[] = [
+    { id: nanoid(), role: 'user', content: prompt, createdAt: Date.now() }
+  ]
+
+  let report = ''
+  try {
+    const stream = provider.sendMessage(messages, [], { ...providerConfig }, signal)
+    for await (const event of stream) {
+      if (signal.aborted) break
+      if (event.type === 'text_delta' && event.text) report += event.text
+    }
+  } catch {
+    report = ''
+  }
+
+  if (report.trim()) return report.trim()
+
+  return [
+    '# Task Summary',
+    '## Objective',
+    taskPrompt,
+    '## Outcome',
+    status,
+    '## Actions Taken',
+    finalOutput || '- No execution output was captured.',
+    '## Files and Artifacts',
+    '- Summary generation failed, so a complete artifact extraction is unavailable.',
+    '## Key Findings',
+    '- The reporting stage failed, so this fallback summary is based on the available execution trace only.',
+    '## Decision Rationale',
+    '- This fallback report was derived from the recorded execution evidence.',
+    '## Risks and Limitations',
+    '- Manual review may be required to inspect the full execution trace in detail.',
+    '## Open Questions',
+    '- Remaining uncertainties should be reviewed manually if the task outcome is business-critical.',
+    '## Recommended Next Steps',
+    '- Re-run the task or review the execution trace manually if a higher-confidence report is required.'
+  ].join('\n')
+}
+
+function formatTeamToolCallSummary(toolCall: ToolCallState): string {
+  const renderedOutput =
+    typeof toolCall.output === 'string'
+      ? toolCall.output
+      : toolCall.output
+        ? JSON.stringify(toolCall.output)
+        : ''
+
+  return [
+    `## Tool Call: ${toolCall.name}`,
+    `- Status: ${toolCall.status}`,
+    `- Input: ${JSON.stringify(toolCall.input)}`,
+    renderedOutput ? `- Output: ${renderedOutput}` : '',
+    toolCall.error ? `- Error: ${toolCall.error}` : ''
+  ]
+    .filter(Boolean)
+    .join('\n')
+}
+
 function mergeTeammateUsage(target: TokenUsage, incoming: TokenUsage): void {
   target.inputTokens += incoming.inputTokens
   target.outputTokens += incoming.outputTokens

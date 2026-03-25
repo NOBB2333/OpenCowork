@@ -19,6 +19,8 @@ import { AnimatePresence } from 'motion/react'
 import { FadeIn } from '@renderer/components/animate-ui'
 import { RightPanelHeader } from './RightPanelHeader'
 import { RightPanelRail } from './RightPanelRail'
+import { PreviewPanel } from './PreviewPanel'
+import { DetailPanel } from './DetailPanel'
 import {
   RIGHT_PANEL_DEFAULT_WIDTH,
   RIGHT_PANEL_SECTION_DEFS,
@@ -37,8 +39,6 @@ function SshFilesPanel({
   const { t } = useTranslation('ssh')
   const sessions = useSshStore((s) => s.sessions)
   const connect = useSshStore((s) => s.connect)
-  const [error, setError] = useState<string | null>(null)
-  const [connecting, setConnecting] = useState(false)
 
   const connectedSession = Object.values(sessions).find(
     (s) => s.connectionId === connectionId && s.status === 'connected'
@@ -49,58 +49,12 @@ function SshFilesPanel({
   const errorSession = Object.values(sessions).find(
     (s) => s.connectionId === connectionId && s.status === 'error'
   )
+  const error = errorSession?.error ?? null
 
   useEffect(() => {
-    setError(null)
-    setConnecting(false)
-  }, [connectionId])
-
-  useEffect(() => {
-    if (connectedSession) {
-      setConnecting(false)
-      setError(null)
-      return
-    }
-    if (errorSession) {
-      setConnecting(false)
-      setError(errorSession.error ?? t('connectionFailed'))
-      return
-    }
-    if (connectingSession) {
-      setConnecting(true)
-      return
-    }
-    if (connecting || error) return
-
-    let active = true
-    setConnecting(true)
-    connect(connectionId)
-      .then((sessionId) => {
-        if (!active) return
-        if (!sessionId) {
-          setError(t('connectionFailed'))
-          setConnecting(false)
-        }
-      })
-      .catch(() => {
-        if (!active) return
-        setError(t('connectionFailed'))
-        setConnecting(false)
-      })
-
-    return () => {
-      active = false
-    }
-  }, [
-    connectedSession,
-    connectingSession,
-    connect,
-    connecting,
-    connectionId,
-    error,
-    errorSession,
-    t
-  ])
+    if (connectedSession || connectingSession || errorSession) return
+    void connect(connectionId)
+  }, [connectedSession, connectingSession, errorSession, connect, connectionId])
 
   if (connectedSession) {
     return (
@@ -114,7 +68,7 @@ function SshFilesPanel({
     )
   }
 
-  if (connecting || connectingSession) {
+  if (connectingSession) {
     return (
       <div className="flex h-full items-center justify-center rounded-lg border border-border/50 bg-background/40 text-xs text-muted-foreground">
         <Loader2 className="mr-2 size-4 animate-spin text-amber-500" />
@@ -131,7 +85,7 @@ function SshFilesPanel({
           variant="ghost"
           size="sm"
           className="h-6 px-2 text-[10px]"
-          onClick={() => setError(null)}
+          onClick={() => void connect(connectionId)}
         >
           {t('terminal.reconnect')}
         </Button>
@@ -152,6 +106,8 @@ export function RightPanel({ compact = false }: { compact?: boolean }): React.JS
   const section = useUIStore((s) => s.rightPanelSection)
   const rightPanelWidth = useUIStore((s) => s.rightPanelWidth)
   const rightPanelOpen = useUIStore((s) => s.rightPanelOpen)
+  const detailPanelOpen = useUIStore((s) => s.detailPanelOpen)
+  const previewPanelOpen = useUIStore((s) => s.previewPanelOpen)
   const setTab = useUIStore((s) => s.setRightPanelTab)
   const setSection = useUIStore((s) => s.setRightPanelSection)
   const setRightPanelWidth = useUIStore((s) => s.setRightPanelWidth)
@@ -159,6 +115,7 @@ export function RightPanel({ compact = false }: { compact?: boolean }): React.JS
 
   const teamToolsEnabled = useSettingsStore((s) => s.teamToolsEnabled)
 
+  const mode = useUIStore((s) => s.mode)
   const activeSessionId = useChatStore((s) => s.activeSessionId)
   const activeSession = useChatStore((s) =>
     s.sessions.find((session) => session.id === s.activeSessionId)
@@ -171,10 +128,10 @@ export function RightPanel({ compact = false }: { compact?: boolean }): React.JS
 
   const visibleTabs = useMemo(
     () =>
-      RIGHT_PANEL_TAB_DEFS.filter((item) => teamToolsEnabled || item.value !== 'team').filter(
-        (item) => hasPlan || planMode || item.value !== 'plan'
-      ),
-    [teamToolsEnabled, hasPlan, planMode]
+      RIGHT_PANEL_TAB_DEFS.filter((item) => teamToolsEnabled || item.value !== 'team')
+        .filter((item) => hasPlan || planMode || item.value !== 'plan')
+        .filter((item) => (activeSession?.mode ?? mode) === 'acp' || item.value !== 'acp'),
+    [teamToolsEnabled, hasPlan, planMode, activeSession?.mode, mode]
   )
 
   const availableSections = useMemo(
@@ -185,19 +142,26 @@ export function RightPanel({ compact = false }: { compact?: boolean }): React.JS
     [visibleTabs]
   )
 
-  useEffect(() => {
-    if (visibleTabs.length === 0) return
-    if (visibleTabs.some((tabDef) => tabDef.value === tab)) return
-    setTab(visibleTabs[0].value)
-  }, [visibleTabs, tab, setTab])
+  const resolvedTab = visibleTabs.some((tabDef) => tabDef.value === tab)
+    ? tab
+    : (visibleTabs[0]?.value ?? 'steps')
+  const resolvedSection = availableSections.some((sectionDef) => sectionDef.value === section)
+    ? section
+    : (availableSections[0]?.value ?? 'execution')
 
   useEffect(() => {
-    if (availableSections.length === 0) return
-    if (availableSections.some((sectionDef) => sectionDef.value === section)) return
-    setSection(availableSections[0].value)
-  }, [availableSections, section, setSection])
+    if (resolvedTab !== tab) {
+      queueMicrotask(() => setTab(resolvedTab))
+    }
+  }, [resolvedTab, tab, setTab])
 
-  const activeTabDef = visibleTabs.find((t) => t.value === tab) ?? visibleTabs[0]
+  useEffect(() => {
+    if (resolvedSection !== section) {
+      queueMicrotask(() => setSection(resolvedSection))
+    }
+  }, [resolvedSection, section, setSection])
+
+  const activeTabDef = visibleTabs.find((t) => t.value === resolvedTab) ?? visibleTabs[0]
 
   const draggingRef = useRef(false)
   const startXRef = useRef(0)
@@ -265,7 +229,7 @@ export function RightPanel({ compact = false }: { compact?: boolean }): React.JS
           {/* Rail */}
           <RightPanelRail
             visibleTabs={visibleTabs}
-            activeTab={tab}
+            activeTab={resolvedTab}
             onSelectTab={handleSelectTab}
             showTabs
             isExpanded={rightPanelOpen}
@@ -289,19 +253,19 @@ export function RightPanel({ compact = false }: { compact?: boolean }): React.JS
 
                 <div className="flex-1 overflow-auto bg-background/5 p-4">
                   <AnimatePresence mode="wait">
-                    {tab === 'steps' && (
+                    {resolvedTab === 'steps' && (
                       <FadeIn key="steps" className="h-full">
                         <StepsPanel />
                       </FadeIn>
                     )}
 
-                    {tab === 'team' && (
+                    {resolvedTab === 'team' && (
                       <FadeIn key="team" className="h-full">
                         <TeamPanel />
                       </FadeIn>
                     )}
 
-                    {tab === 'files' && (
+                    {resolvedTab === 'files' && (
                       <FadeIn key="files" className="h-full">
                         {activeSession?.sshConnectionId ? (
                           <SshFilesPanel
@@ -314,19 +278,33 @@ export function RightPanel({ compact = false }: { compact?: boolean }): React.JS
                       </FadeIn>
                     )}
 
-                    {tab === 'artifacts' && (
+                    {resolvedTab === 'artifacts' && (
                       <FadeIn key="artifacts" className="h-full">
                         <ArtifactsPanel />
                       </FadeIn>
                     )}
 
-                    {tab === 'context' && (
+                    {resolvedTab === 'preview' && (
+                      <FadeIn key="preview" className="h-full">
+                        {previewPanelOpen ? (
+                          <PreviewPanel embedded />
+                        ) : detailPanelOpen ? (
+                          <DetailPanel embedded />
+                        ) : (
+                          <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-border/60 bg-background/40 text-xs text-muted-foreground">
+                            {t('rightPanel.previewEmpty', { defaultValue: '暂无预览内容' })}
+                          </div>
+                        )}
+                      </FadeIn>
+                    )}
+
+                    {resolvedTab === 'context' && (
                       <FadeIn key="context" className="h-full">
                         <ContextPanel />
                       </FadeIn>
                     )}
 
-                    {tab === 'plan' && (
+                    {resolvedTab === 'plan' && (
                       <FadeIn key="plan" className="h-full">
                         <PlanPanel />
                       </FadeIn>

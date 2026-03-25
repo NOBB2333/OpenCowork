@@ -2,6 +2,7 @@ import {
   CircleHelp,
   Briefcase,
   Code2,
+  ShieldCheck,
   Settings,
   Sun,
   Moon,
@@ -13,6 +14,13 @@ import {
   HelpCircle
 } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@renderer/components/ui/select'
 import { Popover, PopoverContent, PopoverTrigger } from '@renderer/components/ui/popover'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip'
 import { confirm } from '@renderer/components/ui/confirm-dialog'
@@ -32,7 +40,8 @@ import { WindowControls } from './WindowControls'
 const modes: { value: AppMode; labelKey: string; icon: React.ReactNode }[] = [
   { value: 'clarify', labelKey: 'mode.clarify', icon: <CircleHelp className="size-4" /> },
   { value: 'cowork', labelKey: 'mode.cowork', icon: <Briefcase className="size-4" /> },
-  { value: 'code', labelKey: 'mode.code', icon: <Code2 className="size-4" /> }
+  { value: 'code', labelKey: 'mode.code', icon: <Code2 className="size-4" /> },
+  { value: 'acp', labelKey: 'mode.acp', icon: <ShieldCheck className="size-4" /> }
 ]
 
 export function TopBar(): React.JSX.Element {
@@ -52,6 +61,9 @@ export function TopBar(): React.JSX.Element {
   const updateSessionMode = useChatStore((s) => s.updateSessionMode)
   const autoApprove = useSettingsStore((s) => s.autoApprove)
   const clarifyAutoAcceptRecommended = useSettingsStore((s) => s.clarifyAutoAcceptRecommended)
+  const clarifyPlanModeAutoSwitchTarget = useSettingsStore(
+    (s) => s.clarifyPlanModeAutoSwitchTarget
+  )
   const pendingApprovals = useAgentStore((s) => s.pendingToolCalls.length)
   const errorCount = useAgentStore((s) =>
     s.executedToolCalls.reduce(
@@ -157,31 +169,56 @@ export function TopBar(): React.JSX.Element {
       <div className="flex shrink-0 items-center gap-1">
         {/* Clarify auto-accept recommended */}
         {(activeSessionMode === 'clarify' || mode === 'clarify') && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                className={cn(
-                  'titlebar-no-drag rounded px-1.5 py-0.5 text-[9px] font-medium transition-colors',
-                  clarifyAutoAcceptRecommended
-                    ? 'bg-emerald-500/12 text-emerald-500 hover:bg-emerald-500/20'
-                    : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
-                )}
-                onClick={() =>
-                  useSettingsStore.getState().updateSettings({
-                    clarifyAutoAcceptRecommended: !clarifyAutoAcceptRecommended
-                  })
-                }
-              >
-                {t('topbar.clarifyAutoAcceptShort')}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {clarifyAutoAcceptRecommended
-                ? t('topbar.clarifyAutoAcceptOn')
-                : t('topbar.clarifyAutoAcceptOff')}
-            </TooltipContent>
-          </Tooltip>
+          <>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className={cn(
+                    'titlebar-no-drag rounded px-1.5 py-0.5 text-[9px] font-medium transition-colors',
+                    clarifyAutoAcceptRecommended
+                      ? 'bg-emerald-500/12 text-emerald-500 hover:bg-emerald-500/20'
+                      : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
+                  )}
+                  onClick={() =>
+                    useSettingsStore.getState().updateSettings({
+                      clarifyAutoAcceptRecommended: !clarifyAutoAcceptRecommended
+                    })
+                  }
+                >
+                  {t('topbar.clarifyAutoAcceptShort')}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {clarifyAutoAcceptRecommended
+                  ? t('topbar.clarifyAutoAcceptOn')
+                  : t('topbar.clarifyAutoAcceptOff')}
+              </TooltipContent>
+            </Tooltip>
+
+            <Select
+              value={clarifyPlanModeAutoSwitchTarget}
+              onValueChange={(value) =>
+                useSettingsStore.getState().updateSettings({
+                  clarifyPlanModeAutoSwitchTarget: value as 'off' | 'code' | 'acp'
+                })
+              }
+            >
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <SelectTrigger className="titlebar-no-drag h-6 min-w-[110px] rounded-md border-border/60 bg-muted/60 px-2 text-[10px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                </TooltipTrigger>
+                <TooltipContent>{t('topbar.clarifyPlanModeAutoSwitchTooltip')}</TooltipContent>
+              </Tooltip>
+              <SelectContent align="end">
+                <SelectItem value="off">{t('topbar.clarifyPlanModeAutoSwitchOff')}</SelectItem>
+                <SelectItem value="code">{t('topbar.clarifyPlanModeAutoSwitchCode')}</SelectItem>
+                <SelectItem value="acp">{t('topbar.clarifyPlanModeAutoSwitchAcp')}</SelectItem>
+              </SelectContent>
+            </Select>
+          </>
         )}
 
         {/* Auto-approve toggle */}

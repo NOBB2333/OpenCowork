@@ -15,6 +15,7 @@ interface MessageItemProps {
   isStreaming?: boolean
   isLastUserMessage?: boolean
   isLastAssistantMessage?: boolean
+  disableAnimation?: boolean
   onRetryAssistantMessage?: () => void
   onEditUserMessage?: (messageId: string, draft: EditableUserMessageDraft) => void
   onDeleteMessage?: (messageId: string) => void
@@ -106,6 +107,7 @@ function MessageItemInner({
   isStreaming,
   isLastUserMessage,
   isLastAssistantMessage,
+  disableAnimation,
   onRetryAssistantMessage,
   onEditUserMessage,
   onDeleteMessage,
@@ -160,17 +162,19 @@ function MessageItemInner({
 
   if (!inner) return null
 
+  if (disableAnimation) {
+    return (
+      <div className="group/ts relative">
+        <span className="absolute -left-12 top-1 hidden group-hover/ts:block text-[10px] text-muted-foreground/40 whitespace-nowrap">
+          {formatTime(message.createdAt)}
+        </span>
+        {inner}
+      </div>
+    )
+  }
+
   return (
-    <SlideIn
-      className="group/ts relative"
-      direction="up"
-      offset={10}
-      duration={0.3}
-      style={{
-        contentVisibility: 'auto',
-        containIntrinsicSize: '320px'
-      }}
-    >
+    <SlideIn className="group/ts relative" direction="up" offset={10} duration={0.3}>
       <span className="absolute -left-12 top-1 hidden group-hover/ts:block text-[10px] text-muted-foreground/40 whitespace-nowrap">
         {formatTime(message.createdAt)}
       </span>
@@ -210,6 +214,7 @@ function areEqual(prev: MessageItemProps, next: MessageItemProps): boolean {
     prev.isStreaming === next.isStreaming &&
     prev.isLastUserMessage === next.isLastUserMessage &&
     prev.isLastAssistantMessage === next.isLastAssistantMessage &&
+    prev.disableAnimation === next.disableAnimation &&
     prev.onRetryAssistantMessage === next.onRetryAssistantMessage &&
     prev.onEditUserMessage === next.onEditUserMessage &&
     prev.onDeleteMessage === next.onDeleteMessage &&

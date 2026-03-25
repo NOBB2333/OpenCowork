@@ -103,7 +103,13 @@ const TRANSPORT_LABELS: Record<McpTransportType, string> = {
 
 // ─── Server Config Panel (right side) ───
 
-function ServerConfigPanel({ server }: { server: McpServerConfig }): React.JSX.Element {
+function ServerConfigPanel({
+  server,
+  projectId
+}: {
+  server: McpServerConfig
+  projectId?: string
+}): React.JSX.Element {
   const { t } = useTranslation('settings')
   const updateServer = useMcpStore((s) => s.updateServer)
   const removeServer = useMcpStore((s) => s.removeServer)
@@ -266,7 +272,10 @@ function ServerConfigPanel({ server }: { server: McpServerConfig }): React.JSX.E
 
   const handleToggleEnabled = async (): Promise<void> => {
     const enabled = !server.enabled
-    await updateServer(server.id, { enabled })
+    await updateServer(server.id, {
+      enabled,
+      ...(enabled && projectId && server.projectId !== projectId ? { projectId } : {})
+    })
     if (!enabled && status === 'connected') {
       await disconnectServer(server.id)
     }
@@ -772,7 +781,7 @@ function AddServerDialog({
 
 // ─── Main MCP Panel ───
 
-export function McpPanel(): React.JSX.Element {
+export function McpPanel({ projectId }: { projectId?: string } = {}): React.JSX.Element {
   const { t } = useTranslation('settings')
   const servers = useMcpStore((s) => s.servers)
   const selectedServerId = useMcpStore((s) => s.selectedServerId)
@@ -797,18 +806,23 @@ export function McpPanel(): React.JSX.Element {
     }
   }, [selectedServerId, servers, setSelectedServer])
 
+  const projectScopedServers = useMemo(() => {
+    if (!projectId) return servers
+    return servers.filter((server) => !server.projectId || server.projectId === projectId)
+  }, [servers, projectId])
+
   const filteredServers = useMemo(() => {
-    if (!searchQuery.trim()) return servers
+    if (!searchQuery.trim()) return projectScopedServers
     const q = searchQuery.toLowerCase()
-    return servers.filter(
+    return projectScopedServers.filter(
       (s) =>
         s.name.toLowerCase().includes(q) ||
         s.transport.toLowerCase().includes(q) ||
         (s.description ?? '').toLowerCase().includes(q)
     )
-  }, [servers, searchQuery])
+  }, [projectScopedServers, searchQuery])
 
-  const selectedServer = servers.find((s) => s.id === selectedServerId)
+  const selectedServer = filteredServers.find((s) => s.id === selectedServerId)
 
   const enabledServers = filteredServers.filter((s) => s.enabled)
   const disabledServers = filteredServers.filter((s) => !s.enabled)
@@ -924,7 +938,7 @@ export function McpPanel(): React.JSX.Element {
         {/* Right: Config panel */}
         <div className="flex-1 min-w-0 min-h-0">
           {selectedServer ? (
-            <ServerConfigPanel server={selectedServer} />
+            <ServerConfigPanel server={selectedServer} projectId={projectId} />
           ) : (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
               {t('mcp.selectToConfig')}

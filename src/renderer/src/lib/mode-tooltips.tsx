@@ -38,6 +38,14 @@ export const modeTooltipConfigs: Record<SelectableMode, ModeTooltipConfig> = {
       'modeTooltip.code.solves.1',
       'modeTooltip.code.solves.2'
     ]
+  },
+  acp: {
+    summaryKey: 'modeTooltip.acp.summary',
+    solvesKeys: [
+      'modeTooltip.acp.solves.0',
+      'modeTooltip.acp.solves.1',
+      'modeTooltip.acp.solves.2'
+    ]
   }
 }
 

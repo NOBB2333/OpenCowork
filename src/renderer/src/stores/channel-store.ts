@@ -16,8 +16,8 @@ interface ChannelStore {
   selectedChannelId: string | null
   channelStatuses: Record<string, 'running' | 'stopped' | 'error'>
 
-  // Per-session activation (toggled via + menu)
-  activeChannelIds: string[]
+  // Per-project activation (toggled via + menu)
+  activeChannelIdsByProject: Record<string, string[]>
 
   // Init
   loadProviders: () => Promise<void>
@@ -37,9 +37,10 @@ interface ChannelStore {
   // UI
   setSelectedChannel: (id: string | null) => void
 
-  // Per-session activation
-  toggleActiveChannel: (id: string) => void
-  clearActiveChannels: () => void
+  // Per-project activation
+  toggleActiveChannel: (id: string, projectId?: string | null) => void
+  clearActiveChannels: (projectId?: string | null) => void
+  getActiveChannelIds: (projectId?: string | null) => string[]
 
   // Channel sessions
   channelSessions: Record<string, unknown[]>
@@ -126,7 +127,7 @@ export const useChannelStore = create<ChannelStore>((set, get) => ({
   providers: [],
   selectedChannelId: null,
   channelStatuses: {},
-  activeChannelIds: [],
+  activeChannelIdsByProject: {},
   channelSessions: {},
 
   loadProviders: async () => {
@@ -148,9 +149,7 @@ export const useChannelStore = create<ChannelStore>((set, get) => ({
         `[ChannelStore] Loaded ${arr.length} plugins:`,
         arr.map((p) => `${p.type}(${p.id})`)
       )
-      // Auto-activate all enabled plugins
-      const enabledIds = arr.filter((p) => p.enabled).map((p) => p.id)
-      set({ channels: arr, activeChannelIds: enabledIds })
+      set({ channels: arr })
     } catch (err) {
       console.error('[ChannelStore] Failed to load plugins:', err)
       set({ channels: [] })
@@ -176,8 +175,7 @@ export const useChannelStore = create<ChannelStore>((set, get) => ({
     }
     await ipcClient.invoke(IPC.PLUGIN_ADD, instance)
     set((s) => ({
-      channels: [...s.channels, instance],
-      activeChannelIds: [...s.activeChannelIds, id]
+      channels: [...s.channels, instance]
     }))
     return id
   },
@@ -247,7 +245,12 @@ export const useChannelStore = create<ChannelStore>((set, get) => ({
     set((s) => ({
       channels: s.channels.filter((p) => p.id !== id),
       selectedChannelId: s.selectedChannelId === id ? null : s.selectedChannelId,
-      activeChannelIds: s.activeChannelIds.filter((pid) => pid !== id)
+      activeChannelIdsByProject: Object.fromEntries(
+        Object.entries(s.activeChannelIdsByProject).map(([projectId, ids]) => [
+          projectId,
+          ids.filter((pid) => pid !== id)
+        ])
+      )
     }))
   },
 
@@ -256,18 +259,15 @@ export const useChannelStore = create<ChannelStore>((set, get) => ({
     if (!plugin) return
     const enabled = !plugin.enabled
     await get().updateChannel(id, { enabled })
-    if (enabled) {
-      // Auto-activate when enabling
-      set((s) => ({
-        activeChannelIds: s.activeChannelIds.includes(id)
-          ? s.activeChannelIds
-          : [...s.activeChannelIds, id]
-      }))
-    } else {
+    if (!enabled) {
       await get().stopChannel(id)
-      // Deactivate when disabling
       set((s) => ({
-        activeChannelIds: s.activeChannelIds.filter((pid) => pid !== id)
+        activeChannelIdsByProject: Object.fromEntries(
+          Object.entries(s.activeChannelIdsByProject).map(([projectId, ids]) => [
+            projectId,
+            ids.filter((pid) => pid !== id)
+          ])
+        )
       }))
     }
   },
@@ -323,18 +323,36 @@ export const useChannelStore = create<ChannelStore>((set, get) => ({
 
   setSelectedChannel: (id) => set({ selectedChannelId: id }),
 
-  toggleActiveChannel: (id) => {
+  getActiveChannelIds: (projectId) => {
+    const resolvedProjectId = projectId ?? useChatStore.getState().activeProjectId ?? '__global__'
+    return get().activeChannelIdsByProject[resolvedProjectId] ?? []
+  },
+
+  toggleActiveChannel: (id, projectId) => {
+    const resolvedProjectId = projectId ?? useChatStore.getState().activeProjectId ?? '__global__'
     set((s) => {
-      const isActive = s.activeChannelIds.includes(id)
+      const currentIds = s.activeChannelIdsByProject[resolvedProjectId] ?? []
+      const isActive = currentIds.includes(id)
       return {
-        activeChannelIds: isActive
-          ? s.activeChannelIds.filter((pid) => pid !== id)
-          : [...s.activeChannelIds, id]
+        activeChannelIdsByProject: {
+          ...s.activeChannelIdsByProject,
+          [resolvedProjectId]: isActive
+            ? currentIds.filter((pid) => pid !== id)
+            : [...currentIds, id]
+        }
       }
     })
   },
 
-  clearActiveChannels: () => set({ activeChannelIds: [] }),
+  clearActiveChannels: (projectId) => {
+    const resolvedProjectId = projectId ?? useChatStore.getState().activeProjectId ?? '__global__'
+    set((s) => ({
+      activeChannelIdsByProject: {
+        ...s.activeChannelIdsByProject,
+        [resolvedProjectId]: []
+      }
+    }))
+  },
 
   loadChannelSessions: async (pluginId) => {
     try {
@@ -356,7 +374,8 @@ export const useChannelStore = create<ChannelStore>((set, get) => ({
   },
 
   getActiveChannels: () => {
-    const { channels, activeChannelIds } = get()
+    const { channels } = get()
+    const activeChannelIds = get().getActiveChannelIds()
     return channels.filter((p) => activeChannelIds.includes(p.id))
   }
 }))

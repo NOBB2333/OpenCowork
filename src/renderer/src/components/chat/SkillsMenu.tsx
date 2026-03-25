@@ -35,12 +35,14 @@ interface SkillsMenuProps {
   onSelectSkill: (skillName: string) => void
   onSelectCommand?: (commandName: string) => void
   disabled?: boolean
+  projectId?: string | null
 }
 
 export function SkillsMenu({
   onSelectSkill,
   onSelectCommand,
-  disabled = false
+  disabled = false,
+  projectId
 }: SkillsMenuProps): React.JSX.Element {
   const { t } = useTranslation('chat')
   const [open, setOpen] = React.useState(false)
@@ -52,23 +54,32 @@ export function SkillsMenu({
 
   // Channel state
   const channels = useChannelStore((s) => s.channels)
-  const activeChannelIds = useChannelStore((s) => s.activeChannelIds)
+  const activeChannelIds = useChannelStore((s) => s.getActiveChannelIds(projectId))
   const toggleActiveChannel = useChannelStore((s) => s.toggleActiveChannel)
   const loadChannels = useChannelStore((s) => s.loadChannels)
   const loadProviders = useChannelStore((s) => s.loadProviders)
-  const configuredChannels = React.useMemo(() => channels.filter((p) => p.enabled), [channels])
+  const configuredChannels = React.useMemo(
+    () =>
+      channels.filter(
+        (p) => p.enabled && (!projectId ? true : p.projectId === projectId)
+      ),
+    [channels, projectId]
+  )
   const openSettingsPage = useUIStore((s) => s.openSettingsPage)
 
   // MCP state
   const mcpServers = useMcpStore((s) => s.servers)
-  const activeMcpIds = useMcpStore((s) => s.activeMcpIds)
+  const activeMcpIds = useMcpStore((s) => s.getActiveMcpIds(projectId))
   const toggleActiveMcp = useMcpStore((s) => s.toggleActiveMcp)
   const loadMcpServers = useMcpStore((s) => s.loadServers)
   const mcpStatuses = useMcpStore((s) => s.serverStatuses)
   const mcpTools = useMcpStore((s) => s.serverTools)
   const connectedMcpServers = React.useMemo(
-    () => mcpServers.filter((s) => s.enabled && mcpStatuses[s.id] === 'connected'),
-    [mcpServers, mcpStatuses]
+    () =>
+      mcpServers.filter(
+        (s) => s.enabled && mcpStatuses[s.id] === 'connected' && (!projectId ? true : s.projectId === projectId)
+      ),
+    [mcpServers, mcpStatuses, projectId]
   )
 
   // Load skills, channels, MCP servers, and commands when menu opens
@@ -243,7 +254,7 @@ export function SkillsMenu({
                         key={channel.id}
                         onSelect={(e) => {
                           e.preventDefault()
-                          toggleActiveChannel(channel.id)
+                          toggleActiveChannel(channel.id, projectId)
                         }}
                         className="flex items-center gap-2 py-1.5 cursor-pointer"
                       >
@@ -312,7 +323,7 @@ export function SkillsMenu({
                         key={srv.id}
                         onSelect={(e) => {
                           e.preventDefault()
-                          toggleActiveMcp(srv.id)
+                          toggleActiveMcp(srv.id, projectId)
                         }}
                         className="flex items-center gap-2 py-1.5 cursor-pointer"
                       >

@@ -21,7 +21,7 @@ import {
   AlertDialogTitle
 } from '@renderer/components/ui/alert-dialog'
 
-export function PreviewPanel(): React.JSX.Element {
+export function PreviewPanel({ embedded = false }: { embedded?: boolean }): React.JSX.Element {
   const { t } = useTranslation('layout')
   const state = useUIStore((s) => s.previewPanelState)
   const closePreviewPanel = useUIStore((s) => s.closePreviewPanel)
@@ -34,15 +34,12 @@ export function PreviewPanel(): React.JSX.Element {
   const [showSaveDialog, setShowSaveDialog] = useState(false)
   const [pendingClose, setPendingClose] = useState(false)
 
-  const handleContentChange = useCallback(
-    (newContent: string) => {
-      setContent(newContent)
-      setModified(true)
-    },
-    [setContent]
-  )
+  const handleContentChange = (newContent: string): void => {
+    setContent(newContent)
+    setModified(true)
+  }
 
-  const handleSave = useCallback(async () => {
+  const handleSave = async (): Promise<void> => {
     if (!state?.filePath) return
     try {
       const channel = state.sshConnectionId ? IPC.SSH_FS_WRITE_FILE : IPC.FS_WRITE_FILE
@@ -54,52 +51,52 @@ export function PreviewPanel(): React.JSX.Element {
     } catch (err) {
       console.error('[PreviewPanel] Save failed:', err)
     }
-  }, [state?.filePath, state?.sshConnectionId, content])
+  }
 
-  const handleOpenInSystem = useCallback(async () => {
+  const handleOpenInSystem = async (): Promise<void> => {
     if (!state?.filePath || state.sshConnectionId) return
     try {
       await ipcClient.invoke(IPC.SHELL_OPEN_PATH, state.filePath)
     } catch (err) {
       console.error('[PreviewPanel] Open in system app failed:', err)
     }
-  }, [state?.filePath, state?.sshConnectionId])
+  }
 
-  const handleClose = useCallback(() => {
+  const handleClose = (): void => {
     if (modified) {
       setPendingClose(true)
       setShowSaveDialog(true)
     } else {
       closePreviewPanel()
     }
-  }, [modified, closePreviewPanel])
+  }
 
-  const handleSaveDialogConfirm = useCallback(async () => {
+  const handleSaveDialogConfirm = async (): Promise<void> => {
     await handleSave()
     setShowSaveDialog(false)
     if (pendingClose) {
       setPendingClose(false)
       closePreviewPanel()
     }
-  }, [handleSave, pendingClose, closePreviewPanel])
+  }
 
-  const handleSaveDialogDiscard = useCallback(() => {
+  const handleSaveDialogDiscard = (): void => {
     setShowSaveDialog(false)
     setModified(false)
     if (pendingClose) {
       setPendingClose(false)
       closePreviewPanel()
     }
-  }, [pendingClose, closePreviewPanel])
+  }
 
   const [copied, setCopied] = useState(false)
-  const handleCopyMarkdown = useCallback(() => {
+  const handleCopyMarkdown = (): void => {
     if (state?.markdownContent) {
       navigator.clipboard.writeText(state.markdownContent)
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     }
-  }, [state?.markdownContent])
+  }
 
   // --- Resize logic ---
   const MIN_WIDTH = 320
@@ -150,23 +147,25 @@ export function PreviewPanel(): React.JSX.Element {
   const fileName = isMarkdown
     ? state.markdownTitle || t('preview.markdownPreview')
     : state.filePath
-      ? state.filePath.split(/[\/\\]/).pop() || state.filePath
+      ? state.filePath.split(/[\\/]/).pop() || state.filePath
       : t('preview.devServer')
   const canOpenInSystem =
     !isMarkdown && state.source === 'file' && !!state.filePath && !state.sshConnectionId
 
   return (
     <div
-      className="relative flex min-w-0 h-full flex-col border-l bg-background"
-      style={{ width: panelWidth }}
+      className="relative flex min-w-0 h-full flex-col bg-background"
+      style={embedded ? undefined : { width: panelWidth }}
     >
       {/* Left-edge resize handle */}
-      <div
-        className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize z-20 hover:bg-primary/20 active:bg-primary/30 transition-colors"
-        onMouseDown={onResizeStart}
-      />
+      {!embedded && (
+        <div
+          className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize z-20 hover:bg-primary/20 active:bg-primary/30 transition-colors"
+          onMouseDown={onResizeStart}
+        />
+      )}
       {/* Overlay to prevent iframe from stealing mouse events during drag */}
-      {isDragging && <div className="absolute inset-0 z-10" />}
+      {isDragging && !embedded && <div className="absolute inset-0 z-10" />}
       {/* Header */}
       <div className="flex h-10 items-center gap-2 border-b px-3">
         {isMarkdown && <Bot className="size-3.5 text-violet-500 shrink-0" />}

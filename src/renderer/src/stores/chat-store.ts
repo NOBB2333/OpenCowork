@@ -20,7 +20,7 @@ import { useProviderStore } from './provider-store'
 import { useSettingsStore } from './settings-store'
 import { isStructuredToolErrorText } from '@renderer/lib/tools/tool-result-format'
 
-export type SessionMode = 'chat' | 'clarify' | 'cowork' | 'code'
+export type SessionMode = 'chat' | 'clarify' | 'cowork' | 'code' | 'acp'
 
 export interface SessionPromptSnapshot {
   mode: SessionMode

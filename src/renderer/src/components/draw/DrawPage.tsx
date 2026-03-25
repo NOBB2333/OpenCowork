@@ -83,6 +83,7 @@ import {
 } from '@renderer/lib/draw-history'
 import { IPC } from '@renderer/lib/ipc/channels'
 import { ipcClient } from '@renderer/lib/ipc/ipc-client'
+import { recordUsageEvent } from '@renderer/lib/usage-analytics'
 import { cn } from '@renderer/lib/utils'
 import { modelSupportsVision, useProviderStore } from '@renderer/stores/provider-store'
 import { useUIStore } from '@renderer/stores/ui-store'
@@ -778,6 +779,7 @@ export function DrawPage(): React.JSX.Element {
     persistRun(newRun)
 
     const provider = createProvider(target.config)
+    const requestStartedAt = Date.now()
     const content: string | ContentBlock[] =
       attachedImages.length > 0
         ? [
@@ -839,6 +841,16 @@ export function DrawPage(): React.JSX.Element {
             break
           }
           case 'message_end': {
+            void recordUsageEvent({
+              sourceKind: 'draw',
+              providerId: target.provider.id,
+              modelId: target.model.id,
+              usage: event.usage,
+              timing: event.timing ?? { totalMs: Date.now() - requestStartedAt, ttftMs: Date.now() - requestStartedAt },
+              providerResponseId: event.providerResponseId,
+              createdAt: Date.now(),
+              meta: { drawRunId: runId, mode: 'image' }
+            })
             finishRun(runId)
             break
           }
@@ -982,6 +994,7 @@ export function DrawPage(): React.JSX.Element {
 
       const provider = createProvider(providerConfig)
       const messages = createMessages()
+      const requestStartedAt = Date.now()
       let processed = false
 
       try {
@@ -1059,6 +1072,19 @@ export function DrawPage(): React.JSX.Element {
                   message: event.error?.message || t('drawPage.unknownError')
                 }
               }))
+              break
+            }
+            case 'message_end': {
+              void recordUsageEvent({
+                sourceKind: 'draw',
+                providerId: target.provider.id,
+                modelId: target.model.id,
+                usage: event.usage,
+                timing: event.timing ?? { totalMs: Date.now() - requestStartedAt, ttftMs: Date.now() - requestStartedAt },
+                providerResponseId: event.providerResponseId,
+                createdAt: Date.now(),
+                meta: { drawRunId: runId, mode: 'gif' }
+              })
               break
             }
             default:

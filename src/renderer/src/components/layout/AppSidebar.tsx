@@ -11,6 +11,7 @@ import {
   Search,
   Briefcase,
   Code2,
+  ShieldCheck,
   Download,
   Copy,
   X,
@@ -73,7 +74,8 @@ const modeIcons: Record<SessionMode, React.ReactNode> = {
   chat: <MessageSquare className="size-4" />,
   clarify: <CircleHelp className="size-4" />,
   cowork: <Briefcase className="size-4" />,
-  code: <Code2 className="size-4" />
+  code: <Code2 className="size-4" />,
+  acp: <ShieldCheck className="size-4" />
 }
 
 interface SessionListItem {

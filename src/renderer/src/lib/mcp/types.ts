@@ -9,6 +9,8 @@ export interface McpServerConfig {
   id: string
   name: string
   enabled: boolean
+  /** Bound project ID (null = unbound) */
+  projectId?: string | null
   transport: McpTransportType
   command?: string
   args?: string[]

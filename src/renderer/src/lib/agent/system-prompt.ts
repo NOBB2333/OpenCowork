@@ -166,7 +166,7 @@ function buildSessionStateReminder(sessionId?: string): string | null {
 }
 
 export function buildSystemPrompt(options: {
-  mode: 'clarify' | 'cowork' | 'code'
+  mode: 'clarify' | 'cowork' | 'code' | 'acp'
   workingFolder?: string
   sessionId?: string
   userRules?: string
@@ -200,13 +200,17 @@ export function buildSystemPrompt(options: {
       ? 'product architect and technical strategist'
       : mode === 'cowork'
         ? 'collaborative agent'
-        : 'pair programming coding assistant'
+        : mode === 'acp'
+          ? 'architecture control and planning lead'
+          : 'pair programming coding assistant'
   const taskScope =
     mode === 'clarify'
       ? 'The task is to interrogate ideas, uncover assumptions, surface constraints, and reach clarity before any planning or implementation begins.'
       : mode === 'cowork'
         ? 'The task may require modifying or debugging existing code, answering questions, creating new code, or other general tasks.'
-        : 'The task may require modifying or debugging existing code, answering questions, or writing new code.'
+        : mode === 'acp'
+          ? 'The task is to clarify requirements, produce architecture and execution design, and delegate all implementation work to sub-agents.'
+          : 'The task may require modifying or debugging existing code, answering questions, or writing new code.'
   parts.push(
     `You are **OpenCoWork**, a powerful agentic AI ${modeRole} running as a desktop Agents application.`,
     `OpenCoWork is developed by the **AIDotNet** team. Core contributor: **token** (GitHub: @AIDotNet).`,
@@ -293,6 +297,16 @@ export function buildSystemPrompt(options: {
       `- If a task has multiple parts, decompose it and track progress.`,
       `- Use the Edit tool for precise changes — never rewrite entire files unless creating new ones.`
     )
+  } else if (mode === 'acp') {
+    parts.push(
+      `\n## Mode: ACP`,
+      `You are the architecture-control lead. Your responsibility is to clarify requirements, build architecture and execution design, decompose work, and delegate implementation to sub-agents.`,
+      `The main agent must not write code, must not modify files, and must not directly execute implementation work.`,
+      `For direct implementation requests, first clarify the goal, background, constraints, boundaries, and acceptance criteria. Only after sufficient context and architecture design may you delegate execution.`,
+      `Implementation tasks must be executed through Task/sub-agents/teammates. The main agent may read files, inspect context, ask clarifying questions, write plans, assign work, and summarize results.`,
+      `Before each execution decision, provide enough background and architecture reasoning. If requirements are unclear, continue asking focused questions instead of rushing to act.`,
+      `Be explicit about what you are doing, why you are doing it, what has been clarified, what remains uncertain, and which sub-agent will handle each implementation task.`
+    )
   } else {
     parts.push(
       `\n## Mode: Code`,
@@ -349,7 +363,7 @@ export function buildSystemPrompt(options: {
   )
 
   // ── Making Code Changes ──
-  if (!planMode && mode !== 'clarify') {
+  if (!planMode && mode !== 'clarify' && mode !== 'acp') {
     parts.push(
       `\n<making_code_changes>`,
       `Prefer minimal, focused edits using the Edit tool. Read before edit and keep changes scoped to the request.`,
@@ -385,7 +399,7 @@ export function buildSystemPrompt(options: {
     )
   }
 
-  if (!planMode && mode !== 'clarify') {
+  if (!planMode && mode !== 'clarify' && mode !== 'acp') {
     // ── Running Commands ──
     parts.push(
       `\n<running_commands>`,

@@ -37,7 +37,7 @@ class AnthropicProvider implements APIProvider {
             ]
           }
         : {}),
-      messages: this.formatMessages(messages),
+      messages: this.formatMessages(this.normalizeMessagesForAnthropic(messages)),
       ...(tools.length > 0
         ? { tools: this.formatTools(tools), tool_choice: { type: 'auto' } }
         : {}),
@@ -322,6 +322,67 @@ class AnthropicProvider implements APIProvider {
           })
         }
       })
+  }
+
+  private normalizeMessagesForAnthropic(messages: UnifiedMessage[]): UnifiedMessage[] {
+    const normalized: UnifiedMessage[] = []
+    const validToolUseIds = new Set<string>()
+
+    for (let index = 0; index < messages.length; index += 1) {
+      const message = messages[index]
+      if (message.role === 'system' || typeof message.content === 'string') {
+        normalized.push(message)
+        continue
+      }
+
+      const blocks = message.content as ContentBlock[]
+      const toolUseIds = blocks
+        .filter(
+          (block): block is Extract<ContentBlock, { type: 'tool_use' }> => block.type === 'tool_use'
+        )
+        .map((block) => block.id)
+
+      let nextBlocks = blocks
+
+      if (toolUseIds.length > 0) {
+        const nextMessage = messages[index + 1]
+        const hasImmediateToolResultMessage =
+          nextMessage?.role === 'user' &&
+          Array.isArray(nextMessage.content) &&
+          toolUseIds.every((toolUseId) =>
+            (nextMessage.content as ContentBlock[]).some(
+              (block) => block.type === 'tool_result' && block.toolUseId === toolUseId
+            )
+          )
+
+        if (hasImmediateToolResultMessage) {
+          for (const toolUseId of toolUseIds) validToolUseIds.add(toolUseId)
+        } else {
+          nextBlocks = nextBlocks.map((block) => {
+            if (block.type !== 'tool_use' || !toolUseIds.includes(block.id)) return block
+            return {
+              type: 'text' as const,
+              text: `[Previous tool call omitted for Anthropic replay] ${block.name} ${JSON.stringify(block.input).slice(0, 200)}`
+            }
+          })
+        }
+      }
+
+      const sanitizedBlocks = nextBlocks.map((block) => {
+        if (block.type !== 'tool_result') return block
+        if (validToolUseIds.has(block.toolUseId)) return block
+        const content =
+          typeof block.content === 'string' ? block.content : JSON.stringify(block.content)
+        return {
+          type: 'text' as const,
+          text: `[Previous tool result omitted for Anthropic replay] ${content.slice(0, 300)}`
+        }
+      })
+
+      normalized.push({ ...message, content: sanitizedBlocks })
+    }
+
+    return normalized
   }
 
   formatTools(tools: ToolDefinition[]): unknown[] {

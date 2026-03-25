@@ -4,12 +4,14 @@ import {
   CircleHelp,
   Briefcase,
   Code2,
+  ShieldCheck,
   FolderOpen,
   Monitor,
   Server,
   Pencil,
   BookOpen,
   MessageSquare,
+  Library,
   ChevronRight,
   ChevronDown,
   PanelLeftOpen,
@@ -39,7 +41,8 @@ import { AnimatePresence, motion } from 'motion/react'
 const modes: ModeOption[] = [
   { value: 'clarify', labelKey: 'mode.clarify', icon: <CircleHelp className="size-3.5" /> },
   { value: 'cowork', labelKey: 'mode.cowork', icon: <Briefcase className="size-3.5" /> },
-  { value: 'code', labelKey: 'mode.code', icon: <Code2 className="size-3.5" /> }
+  { value: 'code', labelKey: 'mode.code', icon: <Code2 className="size-3.5" /> },
+  { value: 'acp', labelKey: 'mode.acp', icon: <ShieldCheck className="size-3.5" /> }
 ]
 
 const MODE_SWITCH_TRANSITION = {
@@ -52,13 +55,15 @@ const MODE_SWITCH_TRANSITION = {
 const MODE_SWITCH_HIGHLIGHT_CLASS: Record<SelectableMode, string> = {
   clarify: 'border-amber-500/15 bg-amber-500/5 shadow-sm',
   cowork: 'border-emerald-500/15 bg-emerald-500/5 shadow-sm',
-  code: 'border-violet-500/15 bg-violet-500/5 shadow-sm'
+  code: 'border-violet-500/15 bg-violet-500/5 shadow-sm',
+  acp: 'border-cyan-500/15 bg-cyan-500/5 shadow-sm'
 }
 
 const MODE_SWITCH_ACTIVE_TEXT_CLASS: Record<SelectableMode, string> = {
   clarify: 'text-foreground',
   cowork: 'text-foreground',
-  code: 'text-foreground'
+  code: 'text-foreground',
+  acp: 'text-foreground'
 }
 
 const DEFAULT_SSH_WORKDIR = ''
@@ -516,6 +521,15 @@ export function ProjectHomePage(): React.JSX.Element {
                         <MessageSquare className="size-3.5" />
                         {t('projectHome.openChannels', { defaultValue: '聊天频道' })}
                       </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-full justify-start gap-2 text-[12px]"
+                        onClick={() => useUIStore.getState().navigateToWiki()}
+                      >
+                        <Library className="size-3.5" />
+                        {t('projectHome.openWiki', { defaultValue: '项目 Wiki' })}
+                      </Button>
                     </div>
                   </div>
                 </HoverCardContent>
@@ -538,6 +552,15 @@ export function ProjectHomePage(): React.JSX.Element {
                 >
                   <MessageSquare className="size-3.5" />
                   {t('projectHome.openChannels', { defaultValue: '聊天频道' })}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 rounded-full px-3 text-[12px] text-muted-foreground hover:text-foreground"
+                  onClick={() => useUIStore.getState().navigateToWiki()}
+                >
+                  <Library className="size-3.5" />
+                  {t('projectHome.openWiki', { defaultValue: '项目 Wiki' })}
                 </Button>
               </div>
             </div>

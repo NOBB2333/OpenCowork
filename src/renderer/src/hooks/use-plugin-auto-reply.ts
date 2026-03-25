@@ -34,6 +34,7 @@ import type { UnifiedMessage, ProviderConfig, ContentBlock } from '@renderer/lib
 import type { AgentLoopConfig } from '@renderer/lib/agent/types'
 import type { ToolContext } from '@renderer/lib/tools/tool-types'
 import { hasPendingSessionMessagesForSession } from '@renderer/hooks/use-chat-actions'
+import { recordUsageEvent } from '@renderer/lib/usage-analytics'
 
 interface PluginAutoReplyTask {
   sessionId: string
@@ -724,6 +725,38 @@ async function _runPluginAgent(task: PluginAutoReplyTask): Promise<void> {
           error: event.toolCall.error,
           completedAt: event.toolCall.completedAt
         })
+        break
+
+      case 'message_end':
+        if (event.usage) {
+          useChatStore.getState().updateMessage(sessionId, assistantMsgId, {
+            usage: {
+              ...event.usage,
+              contextTokens: event.usage.contextTokens ?? event.usage.inputTokens
+            },
+            ...(event.providerResponseId ? { providerResponseId: event.providerResponseId } : {})
+          })
+          void recordUsageEvent({
+            sessionId,
+            messageId: assistantMsgId,
+            sourceKind: 'plugin',
+            providerId: agentProviderConfig.providerId,
+            modelId: agentProviderConfig.model,
+            usage: {
+              ...event.usage,
+              contextTokens: event.usage.contextTokens ?? event.usage.inputTokens
+            },
+            timing: event.timing,
+            providerResponseId: event.providerResponseId,
+            createdAt: Date.now(),
+            meta: {
+              pluginId,
+              chatId,
+              chatType: task.chatType,
+              senderId: task.senderId
+            }
+          })
+        }
         break
 
       case 'iteration_end':

@@ -1,4 +1,5 @@
 import { nanoid } from 'nanoid'
+import { createProvider } from '../../api/provider'
 import { runAgentLoop } from '../agent-loop'
 import { toolRegistry } from '../tool-registry'
 import type { AgentLoopConfig } from '../types'
@@ -42,6 +43,7 @@ export async function runSubAgent(config: SubAgentRunConfig): Promise<SubAgentRe
 
   // 3. Build initial user message from SubAgent input
   const userMessage = formatInputAsMessage(definition.name, input)
+  const summaryContextParts: string[] = [`## Task Input\n${userMessage.content}`]
 
   const systemPrompt = definition.systemPrompt
 
@@ -122,7 +124,10 @@ export async function runSubAgent(config: SubAgentRunConfig): Promise<SubAgentRe
 
         case 'tool_call_start':
         case 'tool_call_result':
-          if (event.type === 'tool_call_result') toolCallCount++
+          if (event.type === 'tool_call_result') {
+            toolCallCount++
+            summaryContextParts.push(formatToolCallSummary(event.toolCall))
+          }
           onEvent?.({
             type: 'sub_agent_tool_call',
             subAgentName: definition.name,
@@ -142,7 +147,16 @@ export async function runSubAgent(config: SubAgentRunConfig): Promise<SubAgentRe
             toolCallCount,
             iterations,
             usage: totalUsage,
-            error: event.error.message
+            error: event.error.message,
+            finalReportMarkdown: await generateFinalMarkdownReport({
+              providerConfig: innerProvider,
+              toolContext,
+              taskInput: String(userMessage.content),
+              contextParts: summaryContextParts,
+              finalOutput: output,
+              status: 'failed',
+              error: event.error.message
+            })
           }
           onEvent?.({ type: 'sub_agent_end', subAgentName: definition.name, toolUseId, result })
           return result
@@ -158,7 +172,16 @@ export async function runSubAgent(config: SubAgentRunConfig): Promise<SubAgentRe
       toolCallCount,
       iterations,
       usage: totalUsage,
-      error: errMsg
+      error: errMsg,
+      finalReportMarkdown: await generateFinalMarkdownReport({
+        providerConfig: innerProvider,
+        toolContext,
+        taskInput: String(userMessage.content),
+        contextParts: summaryContextParts,
+        finalOutput: output,
+        status: 'failed',
+        error: errMsg
+      })
     }
     onEvent?.({ type: 'sub_agent_end', subAgentName: definition.name, toolUseId, result })
     return result
@@ -182,6 +205,14 @@ export async function runSubAgent(config: SubAgentRunConfig): Promise<SubAgentRe
   const result: SubAgentResult = {
     success: true,
     output: finalOutput,
+    finalReportMarkdown: await generateFinalMarkdownReport({
+      providerConfig: innerProvider,
+      toolContext,
+      taskInput: String(userMessage.content),
+      contextParts: summaryContextParts,
+      finalOutput,
+      status: toolContext.signal.aborted ? 'aborted' : 'completed'
+    }),
     toolCallCount,
     iterations,
     usage: totalUsage
@@ -197,6 +228,106 @@ const READ_ONLY_SET = new Set(['Read', 'LS', 'Glob', 'Grep', 'TaskList', 'TaskGe
 
 function isReadOnly(toolName: string): boolean {
   return READ_ONLY_SET.has(toolName)
+}
+
+async function generateFinalMarkdownReport(options: {
+  providerConfig: ProviderConfig
+  toolContext: SubAgentRunConfig['toolContext']
+  taskInput: string
+  contextParts: string[]
+  finalOutput: string
+  status: 'completed' | 'failed' | 'aborted'
+  error?: string
+}): Promise<string> {
+  const { providerConfig, toolContext, taskInput, contextParts, finalOutput, status, error } = options
+  const provider = createProvider(providerConfig)
+  const prompt = [
+    'Produce a professional final task report in Markdown based strictly on the execution evidence provided below.',
+    'Do not fabricate actions, files, findings, rationale, risks, or unresolved items.',
+    'Write in clear, concise, engineering-oriented English.',
+    'Use exactly the following section headings and preserve this order:',
+    '# Task Summary',
+    '## Objective',
+    '## Outcome',
+    '## Actions Taken',
+    '## Files and Artifacts',
+    '## Key Findings',
+    '## Decision Rationale',
+    '## Risks and Limitations',
+    '## Open Questions',
+    '## Recommended Next Steps',
+    '',
+    `Execution Status: ${status}`,
+    error ? `Error Detail: ${error}` : '',
+    `Original Task Input:\n${taskInput}`,
+    contextParts.join('\n\n'),
+    `\n## Final Output\n${finalOutput || '(empty)'}`
+  ]
+    .filter(Boolean)
+    .join('\n')
+
+  const messages: UnifiedMessage[] = [
+    {
+      id: nanoid(),
+      role: 'user',
+      content: prompt,
+      createdAt: Date.now()
+    }
+  ]
+
+  let report = ''
+  try {
+    const stream = provider.sendMessage(messages, [], { ...providerConfig }, toolContext.signal)
+    for await (const event of stream) {
+      if (toolContext.signal.aborted) break
+      if (event.type === 'text_delta' && event.text) report += event.text
+    }
+  } catch {
+    report = ''
+  }
+
+  if (report.trim()) return report.trim()
+
+  return [
+    '# Task Summary',
+    '## Objective',
+    taskInput,
+    '## Outcome',
+    status,
+    '## Actions Taken',
+    finalOutput || '- No execution output was captured.',
+    '## Files and Artifacts',
+    '- Summary generation failed, so a complete artifact extraction is unavailable.',
+    '## Key Findings',
+    error ? `- ${error}` : '- No additional findings captured.',
+    '## Decision Rationale',
+    '- The reporting stage failed, so this fallback summary only reflects minimally available evidence.',
+    '## Risks and Limitations',
+    '- This report was generated by fallback logic instead of the dedicated reporting pass.',
+    '## Open Questions',
+    '- Manual review may be required to inspect the detailed execution trace.',
+    '## Recommended Next Steps',
+    '- Re-run the task or review the execution trace manually if a higher-confidence report is required.'
+  ].join('\n')
+}
+
+function formatToolCallSummary(toolCall: { name: string; input: Record<string, unknown>; status: string; output?: unknown; error?: string }): string {
+  const renderedOutput =
+    typeof toolCall.output === 'string'
+      ? toolCall.output
+      : toolCall.output
+        ? JSON.stringify(toolCall.output)
+        : ''
+
+  return [
+    `## Tool Call: ${toolCall.name}`,
+    `- Status: ${toolCall.status}`,
+    `- Input: ${JSON.stringify(toolCall.input)}`,
+    renderedOutput ? `- Output: ${renderedOutput}` : '',
+    toolCall.error ? `- Error: ${toolCall.error}` : ''
+  ]
+    .filter(Boolean)
+    .join('\n')
 }
 
 function formatInputAsMessage(

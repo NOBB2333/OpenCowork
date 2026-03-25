@@ -65,6 +65,10 @@
     "clarifyAutoAcceptShort": "推荐答",
     "clarifyAutoAcceptOn": "澄清模式已开启自动接受推荐项 — 遇到 AskUserQuestion 会自动选择并提交推荐答案",
     "clarifyAutoAcceptOff": "澄清模式自动接受推荐项已关闭",
+    "clarifyPlanModeAutoSwitchTooltip": "澄清进入计划模式后自动切换目标模式",
+    "clarifyPlanModeAutoSwitchOff": "不跳转",
+    "clarifyPlanModeAutoSwitchCode": "转编程",
+    "clarifyPlanModeAutoSwitchAcp": "转 ACP",
     "autoApproveOn": "自动批准已开启 — 所有工具调用无需确认",
     "autoApproveOff": "自动批准已关闭 — 工具调用需要确认",
     "pendingCount": "{{count}} 个待处理",
@@ -151,6 +155,12 @@
     "files": "文件",
     "artifacts": "产物",
     "context": "上下文",
+    "acp": "ACP",
+    "acpTitle": "ACP 模式",
+    "acpDesc": "当前由主 Agent 负责需求澄清、架构设计与任务分派，实现工作必须通过子代理执行。",
+    "acpRuleNoCode": "主 Agent 不直接写代码、不直接修改文件，必须先澄清边界并形成设计。",
+    "acpRuleDelegate": "实现类任务必须通过 Task / SubAgent / teammate 分派执行。",
+    "acpRuleReport": "每个子任务结束后都会追加一次固定总结请求，并将 Markdown 总结返回主 Agent。",
     "skills": "工具",
     "cron": "定时",
     "expand": "展开",
@@ -240,6 +250,14 @@
           "精准实现：写功能、修 Bug、重构、补全模块，保持工程纪律",
           "希望得到干净的代码输出而非冗长解说 — 简洁确认而非长篇大论",
           "对现有代码规范、类型、导入和 API 契约要求严格一致的改动"
+        ]
+      },
+      "acp": {
+        "summary": "适合复杂实现前的架构主控场景。主 Agent 只做澄清、设计、分派与汇总，不直接编码，所有实现任务都交给子代理完成。",
+        "solves": [
+          "需要先充分澄清背景、边界、约束与验收，再分派实现的复杂任务",
+          "希望主 Agent 专注架构设计、任务拆解和过程管控，而不是亲自落代码",
+          "希望每个子任务结束后都能返回结构化 Markdown 总结，便于继续推进"
         ]
       }
     }

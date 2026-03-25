@@ -472,12 +472,13 @@ export function createTaskTool(providerGetter: () => ProviderConfig): ToolHandle
             encodeStructuredToolResult({
               error: result.error ?? 'SubAgent failed',
               toolCalls: result.toolCallCount,
-              iterations: result.iterations
+              iterations: result.iterations,
+              report: result.finalReportMarkdown
             })
           )
         }
 
-        return metaStr + result.output
+        return metaStr + (result.finalReportMarkdown || result.output)
       } finally {
         subAgentLimiter.release()
       }

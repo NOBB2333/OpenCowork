@@ -55,6 +55,8 @@ export interface SubAgentResult {
   success: boolean
   /** Final text output (the SubAgent's last text response) */
   output: string
+  /** Final Markdown report generated after execution */
+  finalReportMarkdown?: string
   /** Number of tool calls executed */
   toolCallCount: number
   /** Number of LLM iterations */

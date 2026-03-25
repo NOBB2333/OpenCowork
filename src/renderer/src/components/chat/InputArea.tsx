@@ -178,9 +178,9 @@ function ContextRing(): React.JSX.Element | null {
   )
 }
 
-function ActiveMcpsBadge(): React.JSX.Element | null {
+function ActiveMcpsBadge({ projectId }: { projectId?: string | null }): React.JSX.Element | null {
   const { t } = useTranslation('chat')
-  const activeMcpIds = useMcpStore((s) => s.activeMcpIds)
+  const activeMcpIds = useMcpStore((s) => s.getActiveMcpIds(projectId))
   const servers = useMcpStore((s) => s.servers)
   const serverTools = useMcpStore((s) => s.serverTools)
   if (activeMcpIds.length === 0) return null
@@ -209,14 +209,16 @@ const placeholderKeys: Record<AppMode, string> = {
   chat: 'input.placeholder',
   clarify: 'input.placeholderClarify',
   cowork: 'input.placeholderCowork',
-  code: 'input.placeholderCode'
+  code: 'input.placeholderCode',
+  acp: 'input.placeholderAcp'
 }
 
 const defaultRecommendationKeys: Record<AppMode, string> = {
   chat: 'input.recommendationDefaultChat',
   clarify: 'input.recommendationDefaultClarify',
   cowork: 'input.recommendationDefaultCowork',
-  code: 'input.recommendationDefaultCode'
+  code: 'input.recommendationDefaultCode',
+  acp: 'input.recommendationDefaultCode'
 }
 
 interface FileSearchItem {
@@ -511,6 +513,7 @@ export function InputArea({
   const setSettingsOpen = useUIStore((s) => s.setSettingsOpen)
   const openFilePreview = useUIStore((s) => s.openFilePreview)
   const mode = useUIStore((s) => s.mode)
+  const activeProjectId = useChatStore((s) => s.activeProjectId)
   const { activeSessionId, hasMessages, clearSessionMessages, sessionMessages } = useChatStore(
     useShallow((s) => {
       const activeSession = s.sessions.find((sess) => sess.id === s.activeSessionId)
@@ -2260,8 +2263,9 @@ export function InputArea({
                       insertSlashCommand(name)
                     }}
                     disabled={disabled || isStreaming}
+                    projectId={activeProjectId}
                   />
-                  <ActiveMcpsBadge />
+                  <ActiveMcpsBadge projectId={activeProjectId} />
                 </>
               )}
 
