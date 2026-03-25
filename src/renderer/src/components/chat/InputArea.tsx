@@ -244,6 +244,7 @@ const EMPTY_SESSION_MESSAGES: UnifiedMessage[] = []
 const INPUT_HISTORY_LIMIT = 30
 const PENDING_HISTORY_KEY = '__pending_session__'
 const MIN_INPUT_HEIGHT = 120
+const DEFAULT_SESSION_INPUT_HEIGHT = 160
 const MAX_INPUT_HEIGHT = 500
 const MIN_MESSAGE_LIST_HEIGHT = 120
 const FALLBACK_MAX_VIEWPORT_RATIO = 0.6
@@ -362,12 +363,15 @@ export function InputArea({
   const clarifyAutoAcceptRecommended = useSettingsStore(
     (state) => state.clarifyAutoAcceptRecommended
   )
+  const chatView = useUIStore((s) => s.chatView)
   const contentScrollRef = React.useRef<HTMLDivElement>(null)
   const editorRef = React.useRef<FileAwareEditorHandle>(null)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   const queueFileInputRef = React.useRef<HTMLInputElement>(null)
   const rootRef = React.useRef<HTMLDivElement>(null)
-  const [inputHeight, setInputHeight] = React.useState<number | null>(null)
+  const [inputHeight, setInputHeight] = React.useState<number | null>(() =>
+    chatView === 'session' ? DEFAULT_SESSION_INPUT_HEIGHT : null
+  )
   const dragRef = React.useRef<{ startY: number; startH: number; maxH: number } | null>(null)
   const containerRef = React.useRef<HTMLDivElement>(null)
   const setInputSelection = setEditorSelection
@@ -464,15 +468,16 @@ export function InputArea({
 
   React.useEffect(() => {
     if (inputHeight === null) return
-    const handleResize = (): void => {
+    const clampInputHeight = (): void => {
       const maxH = getMaxInputHeight()
       setInputHeight((prev) => {
         if (prev === null) return prev
         return Math.min(prev, maxH)
       })
     }
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
+    clampInputHeight()
+    window.addEventListener('resize', clampInputHeight)
+    return () => window.removeEventListener('resize', clampInputHeight)
   }, [inputHeight, getMaxInputHeight])
 
   const handleDragStart = React.useCallback(
@@ -1747,7 +1752,7 @@ export function InputArea({
         <div
           ref={containerRef}
           className={`relative rounded-lg border bg-background shadow-lg transition-shadow focus-within:shadow-xl focus-within:ring-1 focus-within:ring-ring/20 flex flex-col ${dragging ? 'ring-2 ring-primary/50' : ''}`}
-          style={inputHeight ? { height: inputHeight } : { maxHeight: autoMaxInputHeight }}
+          style={inputHeight !== null ? { height: inputHeight } : { maxHeight: autoMaxInputHeight }}
         >
           {/* Top drag handle */}
           <div className="h-1.5 cursor-row-resize rounded-t-lg" onMouseDown={handleDragStart} />

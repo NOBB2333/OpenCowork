@@ -510,9 +510,9 @@ export const FileAwareEditor = React.forwardRef<FileAwareEditorHandle, FileAware
     }, [flushDocumentSync])
 
     const syncDocumentAndSelection = React.useCallback(() => {
+      syncSelection()
       scheduleDocumentSync()
-      scheduleSelectionSync()
-    }, [scheduleDocumentSync, scheduleSelectionSync])
+    }, [scheduleDocumentSync, syncSelection])
 
     const handleInput = React.useCallback(() => {
       syncDocumentAndSelection()
