@@ -1,7 +1,13 @@
 import { nanoid } from 'nanoid'
 import { ipcClient } from '@renderer/lib/ipc/ipc-client'
 import { IPC } from '@renderer/lib/ipc/channels'
-import type { AIModelConfig, RequestDebugInfo, RequestTiming, TokenUsage } from '@renderer/lib/api/types'
+import type {
+  AIModelConfig,
+  AIProvider,
+  RequestDebugInfo,
+  RequestTiming,
+  TokenUsage
+} from '@renderer/lib/api/types'
 import { useChatStore } from '@renderer/stores/chat-store'
 import { useProviderStore } from '@renderer/stores/provider-store'
 
@@ -34,6 +40,60 @@ export interface UsageAnalyticsGroupRow {
 
 function toNullableNumber(value: number | undefined): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+function resolveProviderAndModel(
+  providers: AIProvider[],
+  input: {
+    providerId?: string | null
+    modelId?: string | null
+    debugInfo?: RequestDebugInfo
+    sessionProviderId?: string | null
+    sessionModelId?: string | null
+  }
+): {
+  providerId: string | null
+  modelId: string | null
+  provider: AIProvider | null
+  model: AIModelConfig | null
+} {
+  const debugProviderId = input.debugInfo?.providerId ?? null
+  const debugProviderBuiltinId = input.debugInfo?.providerBuiltinId ?? null
+  const resolvedModelId = input.modelId ?? input.debugInfo?.model ?? input.sessionModelId ?? null
+
+  let provider =
+    (input.providerId ? providers.find((item) => item.id === input.providerId) ?? null : null) ??
+    (debugProviderId ? providers.find((item) => item.id === debugProviderId) ?? null : null) ??
+    (debugProviderBuiltinId
+      ? providers.find((item) => item.builtinId === debugProviderBuiltinId) ?? null
+      : null) ??
+    (input.sessionProviderId
+      ? providers.find((item) => item.id === input.sessionProviderId) ?? null
+      : null)
+
+  let model =
+    resolvedModelId && provider
+      ? provider.models.find((item) => item.id === resolvedModelId) ?? null
+      : null
+
+  if (!model && resolvedModelId) {
+    for (const candidateProvider of providers) {
+      const candidateModel = candidateProvider.models.find((item) => item.id === resolvedModelId)
+      if (candidateModel) {
+        provider = provider ?? candidateProvider
+        model = candidateModel
+        break
+      }
+    }
+  }
+
+  return {
+    providerId:
+      provider?.id ?? input.providerId ?? input.debugInfo?.providerId ?? input.sessionProviderId ?? null,
+    modelId: model?.id ?? resolvedModelId,
+    provider,
+    model
+  }
 }
 
 function computeCosts(usage: TokenUsage, modelConfig: AIModelConfig | null): {
@@ -101,10 +161,18 @@ export async function recordUsageEvent(input: {
   const session = input.sessionId
     ? chatStore.sessions.find((item) => item.id === input.sessionId)
     : undefined
-  const providerId = input.providerId ?? session?.providerId ?? null
-  const modelId = input.modelId ?? session?.modelId ?? null
-  const provider = providerId ? providerStore.providers.find((item) => item.id === providerId) : null
-  const model = modelId ? provider?.models.find((item) => item.id === modelId) ?? null : null
+  const {
+    providerId: resolvedProviderId,
+    modelId: resolvedModelId,
+    provider,
+    model
+  } = resolveProviderAndModel(providerStore.providers, {
+    providerId: input.providerId,
+    modelId: input.modelId,
+    debugInfo: input.debugInfo,
+    sessionProviderId: session?.providerId,
+    sessionModelId: session?.modelId
+  })
   const usage = input.usage ?? {
     inputTokens: 0,
     outputTokens: 0
@@ -122,13 +190,13 @@ export async function recordUsageEvent(input: {
     message_id: input.messageId ?? null,
     project_id: session?.projectId ?? null,
     source_kind: input.sourceKind,
-    provider_id: providerId,
+    provider_id: resolvedProviderId,
     provider_name: provider?.name ?? null,
     provider_type: provider?.type ?? null,
     provider_builtin_id: provider?.builtinId ?? null,
     provider_base_url: provider?.baseUrl ?? null,
-    model_id: modelId,
-    model_name: model?.name ?? modelId ?? null,
+    model_id: resolvedModelId,
+    model_name: model?.name ?? resolvedModelId ?? null,
     model_category: model?.category ?? null,
     request_type: model?.type ?? provider?.type ?? null,
     input_tokens: usage.inputTokens ?? 0,

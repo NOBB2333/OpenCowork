@@ -1636,6 +1636,9 @@ export function useChatActions(): {
         const accumulatedUsage: TokenUsage = { inputTokens: 0, outputTokens: 0 }
         const requestTimings: RequestTiming[] = []
         const loopStartedAt = Date.now()
+        let currentUsageProviderId = agentProviderConfig.providerId ?? null
+        let currentUsageModelId = agentProviderConfig.model ?? null
+        let lastRequestDebugInfo: RequestDebugInfo | undefined
 
         // Subscribe to SubAgent events during agent loop
         const subAgentEventBuffer = createSubAgentEventBuffer(sessionId!)
@@ -2088,11 +2091,14 @@ export function useChatActions(): {
                     sessionId,
                     messageId: assistantMsgId,
                     sourceKind: 'agent',
+                    providerId: currentUsageProviderId,
+                    modelId: currentUsageModelId,
                     usage: {
                       ...event.usage,
                       contextTokens: event.usage.contextTokens ?? event.usage.inputTokens
                     },
                     timing: event.timing,
+                    debugInfo: lastRequestDebugInfo,
                     providerResponseId: event.providerResponseId
                   })
                 }
@@ -2113,6 +2119,9 @@ export function useChatActions(): {
               case 'request_debug':
                 streamDeltaBuffer.flushNow()
                 if (event.debugInfo) {
+                  lastRequestDebugInfo = event.debugInfo
+                  currentUsageProviderId = event.debugInfo.providerId ?? currentUsageProviderId
+                  currentUsageModelId = event.debugInfo.model ?? currentUsageModelId
                   setRequestTraceInfo(assistantMsgId, {
                     providerId: event.debugInfo.providerId,
                     providerBuiltinId: event.debugInfo.providerBuiltinId,
