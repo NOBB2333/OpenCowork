@@ -158,11 +158,11 @@
     "context": "上下文",
     "subagents": "子代理",
     "acp": "ACP",
-    "acpTitle": "ACP 模式",
-    "acpDesc": "当前由主 Agent 负责需求澄清、架构设计与任务分派，实现工作必须通过子代理执行。",
-    "acpRuleNoCode": "主 Agent 不直接写代码、不直接修改文件，必须先澄清边界并形成设计。",
-    "acpRuleDelegate": "实现类任务必须通过 Task / SubAgent / teammate 分派执行。",
-    "acpRuleReport": "每个子任务结束后都会追加一次固定总结请求，并将 Markdown 总结返回主 Agent。",
+    "acpTitle": "ACP · Architecture Control Planning",
+    "acpDesc": "适合复杂实现前的架构控制场景。主 Agent 负责澄清需求、定义边界、制定方案、拆解任务与汇总结果；具体实现交由子 Agent 执行。",
+    "acpRuleNoCode": "主 Agent 不直接写实现代码或修改文件，必须先澄清目标、约束、风险与验收标准。",
+    "acpRuleDelegate": "实现类任务必须通过 Task / SubAgent / teammate 分派给合适的子 Agent 执行。",
+    "acpRuleReport": "每个子任务完成后应返回结构化 Markdown 总结，用于主 Agent 汇总、复核和继续推进。",
     "skills": "工具",
     "cron": "定时",
     "expand": "展开",
@@ -284,11 +284,11 @@
         ]
       },
       "acp": {
-        "summary": "适合复杂实现前的架构主控场景。主 Agent 只做澄清、设计、分派与汇总，不直接编码，所有实现任务都交给子代理完成。",
+        "summary": "Architecture Control Planning 适合复杂实现前的主控场景：先澄清目标与边界，再做架构设计、任务拆解和执行分派，主 Agent 不直接编码。",
         "solves": [
-          "需要先充分澄清背景、边界、约束与验收，再分派实现的复杂任务",
-          "希望主 Agent 专注架构设计、任务拆解和过程管控，而不是亲自落代码",
-          "希望每个子任务结束后都能返回结构化 Markdown 总结，便于继续推进"
+          "需要先明确背景、范围、约束、依赖与验收标准，再进入实现的复杂任务",
+          "希望主 Agent 专注架构设计、任务编排和过程控制，而不是直接下场写代码",
+          "希望子任务并行执行，并以结构化 Markdown 总结回收结果以便持续推进"
         ]
       }
     }

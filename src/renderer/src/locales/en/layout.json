@@ -158,11 +158,11 @@
     "context": "Context",
     "subagents": "SubAgents",
     "acp": "ACP",
-    "acpTitle": "ACP Mode",
-    "acpDesc": "The main agent handles clarification, architecture, and task delegation. Implementation work must be executed by sub-agents.",
-    "acpRuleNoCode": "The main agent does not write code or modify files directly. It must clarify boundaries and form a design first.",
-    "acpRuleDelegate": "Implementation tasks must be delegated through Task / SubAgent / teammate.",
-    "acpRuleReport": "Every sub-task appends a final summary request and returns a Markdown summary to the main agent.",
+    "acpTitle": "ACP · Architecture Control Planning",
+    "acpDesc": "Best for architecture-controlled work before implementation. The main agent clarifies requirements, defines boundaries, designs the approach, decomposes tasks, and synthesizes results; concrete implementation is executed by sub-agents.",
+    "acpRuleNoCode": "The main agent does not write implementation code or modify files directly. It first clarifies goals, constraints, risks, and acceptance criteria.",
+    "acpRuleDelegate": "Implementation tasks must be delegated through Task / SubAgent / teammate to the appropriate sub-agent.",
+    "acpRuleReport": "Each sub-task should return a structured Markdown summary so the main agent can review, synthesize, and continue execution.",
     "skills": "Tools",
     "cron": "Cron",
     "expand": "Expand",
@@ -284,11 +284,11 @@
         ]
       },
       "acp": {
-        "summary": "Best for architecture-controlled execution. The main agent only clarifies, designs, delegates, and summarizes. All implementation work is executed by sub-agents.",
+        "summary": "Architecture Control Planning is for complex work that needs control before implementation: clarify goals and boundaries first, then design the architecture, decompose execution, and delegate delivery. The main agent does not code directly.",
         "solves": [
-          "Complex tasks that need rich context, boundaries, constraints, and acceptance criteria before implementation",
-          "Workflows where the main agent should focus on architecture, task decomposition, and orchestration instead of coding",
-          "Cases where every sub-task should return a final Markdown summary for continued coordination"
+          "Complex tasks that require background, scope, constraints, dependencies, and acceptance criteria to be clarified before implementation",
+          "Work where the main agent should focus on architecture, orchestration, and process control instead of coding directly",
+          "Cases where sub-tasks should run in parallel and return structured Markdown summaries for continued coordination"
         ]
       }
     }

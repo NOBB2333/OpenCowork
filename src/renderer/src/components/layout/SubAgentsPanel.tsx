@@ -1,9 +1,17 @@
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
-import { Bot, Clock, FileText, Loader2, MessageSquareText, PanelLeftClose } from 'lucide-react'
+import {
+  ArrowLeft,
+  Bot,
+  Clock3,
+  FileText,
+  Loader2,
+  MessageSquareText,
+  PanelLeftClose
+} from 'lucide-react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { useAgentStore } from '@renderer/stores/agent-store'
+import { useAgentStore, type SubAgentState } from '@renderer/stores/agent-store'
 import { useChatStore } from '@renderer/stores/chat-store'
 import { useUIStore } from '@renderer/stores/ui-store'
 import { Badge } from '@renderer/components/ui/badge'
@@ -11,6 +19,12 @@ import { Button } from '@renderer/components/ui/button'
 import { Separator } from '@renderer/components/ui/separator'
 import { TranscriptMessageList } from '@renderer/components/chat/TranscriptMessageList'
 import { cn } from '@renderer/lib/utils'
+
+const SUB_AGENT_COMPACT_WIDTH = 600
+const SUB_AGENT_SIDEBAR_MIN = 240
+const SUB_AGENT_SIDEBAR_BASIS = 280
+const SUB_AGENT_SIDEBAR_MAX = 360
+const SUB_AGENT_DETAIL_MIN = 380
 
 function formatElapsed(ms: number): string {
   if (ms < 1000) return `${ms}ms`
@@ -27,8 +41,11 @@ export function SubAgentsPanel(): React.JSX.Element {
   const selectedToolUseId = useUIStore((s) => s.selectedSubAgentToolUseId)
   const setSelectedToolUseId = useUIStore((s) => s.setSelectedSubAgentToolUseId)
   const setRightPanelOpen = useUIStore((s) => s.setRightPanelOpen)
+  const panelRef = React.useRef<HTMLDivElement | null>(null)
+  const [panelWidth, setPanelWidth] = React.useState(0)
+  const [detailVisible, setDetailVisible] = React.useState(false)
 
-  const runningAgents = React.useMemo(
+  const runningAgents = React.useMemo<SubAgentState[]>(
     () =>
       Object.values(activeSubAgents)
         .filter((agent) => agent.sessionId === activeSessionId)
@@ -36,7 +53,7 @@ export function SubAgentsPanel(): React.JSX.Element {
     [activeSessionId, activeSubAgents]
   )
 
-  const completedAgents = React.useMemo(
+  const completedAgents = React.useMemo<SubAgentState[]>(
     () =>
       Object.values(completedSubAgents)
         .filter((agent) => agent.sessionId === activeSessionId)
@@ -44,15 +61,43 @@ export function SubAgentsPanel(): React.JSX.Element {
     [activeSessionId, completedSubAgents]
   )
 
-  const allAgents = React.useMemo(
-    () => [...runningAgents, ...completedAgents],
-    [runningAgents, completedAgents]
-  )
+  const allAgents = React.useMemo(() => [...runningAgents, ...completedAgents], [runningAgents, completedAgents])
 
   const selectedAgent = React.useMemo(() => {
     if (!selectedToolUseId) return allAgents[0] ?? null
     return allAgents.find((agent) => agent.toolUseId === selectedToolUseId) ?? allAgents[0] ?? null
   }, [allAgents, selectedToolUseId])
+
+  const isCompact = panelWidth > 0 && panelWidth < SUB_AGENT_COMPACT_WIDTH
+  React.useEffect(() => {
+    const element = panelRef.current
+    if (!element || typeof ResizeObserver === 'undefined') return
+
+    const updateWidth = (): void => setPanelWidth(element.clientWidth)
+    updateWidth()
+
+    const observer = new ResizeObserver(() => {
+      updateWidth()
+    })
+
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+
+  React.useEffect(() => {
+    if (!selectedAgent?.toolUseId) return
+    if (selectedAgent.toolUseId !== selectedToolUseId) {
+      setSelectedToolUseId(selectedAgent.toolUseId)
+    }
+  }, [selectedAgent?.toolUseId, selectedToolUseId, setSelectedToolUseId])
+
+  React.useEffect(() => {
+    if (!isCompact) {
+      setDetailVisible(true)
+      return
+    }
+    setDetailVisible(Boolean(selectedAgent))
+  }, [isCompact, selectedAgent])
 
   const [now, setNow] = React.useState(() => Date.now())
 
@@ -64,10 +109,9 @@ export function SubAgentsPanel(): React.JSX.Element {
   }, [runningAgents.length, selectedAgent?.isRunning])
 
   React.useEffect(() => {
-    if (selectedAgent?.toolUseId !== selectedToolUseId) {
-      setSelectedToolUseId(selectedAgent?.toolUseId ?? null)
-    }
-  }, [selectedAgent?.toolUseId, selectedToolUseId, setSelectedToolUseId])
+    if (!isCompact) return
+    if (!selectedAgent) setDetailVisible(false)
+  }, [isCompact, selectedAgent])
 
   if (!activeSessionId || allAgents.length === 0) {
     return (
@@ -78,166 +122,286 @@ export function SubAgentsPanel(): React.JSX.Element {
   }
 
   return (
-    <div className="flex h-full min-h-0 gap-4">
-      <aside className="flex w-[220px] shrink-0 flex-col overflow-hidden rounded-xl border border-border/60 bg-background/70">
-        <div className="flex items-center justify-between border-b border-border/50 px-3 py-2.5">
-          <div className="flex items-center gap-2">
-            <Bot className="size-4 text-violet-500" />
-            <span className="text-sm font-medium">{t('rightPanel.subagents')}</span>
+    <div ref={panelRef} className="h-full min-h-0">
+      <div className="flex h-full min-h-0 flex-col gap-3">
+        {isCompact ? (
+          detailVisible && selectedAgent ? (
+            <SubAgentDetail
+              agent={selectedAgent}
+              now={now}
+              onBack={() => setDetailVisible(false)}
+              onClose={() => setRightPanelOpen(false)}
+              compact
+            />
+          ) : (
+            <SubAgentList
+              title={t('rightPanel.subagents')}
+              runningAgents={runningAgents}
+              completedAgents={completedAgents}
+              selectedToolUseId={selectedAgent?.toolUseId ?? null}
+              now={now}
+              onSelect={(toolUseId) => {
+                setSelectedToolUseId(toolUseId)
+                setDetailVisible(true)
+              }}
+              onClose={() => setRightPanelOpen(false)}
+              compact
+            />
+          )
+        ) : (
+          <div className="flex h-full min-h-0 gap-3">
+            <aside className="flex min-w-[var(--subagent-sidebar-min)] max-w-[var(--subagent-sidebar-max)] basis-[var(--subagent-sidebar-basis)] flex-col overflow-hidden border-r border-border/60 bg-background/40" style={{ '--subagent-sidebar-min': `${SUB_AGENT_SIDEBAR_MIN}px`, '--subagent-sidebar-max': `${SUB_AGENT_SIDEBAR_MAX}px`, '--subagent-sidebar-basis': `${SUB_AGENT_SIDEBAR_BASIS}px` } as React.CSSProperties}>
+              <SubAgentList
+                title={t('rightPanel.subagents')}
+                runningAgents={runningAgents}
+                completedAgents={completedAgents}
+                selectedToolUseId={selectedAgent?.toolUseId ?? null}
+                now={now}
+                onSelect={(toolUseId) => setSelectedToolUseId(toolUseId)}
+                onClose={() => setRightPanelOpen(false)}
+                compact={false}
+              />
+            </aside>
+
+            <section className="min-w-[var(--subagent-detail-min)] flex-1 overflow-hidden bg-background/30" style={{ '--subagent-detail-min': `${SUB_AGENT_DETAIL_MIN}px` } as React.CSSProperties}>
+              {selectedAgent ? (
+                <SubAgentDetail
+                  agent={selectedAgent}
+                  now={now}
+                  onBack={undefined}
+                  onClose={() => setRightPanelOpen(false)}
+                  compact={false}
+                />
+              ) : null}
+            </section>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function SubAgentList({
+  title,
+  runningAgents,
+  completedAgents,
+  selectedToolUseId,
+  now,
+  onSelect,
+  onClose,
+  compact
+}: {
+  title: string
+  runningAgents: Array<{
+    toolUseId: string
+    displayName?: string
+    name: string
+    description: string
+    startedAt: number
+  }>
+  completedAgents: Array<{
+    toolUseId: string
+    displayName?: string
+    name: string
+    description: string
+    startedAt: number
+    completedAt?: number | null
+  }>
+  selectedToolUseId: string | null
+  now: number
+  onSelect: (toolUseId: string) => void
+  onClose: () => void
+  compact: boolean
+}): React.JSX.Element {
+  const { t } = useTranslation('layout')
+
+  return (
+    <>
+      <div className="flex items-center justify-between border-b border-border/50 px-3 py-2.5">
+        <div className="flex min-w-0 items-center gap-2">
+          <Bot className="size-4 text-cyan-400" />
+          <span className="truncate text-sm font-medium text-foreground/90">{title}</span>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-7 text-muted-foreground hover:text-foreground"
+          onClick={onClose}
+          title={t('rightPanel.collapse')}
+        >
+          <PanelLeftClose className="size-4" />
+        </Button>
+      </div>
+
+      <div className={cn('min-h-0 flex-1 overflow-y-auto p-2', compact && 'p-2.5')}>
+        {runningAgents.length > 0 && (
+          <div className="mb-3">
+            <div className="mb-2 px-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+              {t('subAgentsPanel.running', { defaultValue: '运行中' })}
+            </div>
+            <div className="space-y-1">
+              {runningAgents.map((agent) => (
+                <SubAgentListItem
+                  key={agent.toolUseId}
+                  name={agent.displayName ?? agent.name}
+                  description={agent.description}
+                  isRunning
+                  isSelected={selectedToolUseId === agent.toolUseId}
+                  elapsed={now - agent.startedAt}
+                  onClick={() => onSelect(agent.toolUseId)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {completedAgents.length > 0 && (
+          <div>
+            <div className="mb-2 px-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+              {t('subAgentsPanel.completed', { defaultValue: '已完成' })}
+            </div>
+            <div className="space-y-1">
+              {completedAgents.map((agent) => (
+                <SubAgentListItem
+                  key={agent.toolUseId}
+                  name={agent.displayName ?? agent.name}
+                  description={agent.description}
+                  isRunning={false}
+                  isSelected={selectedToolUseId === agent.toolUseId}
+                  elapsed={agent.completedAt && agent.startedAt ? agent.completedAt - agent.startedAt : null}
+                  onClick={() => onSelect(agent.toolUseId)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  )
+}
+
+function SubAgentDetail({
+  agent,
+  now,
+  onBack,
+  onClose,
+  compact
+}: {
+  agent: SubAgentState
+  now: number
+  onBack?: () => void
+  onClose: () => void
+  compact: boolean
+}): React.JSX.Element {
+  const { t } = useTranslation('layout')
+  const elapsed = formatElapsed((agent.completedAt ?? now) - agent.startedAt)
+
+  return (
+    <div className="flex h-full min-h-0 flex-col bg-background/20">
+      <div className="border-b border-border/60 px-4 py-3">
+        <div className="flex flex-wrap items-center gap-2">
+          {onBack ? (
+            <Button variant="ghost" size="sm" className="h-8 gap-2 px-2.5 text-cyan-200 hover:bg-cyan-500/10 hover:text-cyan-100" onClick={onBack}>
+              <ArrowLeft className="size-4" />
+              {t('rightPanel.back', { defaultValue: '返回列表' })}
+            </Button>
+          ) : null}
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <h2 className="min-w-0 truncate text-sm font-semibold text-foreground/95">
+                {agent.displayName ?? agent.name}
+              </h2>
+              <Badge
+                variant="secondary"
+                className={cn(
+                  'border border-cyan-500/25 bg-cyan-500/10 text-cyan-100',
+                  !agent.isRunning && 'border-border/60 bg-background/70 text-foreground/80'
+                )}
+              >
+                {agent.isRunning ? t('subAgentsPanel.running', { defaultValue: '运行中' }) : t('subAgentsPanel.completed', { defaultValue: '已完成' })}
+              </Badge>
+              <span className="flex items-center gap-1 text-xs text-muted-foreground/70">
+                <Clock3 className="size-3.5 text-cyan-400" />
+                {elapsed}
+              </span>
+            </div>
           </div>
           <Button
             variant="ghost"
             size="icon"
-            className="size-7"
-            onClick={() => setRightPanelOpen(false)}
+            className="size-8 text-muted-foreground hover:bg-cyan-500/10 hover:text-cyan-100"
+            onClick={onClose}
             title={t('rightPanel.collapse')}
           >
             <PanelLeftClose className="size-4" />
           </Button>
         </div>
+      </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-2">
-          {runningAgents.length > 0 && (
-            <div className="mb-3">
-              <div className="mb-2 px-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
-                {t('subAgentsPanel.running', { defaultValue: '运行中' })}
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+        <div className={cn('grid min-h-0 gap-4', compact ? 'grid-cols-1' : 'grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px]')}>
+          <div className="min-w-0 space-y-4">
+            <section className="border-b border-border/60 pb-4">
+              <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground/70">
+                <Bot className="size-3.5 text-cyan-400" />
+                <span>{t('subAgentsPanel.execution', { defaultValue: '执行过程' })}</span>
+                {agent.isRunning && <Loader2 className="size-3 animate-spin text-cyan-400" />}
               </div>
-              <div className="space-y-1">
-                {runningAgents.map((agent) => (
-                  <SubAgentListItem
-                    key={agent.toolUseId}
-                    name={agent.displayName ?? agent.name}
-                    description={agent.description}
-                    isRunning
-                    isSelected={selectedAgent?.toolUseId === agent.toolUseId}
-                    elapsed={now - agent.startedAt}
-                    onClick={() => setSelectedToolUseId(agent.toolUseId)}
-                  />
-                ))}
+              <div className="min-w-0 prose prose-sm max-w-none prose-headings:text-foreground prose-p:text-foreground/90 prose-li:text-foreground/90 prose-strong:text-foreground dark:prose-invert">
+                <TranscriptMessageList messages={agent.transcript} streamingMessageId={agent.currentAssistantMessageId} />
               </div>
-            </div>
-          )}
+            </section>
 
-          {completedAgents.length > 0 && (
-            <div>
-              <div className="mb-2 px-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
-                {t('subAgentsPanel.completed', { defaultValue: '已完成' })}
+            <section>
+              <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground/70">
+                <FileText className="size-3.5 text-cyan-400" />
+                <span>{t('subAgentsPanel.report', { defaultValue: '总结报告' })}</span>
               </div>
-              <div className="space-y-1">
-                {completedAgents.map((agent) => (
-                  <SubAgentListItem
-                    key={agent.toolUseId}
-                    name={agent.displayName ?? agent.name}
-                    description={agent.description}
-                    isRunning={false}
-                    isSelected={selectedAgent?.toolUseId === agent.toolUseId}
-                    elapsed={
-                      agent.completedAt && agent.startedAt
-                        ? agent.completedAt - agent.startedAt
-                        : null
-                    }
-                    onClick={() => setSelectedToolUseId(agent.toolUseId)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </aside>
-
-      <section className="min-w-0 flex-1 overflow-hidden rounded-xl border border-border/60 bg-background/70">
-        {selectedAgent ? (
-          <div className="flex h-full min-h-0 flex-col">
-            <div className="border-b border-border/50 px-4 py-3">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-violet-500">
-                  {selectedAgent.displayName ?? selectedAgent.name}
-                </span>
-                <Badge
-                  variant={selectedAgent.isRunning ? 'default' : 'secondary'}
-                  className={cn(selectedAgent.isRunning && 'bg-violet-500')}
-                >
-                  {selectedAgent.isRunning
-                    ? t('subAgentsPanel.running', { defaultValue: '运行中' })
-                    : t('subAgentsPanel.completed', { defaultValue: '已完成' })}
-                </Badge>
-                <span className="flex items-center gap-1 text-xs text-muted-foreground/70">
-                  <Clock className="size-3" />
-                  {formatElapsed((selectedAgent.completedAt ?? now) - selectedAgent.startedAt)}
-                </span>
-              </div>
-            </div>
-
-            <div className="min-h-0 flex-1 overflow-y-auto p-4">
-              <div className="space-y-4">
-                <section className="rounded-xl border border-border/60 bg-muted/20 p-4">
-                  <div className="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground/70">
-                    <MessageSquareText className="size-3.5" />
-                    <span>{t('subAgentsPanel.taskInput', { defaultValue: '任务输入' })}</span>
-                  </div>
-                  <div className="space-y-3 text-sm leading-relaxed">
-                    <div>
-                      <div className="mb-1 text-xs font-medium text-muted-foreground/70">
-                        {t('subAgentsPanel.description', { defaultValue: 'Description' })}
-                      </div>
-                      <div className="whitespace-pre-wrap break-words text-foreground/90">
-                        {selectedAgent.description || '—'}
-                      </div>
-                    </div>
-                    <Separator />
-                    <div>
-                      <div className="mb-1 text-xs font-medium text-muted-foreground/70">
-                        {t('subAgentsPanel.prompt', { defaultValue: 'Prompt' })}
-                      </div>
-                      <div className="whitespace-pre-wrap break-words text-foreground/90">
-                        {selectedAgent.prompt || '—'}
-                      </div>
-                    </div>
-                  </div>
-                </section>
-
-                <section className="rounded-xl border border-border/60 bg-background/50 p-4">
-                  <div className="mb-4 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground/70">
-                    <Bot className="size-3.5" />
-                    <span>{t('subAgentsPanel.execution', { defaultValue: '执行过程' })}</span>
-                    {selectedAgent.isRunning && (
-                      <Loader2 className="size-3 animate-spin text-violet-500" />
-                    )}
-                  </div>
-                  <TranscriptMessageList
-                    messages={selectedAgent.transcript}
-                    streamingMessageId={selectedAgent.currentAssistantMessageId}
-                  />
-                </section>
-
-                <section className="rounded-xl border border-border/60 bg-muted/20 p-4">
-                  <div className="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground/70">
-                    <FileText className="size-3.5" />
-                    <span>{t('subAgentsPanel.report', { defaultValue: '总结报告' })}</span>
-                  </div>
-                  {selectedAgent.report.trim() ? (
-                    <div className="prose prose-sm max-w-none dark:prose-invert">
-                      <Markdown remarkPlugins={[remarkGfm]}>{selectedAgent.report}</Markdown>
-                    </div>
-                  ) : (
-                    <div className="text-sm text-muted-foreground/70">
-                      {selectedAgent.reportStatus === 'retrying'
-                        ? t('subAgentsPanel.reportStatusRetrying', { defaultValue: '补救中' })
-                        : selectedAgent.reportStatus === 'missing'
-                          ? t('subAgentsPanel.reportMissing', {
-                              defaultValue: '未捕获到总结报告。'
-                            })
-                          : t('subAgentsPanel.reportPending', {
-                              defaultValue: '当前 SubAgent 尚未生成总结报告。'
-                            })}
-                    </div>
-                  )}
-                </section>
-              </div>
-            </div>
+              {agent.report.trim() ? (
+                <div className="min-w-0 prose prose-sm max-w-none prose-headings:text-foreground prose-p:text-foreground/90 prose-li:text-foreground/90 prose-strong:text-foreground dark:prose-invert">
+                  <Markdown remarkPlugins={[remarkGfm]}>{agent.report}</Markdown>
+                </div>
+              ) : (
+                <div className="text-sm text-muted-foreground/70">
+                  {agent.reportStatus === 'retrying'
+                    ? t('subAgentsPanel.reportStatusRetrying', { defaultValue: '补救中' })
+                    : agent.reportStatus === 'missing'
+                      ? t('subAgentsPanel.reportMissing', { defaultValue: '未捕获到总结报告。' })
+                      : t('subAgentsPanel.reportPending', { defaultValue: '当前 SubAgent 尚未生成总结报告。' })}
+                </div>
+              )}
+            </section>
           </div>
-        ) : null}
-      </section>
+
+          <aside className={cn('min-w-0 space-y-3 border-t border-border/60 pt-4', compact ? 'border-t' : 'xl:border-l xl:border-t-0 xl:pl-4 xl:pt-0')}>
+            <section className="border border-border/50 bg-background/30 px-3 py-3">
+              <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground/70">
+                <MessageSquareText className="size-3.5 text-cyan-400" />
+                <span>{t('subAgentsPanel.taskInput', { defaultValue: '任务输入' })}</span>
+              </div>
+              <div className="space-y-3 text-sm leading-relaxed text-foreground/88">
+                <div>
+                  <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/60">
+                    {t('subAgentsPanel.description', { defaultValue: 'Description' })}
+                  </div>
+                  <div className="whitespace-pre-wrap break-words text-sm leading-6 text-foreground/85">
+                    {agent.description || '—'}
+                  </div>
+                </div>
+                <Separator className="bg-border/60" />
+                <div>
+                  <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/60">
+                    {t('subAgentsPanel.prompt', { defaultValue: 'Prompt' })}
+                  </div>
+                  <div className="whitespace-pre-wrap break-words text-sm leading-6 text-foreground/85">
+                    {agent.prompt || '—'}
+                  </div>
+                </div>
+              </div>
+            </section>
+          </aside>
+        </div>
+      </div>
     </div>
   )
 }
@@ -262,25 +426,28 @@ function SubAgentListItem({
       type="button"
       onClick={onClick}
       className={cn(
-        'w-full rounded-lg border px-2.5 py-2 text-left transition-colors',
+        'group w-full rounded-lg border px-3 py-2.5 text-left transition-colors',
         isSelected
-          ? 'border-violet-500/40 bg-violet-500/10'
-          : 'border-transparent bg-background hover:border-border/70 hover:bg-muted/40'
+          ? 'border-cyan-500/35 bg-cyan-500/10 shadow-[inset_0_0_0_1px_rgba(34,211,238,0.12)]'
+          : 'border-transparent bg-background/30 hover:border-cyan-500/20 hover:bg-background/60'
       )}
     >
-      <div className="flex items-center gap-2">
-        <span className="truncate text-sm font-medium text-foreground/90">{name}</span>
+      <div className="flex items-start gap-2">
+        <span className="min-w-0 flex-1 text-sm font-medium leading-5 text-foreground/90">{name}</span>
         <Badge
-          variant={isRunning ? 'default' : 'secondary'}
-          className={cn('ml-auto', isRunning && 'bg-violet-500')}
+          variant="secondary"
+          className={cn(
+            'border border-cyan-500/25 bg-cyan-500/10 text-[10px] tracking-wide text-cyan-100',
+            !isRunning && 'border-border/60 bg-background/65 text-foreground/75'
+          )}
         >
           {isRunning ? 'RUN' : 'DONE'}
         </Badge>
       </div>
-      <div className="mt-1 line-clamp-2 text-xs text-muted-foreground/70">{description || '—'}</div>
-      {elapsed != null && (
-        <div className="mt-1 text-[11px] text-muted-foreground/50">{formatElapsed(elapsed)}</div>
-      )}
+      <div className="mt-1 line-clamp-3 whitespace-pre-wrap break-words text-xs leading-5 text-muted-foreground/75">
+        {description || '—'}
+      </div>
+      {elapsed != null && <div className="mt-1 text-[11px] text-muted-foreground/55">{formatElapsed(elapsed)}</div>}
     </button>
   )
 }
