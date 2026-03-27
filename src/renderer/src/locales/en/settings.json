@@ -213,10 +213,6 @@
     "maxTokens": "Max Tokens",
     "maxTokensDesc": "Maximum token limit per response"
   },
-  "provider": {
-    "contextCompressionThreshold": "Context compression threshold (%)",
-    "contextCompressionThresholdDesc": "Trigger full compression at this context usage ratio. Range: {{min}}% - {{max}}%"
-  },
   "plugin": {
     "title": "Plugins",
     "subtitle": "Configure optional Tool plugins. All plugins are disabled by default",
@@ -342,6 +338,8 @@
     "modelName": "Display Name",
     "modelNamePlaceholder": "GPT-4o",
     "contextLength": "Context Length",
+    "contextCompressionThreshold": "Context compression threshold (%)",
+    "contextCompressionThresholdDesc": "Trigger full compression at this context usage ratio. Range: {{min}}% - {{max}}%",
     "enabledModels": "Enabled Models",
     "noModels": "No models configured",
     "noModelsHint": "Fetch from API or add manually",

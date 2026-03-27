@@ -1394,7 +1394,7 @@ function ProviderConfigPanel({ provider }: { provider: AIProvider }): React.JSX.
       </div>
 
       {/* Config body */}
-      <div className="flex flex-1 min-h-0 flex-col overflow-y-auto overflow-x-hidden px-5 py-4">
+      <div className="flex flex-1 min-h-0 flex-col overflow-y-auto overflow-x-hidden px-5 pt-4 pb-20">
         {isApiKeyAuth && (
           <section className="space-y-2">
             <div className="flex items-center justify-between">
@@ -2609,50 +2609,52 @@ export function ProviderPanel(): React.JSX.Element {
 
           {/* List */}
           <div className="flex-1 overflow-y-auto py-1">
-            {enabledProviders.length > 0 && (
-              <div className="px-2 pt-1.5 pb-1">
-                <p className="text-[10px] font-medium text-muted-foreground/50 uppercase tracking-wider px-1">
-                  {t('provider.enabled')}
-                </p>
-                {enabledProviders.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => setSelectedId(p.id)}
-                    className={`flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 mt-0.5 text-left transition-colors ${
-                      selectedId === p.id
-                        ? 'bg-accent text-accent-foreground'
-                        : 'text-foreground/80 hover:bg-muted/60'
-                    }`}
-                  >
-                    <ProviderIcon builtinId={p.builtinId} size={16} />
-                    <span className="flex-1 truncate text-xs">{p.name}</span>
-                    <span className="size-1.5 rounded-full bg-emerald-500 shrink-0" />
-                  </button>
-                ))}
-              </div>
-            )}
+            <div className="pb-20">
+              {enabledProviders.length > 0 && (
+                <div className="px-2 pt-1.5 pb-1">
+                  <p className="text-[10px] font-medium text-muted-foreground/50 uppercase tracking-wider px-1">
+                    {t('provider.enabled')}
+                  </p>
+                  {enabledProviders.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => setSelectedId(p.id)}
+                      className={`flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 mt-0.5 text-left transition-colors ${
+                        selectedId === p.id
+                          ? 'bg-accent text-accent-foreground'
+                          : 'text-foreground/80 hover:bg-muted/60'
+                      }`}
+                    >
+                      <ProviderIcon builtinId={p.builtinId} size={16} />
+                      <span className="flex-1 truncate text-xs">{p.name}</span>
+                      <span className="size-1.5 rounded-full bg-emerald-500 shrink-0" />
+                    </button>
+                  ))}
+                </div>
+              )}
 
-            {disabledProviders.length > 0 && (
-              <div className="px-2 pt-2 pb-1">
-                <p className="text-[10px] font-medium text-muted-foreground/50 uppercase tracking-wider px-1">
-                  {t('provider.disabled')}
-                </p>
-                {disabledProviders.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => setSelectedId(p.id)}
-                    className={`flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 mt-0.5 text-left transition-colors ${
-                      selectedId === p.id
-                        ? 'bg-accent text-accent-foreground'
-                        : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
-                    }`}
-                  >
-                    <ProviderIcon builtinId={p.builtinId} size={16} className="opacity-50" />
-                    <span className="flex-1 truncate text-xs">{p.name}</span>
-                  </button>
-                ))}
-              </div>
-            )}
+              {disabledProviders.length > 0 && (
+                <div className="px-2 pt-2 pb-1">
+                  <p className="text-[10px] font-medium text-muted-foreground/50 uppercase tracking-wider px-1">
+                    {t('provider.disabled')}
+                  </p>
+                  {disabledProviders.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => setSelectedId(p.id)}
+                      className={`flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 mt-0.5 text-left transition-colors ${
+                        selectedId === p.id
+                          ? 'bg-accent text-accent-foreground'
+                          : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+                      }`}
+                    >
+                      <ProviderIcon builtinId={p.builtinId} size={16} className="opacity-50" />
+                      <span className="flex-1 truncate text-xs">{p.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

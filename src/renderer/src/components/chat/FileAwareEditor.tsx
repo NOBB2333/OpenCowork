@@ -625,14 +625,14 @@ export const FileAwareEditor = React.forwardRef<FileAwareEditorHandle, FileAware
     return (
       <div className={cn('relative flex min-h-0 flex-col', className)}>
         {!hasContent && placeholder && (
-          <div className="pointer-events-none absolute inset-0 p-1 text-base text-muted-foreground md:text-sm">
+          <div className="pointer-events-none absolute inset-0 p-1 pb-12 pr-2 text-base text-muted-foreground md:text-sm">
             {placeholder}
           </div>
         )}
         {showSuggestion && suggestionText && plainText.length > 0 && (
           <div
             ref={suggestionOverlayRef}
-            className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words p-1 text-base text-muted-foreground/45 md:text-sm"
+            className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words p-1 pb-12 pr-2 text-base text-muted-foreground/45 md:text-sm"
           >
             <span className="invisible">{plainText}</span>
             <span>{suggestionText}</span>
@@ -644,7 +644,7 @@ export const FileAwareEditor = React.forwardRef<FileAwareEditorHandle, FileAware
           suppressContentEditableWarning
           spellCheck={false}
           data-gramm="false"
-          className="relative z-10 block min-h-[60px] flex-1 overflow-y-auto whitespace-pre-wrap break-words p-1 pr-2 text-base outline-none md:text-sm"
+          className="relative z-10 block min-h-[60px] flex-1 overflow-y-auto whitespace-pre-wrap break-words p-1 pb-12 pr-2 text-base outline-none md:text-sm"
           style={{ scrollbarGutter: 'stable' }}
           onInput={handleInput}
           onKeyDown={onKeyDown}

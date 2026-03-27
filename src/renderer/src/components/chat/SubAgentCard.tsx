@@ -61,7 +61,7 @@ function SubAgentCardInner({
 
   const isRunning = live?.isRunning ?? false
   const isCompleted = !isRunning && (!!output || (live && !live.isRunning))
-  const isError = outputStr
+  const historicalError = outputStr
     ? (() => {
         const parsedOutput = decodeStructuredToolResult(outputStr)
         if (
@@ -79,6 +79,7 @@ function SubAgentCardInner({
         )
       })()
     : false
+  const isError = live?.success === false || !!live?.errorMessage || historicalError
 
   const [now, setNow] = React.useState(live?.startedAt ?? 0)
   React.useEffect(() => {
@@ -101,7 +102,7 @@ function SubAgentCardInner({
     .filter(Boolean)
     .join(' · ')
 
-  const previewSource = live?.report || live?.streamingText || histText || ''
+  const previewSource = live?.report || live?.streamingText || live?.errorMessage || histText || ''
   const previewText = React.useMemo(() => {
     const trimmed = previewSource.trim()
     if (!trimmed) return ''

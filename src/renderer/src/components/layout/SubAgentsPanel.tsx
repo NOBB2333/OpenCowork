@@ -79,7 +79,7 @@ function getAgentIcon(agentName: string): React.ReactNode {
 }
 
 function getAgentSummary(agent: SubAgentState): string {
-  return agent.report.trim() || agent.streamingText.trim()
+  return agent.report.trim() || agent.streamingText.trim() || agent.errorMessage?.trim() || ''
 }
 
 function getPreviewText(text: string, isRunning: boolean): string {
@@ -354,6 +354,7 @@ function SubAgentRunCard({
   const previewText = getPreviewText(summary, agent.isRunning)
   const icon = getAgentIcon(displayName)
   const elapsed = formatElapsed((agent.completedAt ?? now) - agent.startedAt)
+  const isFailed = agent.success === false || !!agent.errorMessage
 
   return (
     <div
@@ -376,15 +377,18 @@ function SubAgentRunCard({
                 {displayName}
               </span>
               <Badge
-                variant="secondary"
+                variant={isFailed ? 'destructive' : 'secondary'}
                 className={cn(
                   'h-5 rounded-full border border-border/60 bg-background/70 px-2 text-[10px] font-medium text-foreground/70',
-                  agent.isRunning && 'border-cyan-500/30 bg-cyan-500/10 text-cyan-100'
+                  agent.isRunning && 'border-cyan-500/30 bg-cyan-500/10 text-cyan-100',
+                  isFailed && 'border-destructive/40 bg-destructive/10 text-destructive'
                 )}
               >
                 {agent.isRunning
                   ? t('subAgentsPanel.running', { defaultValue: '运行中' })
-                  : t('subAgentsPanel.completed', { defaultValue: '已完成' })}
+                  : isFailed
+                    ? t('detailPanel.error', { defaultValue: '失败' })
+                    : t('subAgentsPanel.completed', { defaultValue: '已完成' })}
               </Badge>
             </div>
 

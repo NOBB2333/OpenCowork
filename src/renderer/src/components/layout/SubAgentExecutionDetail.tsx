@@ -2,11 +2,11 @@ import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Bot,
-  CalendarClock,
   CheckCircle2,
   Clock3,
   Loader2,
   MessageSquareText,
+  ScrollText,
   Wrench,
   X,
   icons
@@ -15,7 +15,6 @@ import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
-import { ToolCallCard } from '@renderer/components/chat/ToolCallCard'
 import { TranscriptMessageList } from '@renderer/components/chat/TranscriptMessageList'
 import { useAgentStore, type SubAgentState } from '@renderer/stores/agent-store'
 import { useChatStore } from '@renderer/stores/chat-store'
@@ -143,8 +142,14 @@ export function SubAgentExecutionDetail({
 
   const displayName = agent.displayName ?? agent.name
   const elapsed = formatElapsed((agent.completedAt ?? now) - agent.startedAt)
-  const summaryText = agent.report.trim() || agent.streamingText.trim() || inlineText?.trim() || ''
+  const summaryText =
+    agent.report.trim() ||
+    agent.streamingText.trim() ||
+    agent.errorMessage?.trim() ||
+    inlineText?.trim() ||
+    ''
   const icon = getAgentIcon(displayName)
+  const isFailed = agent.success === false || !!agent.errorMessage
 
   return (
     <div
@@ -161,15 +166,18 @@ export function SubAgentExecutionDetail({
                 {displayName}
               </h2>
               <Badge
-                variant="secondary"
+                variant={isFailed ? 'destructive' : 'secondary'}
                 className={cn(
                   'h-6 rounded-full border border-border/60 bg-background/70 px-2.5 text-[11px] font-medium text-foreground/75',
-                  agent.isRunning && 'border-cyan-500/30 bg-cyan-500/10 text-cyan-100'
+                  agent.isRunning && 'border-cyan-500/30 bg-cyan-500/10 text-cyan-100',
+                  isFailed && 'border-destructive/40 bg-destructive/10 text-destructive'
                 )}
               >
                 {agent.isRunning
                   ? t('subAgentsPanel.running', { defaultValue: '运行中' })
-                  : t('subAgentsPanel.completed', { defaultValue: '已完成' })}
+                  : isFailed
+                    ? t('detailPanel.error', { defaultValue: '失败' })
+                    : t('subAgentsPanel.completed', { defaultValue: '已完成' })}
               </Badge>
             </div>
             {agent.description ? (
@@ -212,133 +220,93 @@ export function SubAgentExecutionDetail({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
-        <div
-          className={cn(
-            'grid min-h-full gap-5',
-            !embedded && 'xl:grid-cols-[minmax(0,1fr)_320px]'
-          )}
-        >
-          <div className="min-w-0 space-y-5">
-            <section className="rounded-2xl border border-border/60 bg-background/70 p-5">
-              <div className="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground/65">
-                <MessageSquareText className="size-3.5" />
-                <span>{t('subAgentsPanel.report', { defaultValue: '总结报告' })}</span>
-                {agent.isRunning ? <Loader2 className="size-3 animate-spin" /> : null}
-              </div>
-              {summaryText ? (
-                <div className="prose prose-sm max-w-none prose-headings:text-foreground prose-p:text-foreground/90 prose-li:text-foreground/90 prose-strong:text-foreground dark:prose-invert">
-                  <Markdown remarkPlugins={[remarkGfm]}>{summaryText}</Markdown>
+        <div className="mx-auto flex min-h-full w-full max-w-5xl flex-col gap-5">
+          <section className="rounded-2xl border border-border/60 bg-background/70 p-5">
+            <div className="mb-4 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground/65">
+              <Bot className="size-3.5" />
+              <span>{t('subAgentsPanel.executionInfo', { defaultValue: '执行信息' })}</span>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <div className="mb-1 text-[11px] uppercase tracking-[0.14em] text-muted-foreground/55">
+                  {t('subAgentsPanel.description', { defaultValue: '描述' })}
                 </div>
-              ) : (
-                <div className="text-sm text-muted-foreground/70">
-                  {agent.reportStatus === 'retrying'
-                    ? t('subAgentsPanel.reportStatusRetrying', { defaultValue: '补救中' })
-                    : agent.reportStatus === 'missing'
-                      ? t('subAgentsPanel.reportMissing', { defaultValue: '未捕获到总结报告。' })
-                      : t('subAgentsPanel.reportPending', {
-                          defaultValue: '当前执行尚未生成总结报告。'
-                        })}
-                </div>
-              )}
-            </section>
-
-            <section className="rounded-2xl border border-border/60 bg-background/70 p-5">
-              <div className="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground/65">
-                <CalendarClock className="size-3.5" />
-                <span>{t('subAgentsPanel.execution', { defaultValue: '执行过程' })}</span>
-              </div>
-              <div className="min-w-0 prose prose-sm max-w-none prose-headings:text-foreground prose-p:text-foreground/90 prose-li:text-foreground/90 prose-strong:text-foreground dark:prose-invert">
-                <TranscriptMessageList
-                  messages={agent.transcript}
-                  streamingMessageId={agent.currentAssistantMessageId}
-                />
-              </div>
-            </section>
-
-            <section className="rounded-2xl border border-border/60 bg-background/70 p-5">
-              <div className="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground/65">
-                <Wrench className="size-3.5" />
-                <span>{t('detailPanel.toolCallsLabel', { defaultValue: '工具调用' })}</span>
-              </div>
-              {agent.toolCalls.length > 0 ? (
-                <div className="space-y-2">
-                  {agent.toolCalls.map((toolCall) => (
-                    <ToolCallCard
-                      key={toolCall.id}
-                      toolUseId={toolCall.id}
-                      name={toolCall.name}
-                      input={toolCall.input}
-                      output={toolCall.output}
-                      status={toolCall.status}
-                      error={toolCall.error}
-                      startedAt={toolCall.startedAt}
-                      completedAt={toolCall.completedAt}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="text-sm text-muted-foreground/70">
-                  {t('subAgentsPanel.noToolCalls', { defaultValue: '暂无工具调用记录' })}
-                </div>
-              )}
-            </section>
-          </div>
-
-          <aside
-            className={cn('space-y-5', !embedded && 'xl:sticky xl:top-0 xl:self-start')}
-          >
-            <section className="rounded-2xl border border-border/60 bg-background/70 p-5">
-              <div className="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground/65">
-                <Bot className="size-3.5" />
-                <span>{t('subAgentsPanel.executionInfo', { defaultValue: '执行信息' })}</span>
-              </div>
-              <div className="space-y-3 text-sm">
-                <div>
-                  <div className="mb-1 text-[11px] uppercase tracking-[0.14em] text-muted-foreground/55">
-                    {t('subAgentsPanel.description', { defaultValue: '描述' })}
-                  </div>
-                  <div className="whitespace-pre-wrap break-words text-foreground/88">
-                    {agent.description || '—'}
-                  </div>
-                </div>
-                <div>
-                  <div className="mb-1 text-[11px] uppercase tracking-[0.14em] text-muted-foreground/55">
-                    {t('subAgentsPanel.promptLabel', { defaultValue: 'Prompt' })}
-                  </div>
-                  <div className="whitespace-pre-wrap break-words text-foreground/88">
-                    {agent.prompt || '—'}
-                  </div>
+                <div className="whitespace-pre-wrap break-words text-sm leading-6 text-foreground/88">
+                  {agent.description || '—'}
                 </div>
               </div>
-            </section>
-
-            <section className="rounded-2xl border border-border/60 bg-background/70 p-5">
-              <div className="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground/65">
-                <Clock3 className="size-3.5" />
-                <span>{t('subAgentsPanel.time', { defaultValue: '时间' })}</span>
+              <div>
+                <div className="mb-1 text-[11px] uppercase tracking-[0.14em] text-muted-foreground/55">
+                  {t('subAgentsPanel.promptLabel', { defaultValue: 'Prompt' })}
+                </div>
+                <div className="rounded-xl border border-border/60 bg-muted/15 px-4 py-3 font-mono text-sm leading-6 text-foreground/88 whitespace-pre-wrap break-words">
+                  {agent.prompt || '—'}
+                </div>
               </div>
-              <div className="space-y-3 text-sm text-foreground/88">
+              <div className="grid gap-3 sm:grid-cols-3">
                 <div>
                   <div className="mb-1 text-[11px] uppercase tracking-[0.14em] text-muted-foreground/55">
                     {t('subAgentsPanel.startedAt', { defaultValue: '开始' })}
                   </div>
-                  <div>{formatDateTime(agent.startedAt)}</div>
+                  <div className="text-sm text-foreground/88">
+                    {formatDateTime(agent.startedAt)}
+                  </div>
                 </div>
                 <div>
                   <div className="mb-1 text-[11px] uppercase tracking-[0.14em] text-muted-foreground/55">
                     {t('subAgentsPanel.finishedAt', { defaultValue: '结束' })}
                   </div>
-                  <div>{formatDateTime(agent.completedAt)}</div>
+                  <div className="text-sm text-foreground/88">
+                    {formatDateTime(agent.completedAt)}
+                  </div>
                 </div>
                 <div>
                   <div className="mb-1 text-[11px] uppercase tracking-[0.14em] text-muted-foreground/55">
                     {t('subAgentsPanel.statusLabel', { defaultValue: '状态' })}
                   </div>
-                  <div>{getReportStatusLabel(agent.reportStatus, t)}</div>
+                  <div className="text-sm text-foreground/88">
+                    {getReportStatusLabel(agent.reportStatus, t)}
+                  </div>
                 </div>
               </div>
-            </section>
-          </aside>
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-border/60 bg-background/70 p-5">
+            <div className="mb-4 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground/65">
+              <ScrollText className="size-3.5" />
+              <span>{t('subAgentsPanel.execution', { defaultValue: '执行过程' })}</span>
+              {agent.isRunning ? <Loader2 className="size-3 animate-spin" /> : null}
+            </div>
+            <div className="min-w-0">
+              <TranscriptMessageList
+                messages={agent.transcript}
+                streamingMessageId={agent.currentAssistantMessageId}
+              />
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-border/60 bg-background/70 p-5">
+            <div className="mb-4 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground/65">
+              <MessageSquareText className="size-3.5" />
+              <span>{t('subAgentsPanel.report', { defaultValue: '最终结果' })}</span>
+            </div>
+            {summaryText ? (
+              <div className="prose prose-sm max-w-none prose-headings:text-foreground prose-p:text-foreground/90 prose-li:text-foreground/90 prose-strong:text-foreground dark:prose-invert">
+                <Markdown remarkPlugins={[remarkGfm]}>{summaryText}</Markdown>
+              </div>
+            ) : (
+              <div className="text-sm text-muted-foreground/70">
+                {agent.reportStatus === 'retrying'
+                  ? t('subAgentsPanel.reportStatusRetrying', { defaultValue: '补救中' })
+                  : agent.reportStatus === 'missing'
+                    ? t('subAgentsPanel.reportMissing', { defaultValue: '未捕获到总结报告。' })
+                    : t('subAgentsPanel.reportPending', {
+                        defaultValue: '当前执行尚未生成总结报告。'
+                      })}
+              </div>
+            )}
+          </section>
         </div>
       </div>
     </div>

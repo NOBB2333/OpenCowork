@@ -361,8 +361,15 @@ export function InputArea({
     chatView === 'session' ? DEFAULT_SESSION_INPUT_HEIGHT : null
   )
   const [autoInputHeight, setAutoInputHeight] = React.useState<number>(() => minComposerHeight)
-  const dragRef = React.useRef<{ startY: number; startH: number; maxH: number } | null>(null)
+  const dragRef = React.useRef<{
+    startY: number
+    startH: number
+    minH: number
+    maxH: number
+  } | null>(null)
   const containerRef = React.useRef<HTMLDivElement>(null)
+  const imagePreviewRef = React.useRef<HTMLDivElement>(null)
+  const bottomToolbarRef = React.useRef<HTMLDivElement>(null)
   const textRef = React.useRef(text)
   const documentRef = React.useRef(documentNodes)
   const selectedFilesRef = React.useRef(selectedFiles)
@@ -396,6 +403,24 @@ export function InputArea({
       Math.min(MAX_INPUT_HEIGHT, Math.floor(window.innerHeight * FALLBACK_MAX_VIEWPORT_RATIO))
     )
   )
+
+  const getMinInputHeight = React.useCallback(() => {
+    const container = containerRef.current
+    const editorMetrics = editorRef.current?.getScrollMetrics()
+    const imagePreviewHeight = imagePreviewRef.current?.offsetHeight ?? 0
+    const bottomToolbarHeight = bottomToolbarRef.current?.offsetHeight ?? 0
+    const explicitChromeHeight = imagePreviewHeight + bottomToolbarHeight + 28
+
+    if (!container || !editorMetrics) {
+      return Math.max(minComposerHeight, explicitChromeHeight + EDITOR_MIN_HEIGHT)
+    }
+
+    const chromeHeight = Math.max(0, container.offsetHeight - editorMetrics.clientHeight)
+    return Math.max(
+      minComposerHeight,
+      Math.ceil(Math.max(chromeHeight, explicitChromeHeight) + EDITOR_MIN_HEIGHT)
+    )
+  }, [minComposerHeight])
 
   React.useEffect(() => {
     const updateAutoMaxInputHeight = (): void => {
@@ -436,7 +461,7 @@ export function InputArea({
       const delta = dragRef.current.startY - e.clientY
       const newH = Math.min(
         dragRef.current.maxH,
-        Math.max(MIN_INPUT_HEIGHT, dragRef.current.startH + delta)
+        Math.max(dragRef.current.minH, dragRef.current.startH + delta)
       )
       setInputHeight(newH)
     }
@@ -458,26 +483,32 @@ export function InputArea({
   React.useEffect(() => {
     if (inputHeight === null) return
     const clampInputHeight = (): void => {
+      const minH = getMinInputHeight()
       const maxH = getMaxInputHeight()
       setInputHeight((prev) => {
         if (prev === null) return prev
-        return Math.min(prev, maxH)
+        return Math.min(Math.max(prev, minH), maxH)
       })
     }
     clampInputHeight()
     window.addEventListener('resize', clampInputHeight)
     return () => window.removeEventListener('resize', clampInputHeight)
-  }, [inputHeight, getMaxInputHeight])
+  }, [getMaxInputHeight, getMinInputHeight, inputHeight])
 
   const handleDragStart = React.useCallback(
     (e: React.MouseEvent) => {
       const el = containerRef.current
       if (!el) return
-      dragRef.current = { startY: e.clientY, startH: el.offsetHeight, maxH: getMaxInputHeight() }
+      dragRef.current = {
+        startY: e.clientY,
+        startH: el.offsetHeight,
+        minH: getMinInputHeight(),
+        maxH: getMaxInputHeight()
+      }
       document.body.style.cursor = 'row-resize'
       document.body.style.userSelect = 'none'
     },
-    [getMaxInputHeight]
+    [getMaxInputHeight, getMinInputHeight]
   )
   const prevSessionIdRef = React.useRef<string | null>(null)
   /** Per-session input draft (text + images + skill + files) */
@@ -557,6 +588,25 @@ export function InputArea({
   const [queueClearConfirmOpen, setQueueClearConfirmOpen] = React.useState(false)
   const [autoAcceptCountdown, setAutoAcceptCountdown] = React.useState<number | null>(null)
 
+  React.useLayoutEffect(() => {
+    if (inputHeight === null) return
+    const minH = getMinInputHeight()
+    const maxH = getMaxInputHeight()
+    setInputHeight((prev) => {
+      if (prev === null) return prev
+      if (prev >= minH && prev <= maxH) return prev
+      return Math.min(Math.max(prev, minH), maxH)
+    })
+  }, [
+    attachedImages.length,
+    selectedSkill,
+    queuedMessages.length,
+    isQueueExpanded,
+    getMaxInputHeight,
+    getMinInputHeight,
+    inputHeight
+  ])
+
   const syncAutoInputHeight = React.useCallback(() => {
     if (inputHeight !== null) return
     const container = containerRef.current
@@ -564,8 +614,9 @@ export function InputArea({
     if (!container || !editorMetrics) return
 
     const chromeHeight = Math.max(0, container.offsetHeight - editorMetrics.clientHeight)
+    const minHeight = Math.max(minComposerHeight, Math.ceil(chromeHeight + EDITOR_MIN_HEIGHT))
     const nextHeight = Math.max(
-      minComposerHeight,
+      minHeight,
       Math.min(
         autoMaxInputHeight,
         Math.ceil(chromeHeight + Math.max(EDITOR_MIN_HEIGHT, editorMetrics.scrollHeight))
@@ -588,19 +639,34 @@ export function InputArea({
   ])
 
   React.useEffect(() => {
-    if (inputHeight !== null || typeof ResizeObserver === 'undefined') return
-    const container = containerRef.current
-    if (!container) return
+    if (typeof ResizeObserver === 'undefined') return
 
     const observer = new ResizeObserver(() => {
-      syncAutoInputHeight()
+      if (inputHeight === null) {
+        syncAutoInputHeight()
+        return
+      }
+
+      const minH = getMinInputHeight()
+      const maxH = getMaxInputHeight()
+      setInputHeight((prev) => {
+        if (prev === null) return prev
+        return Math.min(Math.max(prev, minH), maxH)
+      })
     })
-    observer.observe(container)
+
+    const container = containerRef.current
+    const imagePreview = imagePreviewRef.current
+    const bottomToolbar = bottomToolbarRef.current
+
+    if (container) observer.observe(container)
+    if (imagePreview) observer.observe(imagePreview)
+    if (bottomToolbar) observer.observe(bottomToolbar)
 
     return () => {
       observer.disconnect()
     }
-  }, [inputHeight, syncAutoInputHeight])
+  }, [getMaxInputHeight, getMinInputHeight, inputHeight, syncAutoInputHeight])
 
   const startEditQueuedMessage = React.useCallback((msg: PendingSessionMessageItem) => {
     setEditingQueueItemId(msg.id)
@@ -1106,23 +1172,17 @@ export function InputArea({
   }, [pendingInsert, replaceSelectionWithText, text])
 
   // --- Image helpers ---
-  const addImages = React.useCallback(
-    async (files: File[]) => {
-      const results = await Promise.all(files.map(fileToImageAttachment))
-      const valid = results.filter(Boolean) as ImageAttachment[]
-      if (valid.length > 0) {
-        setAttachedImages((prev) => [...prev, ...valid])
-      }
-    },
-    []
-  )
+  const addImages = React.useCallback(async (files: File[]) => {
+    const results = await Promise.all(files.map(fileToImageAttachment))
+    const valid = results.filter(Boolean) as ImageAttachment[]
+    if (valid.length > 0) {
+      setAttachedImages((prev) => [...prev, ...valid])
+    }
+  }, [])
 
-  const removeImage = React.useCallback(
-    (id: string) => {
-      setAttachedImages((prev) => prev.filter((img) => img.id !== id))
-    },
-    []
-  )
+  const removeImage = React.useCallback((id: string) => {
+    setAttachedImages((prev) => prev.filter((img) => img.id !== id))
+  }, [])
 
   const addFilesToEditor = React.useCallback(
     (filePaths: string[], selection?: { start: number; end: number }) => {
@@ -1180,43 +1240,37 @@ export function InputArea({
     [handleRecommendationSelectionChange]
   )
 
-  const handleRemoveFileReference = React.useCallback(
-    (nodeId: string) => {
-      const currentDocument = documentRef.current
-      const targetNode = currentDocument.find(
-        (node): node is Extract<EditorDocumentNode, { type: 'file' }> =>
-          node.type === 'file' && node.id === nodeId
-      )
-      if (!targetNode) return
+  const handleRemoveFileReference = React.useCallback((nodeId: string) => {
+    const currentDocument = documentRef.current
+    const targetNode = currentDocument.find(
+      (node): node is Extract<EditorDocumentNode, { type: 'file' }> =>
+        node.type === 'file' && node.id === nodeId
+    )
+    if (!targetNode) return
 
-      const nextDocument = removeReferenceNode(currentDocument, nodeId, selectedFilesRef.current)
-      const hasRemainingReferences = documentHasFileReferences(nextDocument, targetNode.fileId)
-      const nextFiles = hasRemainingReferences
-        ? selectedFilesRef.current
-        : selectedFilesRef.current.filter((file) => file.id !== targetNode.fileId)
+    const nextDocument = removeReferenceNode(currentDocument, nodeId, selectedFilesRef.current)
+    const hasRemainingReferences = documentHasFileReferences(nextDocument, targetNode.fileId)
+    const nextFiles = hasRemainingReferences
+      ? selectedFilesRef.current
+      : selectedFilesRef.current.filter((file) => file.id !== targetNode.fileId)
 
-      setDocumentNodes(nextDocument)
-      setSelectedFiles(nextFiles)
-    },
-    []
-  )
+    setDocumentNodes(nextDocument)
+    setSelectedFiles(nextFiles)
+  }, [])
 
-  const handleEditorDocumentChange = React.useCallback(
-    (nextDocument: EditorDocumentNode[]) => {
-      const referencedFileIds = new Set(
-        nextDocument
-          .filter(
-            (node): node is Extract<EditorDocumentNode, { type: 'file' }> => node.type === 'file'
-          )
-          .map((node) => node.fileId)
-      )
-      setDocumentNodes(nextDocument)
-      setSelectedFiles((currentFiles) =>
-        currentFiles.filter((file) => referencedFileIds.has(file.id))
-      )
-    },
-    []
-  )
+  const handleEditorDocumentChange = React.useCallback((nextDocument: EditorDocumentNode[]) => {
+    const referencedFileIds = new Set(
+      nextDocument
+        .filter(
+          (node): node is Extract<EditorDocumentNode, { type: 'file' }> => node.type === 'file'
+        )
+        .map((node) => node.fileId)
+    )
+    setDocumentNodes(nextDocument)
+    setSelectedFiles((currentFiles) =>
+      currentFiles.filter((file) => referencedFileIds.has(file.id))
+    )
+  }, [])
 
   const handleSend = (): void => {
     const serialized = finalSerializedText.trim()
@@ -1407,14 +1461,17 @@ export function InputArea({
       }
       setDragging(true)
     },
-    []
+    [setDragging]
   )
 
-  const handleDragLeave = React.useCallback((e: React.DragEvent<HTMLDivElement>): void => {
-    const nextTarget = e.relatedTarget as Node | null
-    if (nextTarget && e.currentTarget.contains(nextTarget)) return
-    setDragging(false)
-  }, [])
+  const handleDragLeave = React.useCallback(
+    (e: React.DragEvent<HTMLDivElement>): void => {
+      const nextTarget = e.relatedTarget as Node | null
+      if (nextTarget && e.currentTarget.contains(nextTarget)) return
+      setDragging(false)
+    },
+    [setDragging]
+  )
 
   const handleDropWrapped = React.useCallback(
     (e: React.DragEvent<HTMLDivElement>): void => {
@@ -1429,7 +1486,7 @@ export function InputArea({
       }
       handleDropFiles(e.dataTransfer?.files ?? null)
     },
-    [addFilesToEditor, getDraggedFilePaths, handleDropFiles]
+    [addFilesToEditor, getDraggedFilePaths, handleDropFiles, setDragging]
   )
 
   // Optimize prompt handler
@@ -1609,7 +1666,7 @@ export function InputArea({
       <div className={isHomeComposer ? 'mx-auto max-w-4xl' : 'mx-auto max-w-3xl'}>
         <div
           ref={containerRef}
-          className={`relative rounded-lg border bg-background shadow-lg transition-shadow focus-within:shadow-xl focus-within:ring-1 focus-within:ring-ring/20 flex flex-col ${dragging ? 'ring-2 ring-primary/50' : ''}`}
+          className={`relative overflow-hidden rounded-lg border bg-background shadow-lg transition-shadow focus-within:shadow-xl focus-within:ring-1 focus-within:ring-ring/20 flex flex-col ${dragging ? 'ring-2 ring-primary/50' : ''}`}
           style={
             inputHeight !== null
               ? { height: inputHeight }
@@ -1878,7 +1935,7 @@ export function InputArea({
 
           {/* Image preview strip */}
           {attachedImages.length > 0 && (
-            <div className="flex gap-2 px-3 pt-3 pb-1 overflow-x-auto">
+            <div ref={imagePreviewRef} className="flex gap-2 px-3 pt-3 pb-1 overflow-x-auto">
               {attachedImages.map((img) => (
                 <div key={img.id} className="relative group/img shrink-0">
                   <img
@@ -2021,7 +2078,7 @@ export function InputArea({
                 </span>
               </div>
             )}
-            <div className="relative flex-1 min-h-0">
+            <div className="relative flex-1 min-h-0 overflow-hidden">
               {shouldAutoAcceptRecommendation &&
                 autoAcceptCountdown !== null &&
                 suggestionText &&
@@ -2216,6 +2273,7 @@ export function InputArea({
 
           {/* Bottom toolbar */}
           <div
+            ref={bottomToolbarRef}
             className={cn(
               'relative z-20 mt-1 flex items-center justify-between gap-2 px-2 pb-2',
               isHomeComposer && 'border-t border-border/50 px-4 pb-3.5 pt-2.5'
