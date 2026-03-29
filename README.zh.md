@@ -107,6 +107,12 @@ graph TB
 
 我们欢迎任何形式的贡献！请参阅我们的 [开发指南](docs/development.md) 了解更多细节。
 
+## 💝 赞助商
+
+- [lchlfe@hotmail.com](mailto:lchlfe@hotmail.com)
+- [caomaohanfengZT](https://github.com/caomaohanfengZT)
+- [struggle3](https://github.com/struggle3)
+
 ## 📜 许可证
 
 本项目采用 [Apache License 2.0](LICENSE) 开源协议。

@@ -108,6 +108,12 @@ graph TB
 
 We welcome contributions! Please see our [Development Guide](docs/development.md) for more details.
 
+## 💝 Sponsors
+
+- [lchlfe@hotmail.com](mailto:lchlfe@hotmail.com)
+- [caomaohanfengZT](https://github.com/caomaohanfengZT)
+- [struggle3](https://github.com/struggle3)
+
 ## 📜 License
 
 Licensed under the [Apache License 2.0](LICENSE).
