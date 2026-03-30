@@ -3,6 +3,24 @@
 All notable changes to **OpenCowork** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com).
 
+## [0.7.8] - 2026-03-30
+
+### Added
+
+- Added a long-running mode for autonomous sessions so the agent can persist this preference per session, auto-answer `AskUserQuestion`, and continue iterating until the work is verified complete.
+
+### Fixed
+
+- Forwarded refs in the shared `Select` primitives to improve Radix integration reliability across renderer UI surfaces.
+- Improved the app plugin settings panel so unconfigured plugins resolve state safely instead of failing on missing setup data.
+- Preserved nested preview panel height constraints to avoid layout regressions in the renderer preview area.
+- Sent `Chatgpt-Account-Id` for OpenAI Responses account-backed requests and included `account_id` in exported provider account JSON.
+
+### Changed
+
+- Bumped the app version to `v0.7.8`.
+- Updated the docs homepage release badge from `v0.7.7` to `v0.7.8`.
+
 ## [0.7.7] - 2026-03-29
 
 ### Changed
