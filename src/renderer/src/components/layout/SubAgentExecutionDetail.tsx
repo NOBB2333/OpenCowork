@@ -19,8 +19,11 @@ import { Button } from '@renderer/components/ui/button'
 import { TranscriptMessageList } from '@renderer/components/chat/TranscriptMessageList'
 import { useAgentStore, type SubAgentState } from '@renderer/stores/agent-store'
 import { useChatStore } from '@renderer/stores/chat-store'
+import type { ToolResultContent } from '@renderer/lib/api/types'
 import { cn } from '@renderer/lib/utils'
 import { subAgentRegistry } from '@renderer/lib/agent/sub-agents/registry'
+import { parseSubAgentMeta } from '@renderer/lib/agent/sub-agents/create-tool'
+import { decodeStructuredToolResult } from '@renderer/lib/tools/tool-result-format'
 
 function formatElapsed(ms: number): string {
   if (ms < 1000) return `${ms}ms`
@@ -102,6 +105,39 @@ function getFailurePrimaryText(agent: SubAgentState): string {
   return ''
 }
 
+function extractToolResultText(content?: ToolResultContent): string {
+  if (!content) return ''
+  if (typeof content === 'string') return content
+  return content
+    .filter(
+      (block): block is Extract<ToolResultContent[number], { type: 'text' }> =>
+        block.type === 'text'
+    )
+    .map((block) => block.text)
+    .join('\n')
+    .trim()
+}
+
+function getFallbackReportFromToolOutput(content?: ToolResultContent): string {
+  const rawOutput = extractToolResultText(content)
+  if (!rawOutput.trim()) return ''
+
+  const { text } = parseSubAgentMeta(rawOutput)
+  const payloadText = text.trim() || rawOutput.trim()
+  const decoded = decodeStructuredToolResult(payloadText)
+
+  if (decoded && !Array.isArray(decoded)) {
+    if (typeof decoded.result === 'string' && decoded.result.trim()) {
+      return decoded.result.trim()
+    }
+    if (typeof decoded.error === 'string' && decoded.error.trim()) {
+      return decoded.error.trim()
+    }
+  }
+
+  return payloadText
+}
+
 export function SubAgentExecutionDetail({
   toolUseId,
   inlineText,
@@ -118,6 +154,7 @@ export function SubAgentExecutionDetail({
   const activeSubAgents = useAgentStore((s) => s.activeSubAgents)
   const completedSubAgents = useAgentStore((s) => s.completedSubAgents)
   const subAgentHistory = useAgentStore((s) => s.subAgentHistory)
+  const executedToolCalls = useAgentStore((s) => s.executedToolCalls)
 
   const agent = React.useMemo(
     () =>
@@ -129,6 +166,16 @@ export function SubAgentExecutionDetail({
         subAgentHistory
       ),
     [toolUseId, activeSessionId, activeSubAgents, completedSubAgents, subAgentHistory]
+  )
+
+  const fallbackReportText = React.useMemo(
+    () =>
+      toolUseId
+        ? getFallbackReportFromToolOutput(
+            executedToolCalls.find((item) => item.id === toolUseId)?.output
+          )
+        : '',
+    [toolUseId, executedToolCalls]
   )
 
   const [now, setNow] = React.useState(() => Date.now())
@@ -164,7 +211,12 @@ export function SubAgentExecutionDetail({
     ? `${failedTool.name}: ${failedTool.error.trim()}`
     : ''
   const summaryText =
-    agent.report.trim() || agent.streamingText.trim() || inlineText?.trim() || failureText || ''
+    agent.report.trim() ||
+    agent.streamingText.trim() ||
+    fallbackReportText.trim() ||
+    inlineText?.trim() ||
+    failureText ||
+    ''
   const icon = getAgentIcon(displayName)
   const isFailed = agent.success === false || !!agent.errorMessage
 

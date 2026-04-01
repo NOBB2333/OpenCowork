@@ -20,6 +20,7 @@ import {
   resolvePromptEnvironmentContext
 } from '@renderer/lib/agent/system-prompt'
 import { subAgentEvents } from '@renderer/lib/agent/sub-agents/events'
+import { parseSubAgentMeta, TASK_TOOL_NAME } from '@renderer/lib/agent/sub-agents/create-tool'
 import type { SubAgentEvent } from '@renderer/lib/agent/sub-agents/types'
 import { abortAllTeammates } from '@renderer/lib/agent/teams/teammate-runner'
 import { TEAM_TOOL_NAMES } from '@renderer/lib/agent/teams/register'
@@ -63,7 +64,7 @@ import {
   serializeSystemCommand,
   type SystemCommandSnapshot
 } from '@renderer/lib/commands/system-command'
-import type { AgentEvent, AgentLoopConfig } from '@renderer/lib/agent/types'
+import type { AgentEvent, AgentLoopConfig, ToolCallState } from '@renderer/lib/agent/types'
 import { ApiStreamError } from '@renderer/lib/ipc/api-stream'
 import { recordUsageEvent } from '@renderer/lib/usage-analytics'
 import {
@@ -159,6 +160,77 @@ function extractMessagePlainText(message?: UnifiedMessage): string {
     .trim()
 }
 
+function extractToolResultText(content?: ToolResultContent): string {
+  if (!content) return ''
+  if (typeof content === 'string') return content
+  if (!Array.isArray(content)) return ''
+  return content
+    .filter(
+      (block): block is Extract<ToolResultContent[number], { type: 'text' }> =>
+        block.type === 'text'
+    )
+    .map((block) => block.text)
+    .join('\n')
+    .trim()
+}
+
+function reconcileSubAgentCompletionFromTaskToolCall(
+  sessionId: string,
+  toolCall: ToolCallState
+): void {
+  if (toolCall.name !== TASK_TOOL_NAME || toolCall.input.run_in_background === true) return
+
+  const agentStore = useAgentStore.getState()
+  const tracked =
+    agentStore.activeSubAgents[toolCall.id] ?? agentStore.completedSubAgents[toolCall.id]
+  if (!tracked) return
+
+  const rawOutput = extractToolResultText(toolCall.output)
+  if (!rawOutput.trim() && toolCall.status !== 'error' && !toolCall.error) return
+
+  const { meta, text } = parseSubAgentMeta(rawOutput)
+  const payloadText = text.trim() || rawOutput.trim()
+  const decoded = payloadText ? decodeStructuredToolResult(payloadText) : null
+  const structured = decoded && !Array.isArray(decoded) ? decoded : null
+  const error =
+    toolCall.error ??
+    (structured && typeof structured.error === 'string' ? structured.error : undefined)
+  const structuredResult =
+    structured && typeof structured.result === 'string' ? structured.result : ''
+  const report =
+    error && !structuredResult ? '' : structuredResult || (structured ? '' : payloadText)
+  const subAgentName = String(toolCall.input.subagent_type ?? tracked.displayName ?? tracked.name)
+
+  agentStore.handleSubAgentEvent(
+    {
+      type: 'sub_agent_report_update',
+      subAgentName,
+      toolUseId: toolCall.id,
+      report,
+      status: report.trim() ? 'submitted' : 'missing'
+    },
+    sessionId
+  )
+
+  agentStore.handleSubAgentEvent(
+    {
+      type: 'sub_agent_end',
+      subAgentName,
+      toolUseId: toolCall.id,
+      result: {
+        success: !error,
+        output: report,
+        reportSubmitted: !!report.trim(),
+        toolCallCount: meta?.toolCalls.length ?? tracked.toolCalls.length,
+        iterations: meta?.iterations ?? tracked.iteration,
+        usage: meta?.usage ?? { inputTokens: 0, outputTokens: 0 },
+        ...(error ? { error } : {})
+      }
+    },
+    sessionId
+  )
+}
+
 const LONG_RUNNING_COMPLETION_RE =
   /(全部(?:任务|工作|事项).{0,12}(?:完成|已完成)|任务(?:已|已经)?全部完成|all tasks? (?:are )?(?:complete|completed)|work is complete|completed successfully|finished successfully|no further action(?:s)? needed)/i
 
@@ -200,7 +272,8 @@ function shouldAutoContinueLongRunningRun(options: {
   } = options
 
   if (loopEndReason === 'aborted' || loopEndReason === 'error') return false
-  if (hasPendingSessionMessages(sessionId) || isPendingSessionDispatchPaused(sessionId)) return false
+  if (hasPendingSessionMessages(sessionId) || isPendingSessionDispatchPaused(sessionId))
+    return false
   if (useAgentStore.getState().runningSessions[sessionId] === 'running') return false
 
   const session = useChatStore.getState().sessions.find((item) => item.id === sessionId)
@@ -215,7 +288,9 @@ function shouldAutoContinueLongRunningRun(options: {
   )
   const tailToolExecution = getTailToolExecutionState(messages)
   const hasPendingToolExecution = Boolean(
-    tailToolExecution?.toolUseBlocks.some((toolUse) => !tailToolExecution.toolResultMap.has(toolUse.id))
+    tailToolExecution?.toolUseBlocks.some(
+      (toolUse) => !tailToolExecution.toolResultMap.has(toolUse.id)
+    )
   )
   const completeBySelfReport = assistantLooksComplete(assistantMessage)
 
@@ -2219,6 +2294,9 @@ export function useChatActions(): {
                   error: event.toolCall.error,
                   completedAt: event.toolCall.completedAt
                 })
+                if (event.toolCall.status === 'completed' || event.toolCall.status === 'error') {
+                  reconcileSubAgentCompletionFromTaskToolCall(sessionId!, event.toolCall)
+                }
                 if (
                   event.toolCall.status === 'completed' &&
                   (event.toolCall.name === 'Write' || event.toolCall.name === 'Edit')
@@ -2400,15 +2478,9 @@ export function useChatActions(): {
           if (shouldAutoContinueLongRunning) {
             longRunningVerificationPasses.set(sessionId, verificationPassIndex + 1)
             queueMicrotask(() => {
-              void sendMessage(
-                '',
-                undefined,
-                'continue',
-                sessionId,
-                null,
-                assistantMsgId,
-                { longRunningMode: true }
-              )
+              void sendMessage('', undefined, 'continue', sessionId, null, assistantMsgId, {
+                longRunningMode: true
+              })
             })
           } else {
             longRunningVerificationPasses.delete(sessionId)
