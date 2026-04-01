@@ -18,7 +18,8 @@ import {
   Shapes,
   Sparkles,
   Copy,
-  MonitorSmartphone
+  MonitorSmartphone,
+  Layers
 } from 'lucide-react'
 import { nanoid } from 'nanoid'
 import { toast } from 'sonner'
@@ -43,9 +44,12 @@ import {
 import {
   useProviderStore,
   builtinProviderPresets,
+  buildProviderModelSnapshot,
   modelSupportsComputerUse,
   modelSupportsVision,
-  normalizeProviderBaseUrl
+  normalizeModelKey,
+  normalizeProviderBaseUrl,
+  type ManagedModelConfig
 } from '@renderer/stores/provider-store'
 import {
   useQuotaStore,
@@ -121,6 +125,12 @@ const REASONING_EFFORT_OPTIONS: ReasoningEffortLevel[] = [
   'max',
   'xhigh'
 ]
+
+function toModelConfig(model: ManagedModelConfig): AIModelConfig {
+  const { normalizedKey, ...nextModel } = model
+  void normalizedKey
+  return nextModel
+}
 
 // --- Fetch models from provider API ---
 
@@ -292,13 +302,15 @@ function ModelFormDialog({
   onOpenChange,
   providerType,
   initial,
-  onSave
+  onSave,
+  allowIdEditing = false
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
-  providerType: ProviderType
+  providerType?: ProviderType | null
   initial?: AIModelConfig
-  onSave: (model: AIModelConfig) => void
+  onSave: (model: AIModelConfig) => void | boolean
+  allowIdEditing?: boolean
 }): React.JSX.Element {
   const { t } = useTranslation('settings')
   const isEdit = !!initial
@@ -401,8 +413,10 @@ function ModelFormDialog({
     // preserve thinking config if editing
     if (initial?.supportsThinking) model.supportsThinking = initial.supportsThinking
     if (initial?.thinkingConfig) model.thinkingConfig = initial.thinkingConfig
-    onSave(model)
-    onOpenChange(false)
+    const result = onSave(model)
+    if (result !== false) {
+      onOpenChange(false)
+    }
   }
 
   return (
@@ -427,7 +441,7 @@ function ModelFormDialog({
                 placeholder={t('provider.modelIdPlaceholder')}
                 value={id}
                 onChange={(e) => setId(e.target.value)}
-                disabled={isEdit}
+                disabled={isEdit && !allowIdEditing}
                 autoFocus={!isEdit}
                 className="text-xs"
               />
@@ -448,7 +462,9 @@ function ModelFormDialog({
           <div className="space-y-1.5">
             <label className="text-xs font-medium">{t('provider.modelTypeOverride')}</label>
             <p className="text-[11px] text-muted-foreground">
-              {t('provider.modelTypeOverrideHint', { type: providerType })}
+              {providerType
+                ? t('provider.modelTypeOverrideHint', { type: providerType })
+                : t('provider.modelTypeOverrideGlobalHint')}
             </p>
             <Select
               value={typeOverride}
@@ -778,6 +794,7 @@ function ProviderConfigPanel({ provider }: { provider: AIProvider }): React.JSX.
   const updateModel = useProviderStore((s) => s.updateModel)
   const toggleModelEnabled = useProviderStore((s) => s.toggleModelEnabled)
   const setProviderModels = useProviderStore((s) => s.setProviderModels)
+  const getManagedModelById = useProviderStore((s) => s.getManagedModelById)
   const quotaByKey = useQuotaStore((s) => s.quotaByKey)
   const clearQuota = useQuotaStore((s) => s.clearQuota)
 
@@ -1466,22 +1483,15 @@ function ProviderConfigPanel({ provider }: { provider: AIProvider }): React.JSX.
         toast.info(t('provider.noModelsFound'))
         return
       }
-      const existingMap = new Map(provider.models.map((m) => [m.id, m]))
-      // Build a map of built-in preset models for this provider (highest priority)
-      const presetMap = new Map(builtinPreset?.defaultModels.map((m) => [m.id, m]) ?? [])
-      const merged = models.map((m) => {
-        const presetModel = presetMap.get(m.id)
-        const existing = existingMap.get(m.id)
-        if (presetModel) {
-          // Built-in model: preset config takes priority, preserve user's enabled state
-          return { ...m, ...presetModel, enabled: existing?.enabled ?? presetModel.enabled }
-        }
-        if (existing) {
-          // User-customized model: preserve existing config, only fill missing fields from fetched
-          return { ...m, ...existing }
-        }
-        return m
-      })
+      const existingMap = new Map(
+        provider.models.map((model) => [normalizeModelKey(model.id), model] as const)
+      )
+      const merged = models.map((model) =>
+        buildProviderModelSnapshot(model, {
+          managedModel: getManagedModelById(model.id),
+          existingModel: existingMap.get(normalizeModelKey(model.id)) ?? null
+        })
+      )
       setProviderModels(provider.id, merged)
       toast.success(t('provider.fetchedModels', { count: models.length }))
     } catch (err) {
@@ -2644,6 +2654,340 @@ function ProviderConfigPanel({ provider }: { provider: AIProvider }): React.JSX.
   )
 }
 
+export function ModelManagementPanel(): React.JSX.Element {
+  const { t } = useTranslation('settings')
+  const managedModels = useProviderStore((s) => s.managedModels)
+  const addManagedModel = useProviderStore((s) => s.addManagedModel)
+  const updateManagedModel = useProviderStore((s) => s.updateManagedModel)
+  const removeManagedModel = useProviderStore((s) => s.removeManagedModel)
+
+  const [modelSearch, setModelSearch] = useState('')
+  const [addModelOpen, setAddModelOpen] = useState(false)
+  const [editingModel, setEditingModel] = useState<ManagedModelConfig | null>(null)
+  const [editingThinkingModel, setEditingThinkingModel] = useState<ManagedModelConfig | null>(null)
+
+  const enabledModelCount = managedModels.filter((model) => model.enabled).length
+  const filteredModels = useMemo(() => {
+    if (!modelSearch) return managedModels
+    const query = modelSearch.toLowerCase()
+    return managedModels.filter(
+      (model) => model.name.toLowerCase().includes(query) || model.id.toLowerCase().includes(query)
+    )
+  }, [managedModels, modelSearch])
+
+  const handleSaveManagedModel = (model: AIModelConfig, currentKey?: string): boolean => {
+    const nextKey = normalizeModelKey(model.id)
+    const duplicate = managedModels.find(
+      (item) => item.normalizedKey === nextKey && item.normalizedKey !== currentKey
+    )
+    if (duplicate) {
+      toast.error(t('provider.modelManagementDuplicate', { id: duplicate.id }))
+      return false
+    }
+
+    if (currentKey) {
+      updateManagedModel(currentKey, model)
+    } else {
+      addManagedModel(model)
+    }
+    return true
+  }
+
+  return (
+    <div className="flex flex-col h-full overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-4 border-b shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Layers className="size-4" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold">{t('provider.modelManagement')}</h3>
+            <p className="text-[11px] text-muted-foreground">{t('provider.modelManagementDesc')}</p>
+          </div>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 w-7 p-0"
+          onClick={() => setAddModelOpen(true)}
+        >
+          <Plus className="size-3.5" />
+        </Button>
+      </div>
+
+      <div className="flex flex-1 min-h-0 flex-col overflow-y-auto overflow-x-hidden px-5 pt-4 pb-20">
+        <section className="flex flex-col space-y-3">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <label className="text-sm font-medium">{t('provider.modelManagementList')}</label>
+              <p className="text-[11px] text-muted-foreground">
+                {t('provider.modelManagementCount', {
+                  total: managedModels.length,
+                  enabled: enabledModelCount
+                })}
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                {t('provider.modelManagementHint')}
+              </p>
+            </div>
+            <div className="relative basis-full sm:basis-auto">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-muted-foreground" />
+              <Input
+                placeholder={t('provider.searchManagedModels')}
+                value={modelSearch}
+                onChange={(e) => setModelSearch(e.target.value)}
+                className="h-7 w-full sm:w-40 pl-7 text-[11px]"
+              />
+            </div>
+          </div>
+
+          <div className="flex min-h-[240px] max-h-[520px] flex-col rounded-lg border overflow-hidden">
+            {filteredModels.length === 0 ? (
+              <div className="flex flex-1 items-center justify-center p-6 text-center text-xs text-muted-foreground">
+                {managedModels.length === 0
+                  ? t('provider.noManagedModels')
+                  : t('provider.noMatchResults')}
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto divide-y">
+                {filteredModels.map((model) => {
+                  const capabilityIndicators: Array<{
+                    key: string
+                    icon: React.ComponentType<{ className?: string }>
+                    label: string
+                  }> = []
+                  if (model.category === 'image') {
+                    capabilityIndicators.push({
+                      key: 'category-image',
+                      icon: ImageIcon,
+                      label: t('provider.modelCategoryImage')
+                    })
+                  } else if (model.category === 'speech') {
+                    capabilityIndicators.push({
+                      key: 'category-speech',
+                      icon: Mic,
+                      label: t('provider.modelCategorySpeech')
+                    })
+                  } else if (model.category === 'embedding') {
+                    capabilityIndicators.push({
+                      key: 'category-embedding',
+                      icon: Shapes,
+                      label: t('provider.modelCategoryEmbedding')
+                    })
+                  }
+                  if (modelSupportsVision(model, model.type)) {
+                    capabilityIndicators.push({
+                      key: 'vision',
+                      icon: Eye,
+                      label: t('provider.supportsVision')
+                    })
+                  }
+                  if (model.supportsFunctionCall !== false) {
+                    capabilityIndicators.push({
+                      key: 'function',
+                      icon: Code2,
+                      label: t('provider.supportsFunctionCall')
+                    })
+                  }
+                  if (modelSupportsComputerUse(model, model.type)) {
+                    capabilityIndicators.push({
+                      key: 'computer-use',
+                      icon: MonitorSmartphone,
+                      label: model.enableComputerUse
+                        ? t('provider.computerUseEnabled')
+                        : t('provider.supportsComputerUse')
+                    })
+                  }
+                  if (model.supportsThinking) {
+                    capabilityIndicators.push({
+                      key: 'thinking',
+                      icon: Sparkles,
+                      label: t('provider.supportsThinking')
+                    })
+                  }
+
+                  return (
+                    <div
+                      key={model.normalizedKey}
+                      className="flex items-center gap-3 px-3 py-2 hover:bg-muted/30 transition-colors group"
+                    >
+                      <ModelIcon
+                        icon={model.icon}
+                        modelId={model.id}
+                        size={16}
+                        className="shrink-0 opacity-40"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs font-medium truncate">{model.name}</p>
+                          <span className="text-[10px] text-muted-foreground/50 truncate">
+                            {model.id}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground/40">
+                          {model.contextLength && (
+                            <span>{Math.round(model.contextLength / 1024)}K context</span>
+                          )}
+                          {(model.inputPrice != null || model.outputPrice != null) && (
+                            <span>
+                              ${model.inputPrice ?? '?'} → ${model.outputPrice ?? '?'}
+                            </span>
+                          )}
+                          {(model.cacheCreationPrice != null || model.cacheHitPrice != null) && (
+                            <span className="text-emerald-500/60">
+                              cache:{' '}
+                              {model.cacheCreationPrice != null
+                                ? `写 $${model.cacheCreationPrice}`
+                                : ''}
+                              {model.cacheCreationPrice != null && model.cacheHitPrice != null
+                                ? ' / '
+                                : ''}
+                              {model.cacheHitPrice != null ? `读 $${model.cacheHitPrice}` : ''}
+                            </span>
+                          )}
+                          {(model.premiumRequestMultiplier != null ||
+                            model.availablePlans?.length) && (
+                            <span className="text-sky-500/70">
+                              {model.premiumRequestMultiplier != null
+                                ? `${model.premiumRequestMultiplier}x premium`
+                                : t('provider.availablePlans')}
+                              {model.availablePlans?.length
+                                ? ` · ${model.availablePlans.join('/')}`
+                                : ''}
+                            </span>
+                          )}
+                          {capabilityIndicators.length > 0 && (
+                            <span className="flex items-center gap-1 text-muted-foreground/60">
+                              {capabilityIndicators.map(({ key, icon: Icon, label }) => (
+                                <Tooltip key={`${model.normalizedKey}-${key}`}>
+                                  <TooltipTrigger asChild>
+                                    <span className="inline-flex items-center justify-center rounded-full bg-muted/60 px-1.5 py-0.5 text-[9px] text-muted-foreground hover:bg-muted/80">
+                                      <Icon className="size-3" />
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="text-[11px]">
+                                    {label}
+                                  </TooltipContent>
+                                </Tooltip>
+                              ))}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            className="size-5 flex items-center justify-center rounded transition-colors text-muted-foreground/20 hover:text-muted-foreground/70 hover:bg-muted/40 opacity-0 group-hover:opacity-100"
+                            onClick={() => setEditingModel(model)}
+                          >
+                            <Pencil className="size-3" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-[11px]">
+                          {t('provider.editModel')}
+                        </TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            className={`size-5 flex items-center justify-center rounded transition-colors ${
+                              model.supportsThinking
+                                ? 'text-violet-500 hover:bg-violet-500/10'
+                                : 'text-muted-foreground/20 hover:text-muted-foreground/50 hover:bg-muted/40'
+                            } opacity-0 group-hover:opacity-100`}
+                            onClick={() => setEditingThinkingModel(model)}
+                          >
+                            <Brain className="size-3" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-[11px]">
+                          {model.supportsThinking
+                            ? t('provider.editThinkConfig')
+                            : t('provider.configThinkSupport')}
+                        </TooltipContent>
+                      </Tooltip>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all"
+                        onClick={async () => {
+                          const ok = await confirm({
+                            title: t('provider.modelManagementDeleteConfirm', { name: model.name }),
+                            variant: 'destructive'
+                          })
+                          if (!ok) return
+                          removeManagedModel(model.id)
+                        }}
+                      >
+                        <Trash2 className="size-3" />
+                      </Button>
+                      <Switch
+                        checked={model.enabled}
+                        onCheckedChange={() => {
+                          updateManagedModel(model.id, {
+                            ...toModelConfig(model),
+                            enabled: !model.enabled
+                          })
+                        }}
+                      />
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
+
+      <ModelFormDialog
+        open={addModelOpen}
+        onOpenChange={setAddModelOpen}
+        providerType={null}
+        onSave={(model) => handleSaveManagedModel(model)}
+      />
+
+      {editingModel && (
+        <ModelFormDialog
+          open={!!editingModel}
+          onOpenChange={(value) => {
+            if (!value) setEditingModel(null)
+          }}
+          providerType={null}
+          initial={editingModel}
+          allowIdEditing
+          onSave={(model) => {
+            const saved = handleSaveManagedModel(model, editingModel.normalizedKey)
+            if (saved) {
+              setEditingModel(null)
+            }
+            return saved
+          }}
+        />
+      )}
+
+      {editingThinkingModel && (
+        <ThinkingConfigDialog
+          model={editingThinkingModel}
+          open={!!editingThinkingModel}
+          onOpenChange={(value) => {
+            if (!value) setEditingThinkingModel(null)
+          }}
+          onSave={(supportsThinking, thinkingConfig) => {
+            updateManagedModel(editingThinkingModel.id, {
+              ...toModelConfig(editingThinkingModel),
+              supportsThinking,
+              thinkingConfig: supportsThinking ? thinkingConfig : undefined
+            })
+            setEditingThinkingModel(null)
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
 // --- Thinking Config Dialog ---
 
 function ThinkingConfigDialog({
@@ -2897,7 +3241,14 @@ export function ProviderPanel(): React.JSX.Element {
   const [searchQuery, setSearchQuery] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
 
-  const selectedProvider = providers.find((p) => p.id === selectedId) ?? null
+  const resolvedSelectedId =
+    selectedId && providers.some((provider) => provider.id === selectedId)
+      ? selectedId
+      : (providers.find((provider) => provider.enabled)?.id ?? providers[0]?.id ?? null)
+
+  const selectedProvider = resolvedSelectedId
+    ? (providers.find((p) => p.id === resolvedSelectedId) ?? null)
+    : null
 
   const enabledProviders = useMemo(
     () =>
@@ -2961,7 +3312,7 @@ export function ProviderPanel(): React.JSX.Element {
                       key={p.id}
                       onClick={() => setSelectedId(p.id)}
                       className={`flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 mt-0.5 text-left transition-colors ${
-                        selectedId === p.id
+                        resolvedSelectedId === p.id
                           ? 'bg-accent text-accent-foreground'
                           : 'text-foreground/80 hover:bg-muted/60'
                       }`}
@@ -2984,7 +3335,7 @@ export function ProviderPanel(): React.JSX.Element {
                       key={p.id}
                       onClick={() => setSelectedId(p.id)}
                       className={`flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 mt-0.5 text-left transition-colors ${
-                        selectedId === p.id
+                        resolvedSelectedId === p.id
                           ? 'bg-accent text-accent-foreground'
                           : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
                       }`}

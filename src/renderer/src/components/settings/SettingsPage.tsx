@@ -51,7 +51,7 @@ import {
   isProviderAvailableForModelSelection,
   useProviderStore
 } from '@renderer/stores/provider-store'
-import { ProviderPanel } from './ProviderPanel'
+import { ModelManagementPanel, ProviderPanel } from './ProviderPanel'
 import { ChannelPanel } from './PluginPanel'
 import { AppPluginPanel } from './AppPluginPanel'
 import { McpPanel } from './McpPanel'
@@ -296,6 +296,12 @@ const menuGroupDefs: Array<{
         icon: <Server className="size-4" />,
         labelKey: 'provider.title',
         descKey: 'provider.subtitle'
+      },
+      {
+        id: 'modelManagement',
+        icon: <Layers className="size-4" />,
+        labelKey: 'provider.modelManagement',
+        descKey: 'provider.modelManagementDesc'
       },
       {
         id: 'model',
@@ -2623,6 +2629,7 @@ const panelMap: Record<SettingsTab, () => React.JSX.Element> = {
   memory: MemoryPanel,
   analytics: AnalyticsPanel,
   provider: ProviderPanel,
+  modelManagement: ModelManagementPanel,
   plugin: AppPluginPanel,
   channel: ChannelPanel,
   mcp: McpPanel,
@@ -2709,6 +2716,7 @@ export function SettingsPage(): React.JSX.Element {
         {/* Content */}
         <AnimatePresence mode="wait">
           {effectiveSettingsTab === 'provider' ||
+          effectiveSettingsTab === 'modelManagement' ||
           effectiveSettingsTab === 'plugin' ||
           effectiveSettingsTab === 'mcp' ? (
             <div className="flex-1 min-h-0 min-w-0 overflow-hidden pb-4" key="full-panel">

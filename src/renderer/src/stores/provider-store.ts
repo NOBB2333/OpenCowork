@@ -20,9 +20,255 @@ export type { BuiltinProviderPreset }
 
 const DEFAULT_FAST_PROVIDER_BUILTIN_ID = 'routin-ai'
 const DEFAULT_FAST_MODEL_ID = 'doubao-seed-2-0-mini-260215'
-// --- Helper: create AIProvider from preset ---
+
+export interface ManagedModelConfig extends AIModelConfig {
+  normalizedKey: string
+}
+
+export function normalizeModelKey(modelId: string): string {
+  return modelId.trim().toLowerCase()
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function isMissingModelValue(value: unknown): boolean {
+  if (value === undefined || value === null) return true
+  if (typeof value === 'string') return value.trim().length === 0
+  if (Array.isArray(value)) return value.length === 0
+  if (isPlainObject(value)) return Object.keys(value).length === 0
+  return false
+}
+
+function cloneValue<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.map((item) => cloneValue(item)) as T
+  }
+  if (isPlainObject(value)) {
+    const cloned: Record<string, unknown> = {}
+    for (const [key, item] of Object.entries(value)) {
+      cloned[key] = cloneValue(item)
+    }
+    return cloned as T
+  }
+  return value
+}
+
+function cloneModelConfig(model: AIModelConfig): AIModelConfig {
+  return cloneValue(model)
+}
+
+function cloneManagedModelConfig(model: ManagedModelConfig): ManagedModelConfig {
+  return cloneValue(model)
+}
+
+function toManagedModelConfig(model: AIModelConfig): ManagedModelConfig {
+  const cloned = cloneModelConfig(model)
+  const id = cloned.id.trim()
+  return {
+    ...cloned,
+    id,
+    name: cloned.name.trim() || id,
+    normalizedKey: normalizeModelKey(id)
+  }
+}
+
+function toManagedModelBase(model: ManagedModelConfig): AIModelConfig {
+  const { normalizedKey: _normalizedKey, ...rest } = cloneManagedModelConfig(model)
+  return rest
+}
+
+function resolveModelIdByKey(models: AIModelConfig[], modelId: string): string | undefined {
+  const modelKey = normalizeModelKey(modelId)
+  return models.find((model) => normalizeModelKey(model.id) === modelKey)?.id
+}
+
+function getManagedModelFromCollection(
+  managedModels: ManagedModelConfig[],
+  modelId: string
+): ManagedModelConfig | undefined {
+  const modelKey = normalizeModelKey(modelId)
+  return managedModels.find((model) => model.normalizedKey === modelKey)
+}
+
+function scoreManagedModelRichness(model: AIModelConfig | ManagedModelConfig): number {
+  const candidate = model as AIModelConfig
+  const keys: Array<keyof AIModelConfig> = [
+    'type',
+    'category',
+    'icon',
+    'contextLength',
+    'enableExtendedContextCompression',
+    'contextCompressionThreshold',
+    'maxOutputTokens',
+    'inputPrice',
+    'outputPrice',
+    'cacheCreationPrice',
+    'cacheHitPrice',
+    'premiumRequestMultiplier',
+    'availablePlans',
+    'supportsVision',
+    'supportsFunctionCall',
+    'supportsThinking',
+    'supportsComputerUse',
+    'enableComputerUse',
+    'thinkingConfig',
+    'responseSummary',
+    'enablePromptCache',
+    'enableSystemPromptCache',
+    'requestOverrides',
+    'serviceTier'
+  ]
+
+  let score = 0
+  for (const key of keys) {
+    if (!isMissingModelValue(candidate[key])) {
+      score += 1
+    }
+  }
+
+  if (candidate.thinkingConfig?.bodyParams) {
+    score += Object.keys(candidate.thinkingConfig.bodyParams).length
+  }
+  if (candidate.thinkingConfig?.disabledBodyParams) {
+    score += Object.keys(candidate.thinkingConfig.disabledBodyParams).length
+  }
+  if (candidate.thinkingConfig?.reasoningEffortLevels?.length) {
+    score += candidate.thinkingConfig.reasoningEffortLevels.length
+  }
+  if (candidate.requestOverrides?.headers) {
+    score += Object.keys(candidate.requestOverrides.headers).length
+  }
+  if (candidate.requestOverrides?.body) {
+    score += Object.keys(candidate.requestOverrides.body).length
+  }
+  if (candidate.requestOverrides?.omitBodyKeys?.length) {
+    score += candidate.requestOverrides.omitBodyKeys.length
+  }
+
+  return score
+}
+
+function mergeMissingValue(target: unknown, source: unknown): { value: unknown; changed: boolean } {
+  if (source === undefined) {
+    return { value: cloneValue(target), changed: false }
+  }
+
+  if (isMissingModelValue(target)) {
+    if (isMissingModelValue(source)) {
+      return { value: cloneValue(target), changed: false }
+    }
+    return { value: cloneValue(source), changed: true }
+  }
+
+  if (Array.isArray(target) || Array.isArray(source)) {
+    return { value: cloneValue(target), changed: false }
+  }
+
+  if (isPlainObject(target) && isPlainObject(source)) {
+    const merged = cloneValue(target)
+    let changed = false
+
+    for (const [key, sourceValue] of Object.entries(source)) {
+      const result = mergeMissingValue(merged[key], sourceValue)
+      if (result.changed) {
+        merged[key] = result.value
+        changed = true
+      }
+    }
+
+    return { value: merged, changed }
+  }
+
+  return { value: cloneValue(target), changed: false }
+}
+
+function mergeManagedModelMissingFields(
+  target: ManagedModelConfig,
+  source: ManagedModelConfig
+): { model: ManagedModelConfig; changed: boolean } {
+  const merged = cloneManagedModelConfig(target)
+  const mergedRecord = merged as unknown as Record<string, unknown>
+  let changed = false
+
+  for (const [key, value] of Object.entries(source)) {
+    if (key === 'normalizedKey') continue
+    const result = mergeMissingValue(mergedRecord[key], value)
+    if (result.changed) {
+      mergedRecord[key] = result.value
+      changed = true
+    }
+  }
+
+  return { model: merged, changed }
+}
+
+function collectBuiltinManagedModels(): ManagedModelConfig[] {
+  const managedByKey = new Map<string, ManagedModelConfig>()
+
+  for (const preset of builtinProviderPresets) {
+    for (const model of preset.defaultModels) {
+      const candidate = toManagedModelConfig(model)
+      const existing = managedByKey.get(candidate.normalizedKey)
+      if (!existing || scoreManagedModelRichness(candidate) > scoreManagedModelRichness(existing)) {
+        managedByKey.set(candidate.normalizedKey, candidate)
+      }
+    }
+  }
+
+  return Array.from(managedByKey.values())
+}
+
+function sortManagedModels(models: ManagedModelConfig[]): ManagedModelConfig[] {
+  return [...models].sort((a, b) => {
+    const nameCompare = a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+    if (nameCompare !== 0) return nameCompare
+    return a.id.localeCompare(b.id, undefined, { sensitivity: 'base' })
+  })
+}
+
+export function buildProviderModelSnapshot(
+  model: AIModelConfig,
+  options: {
+    managedModel?: ManagedModelConfig | null
+    existingModel?: AIModelConfig | null
+  } = {}
+): AIModelConfig {
+  const baseModel = cloneModelConfig(model)
+  const managedModel = options.managedModel ? toManagedModelBase(options.managedModel) : null
+  const existingModel = options.existingModel ? cloneModelConfig(options.existingModel) : null
+
+  if (existingModel) {
+    return {
+      ...baseModel,
+      ...(managedModel ?? {}),
+      ...existingModel,
+      enabled: existingModel.enabled
+    }
+  }
+
+  if (managedModel) {
+    return {
+      ...baseModel,
+      ...managedModel
+    }
+  }
+
+  return baseModel
+}
 
 function createProviderFromPreset(preset: BuiltinProviderPreset): AIProvider {
+  const managedModels = useProviderStore.getState().managedModels
+  const models = preset.defaultModels.map((model) =>
+    buildProviderModelSnapshot(model, {
+      managedModel: getManagedModelFromCollection(managedModels, model.id) ?? null
+    })
+  )
+  const defaultModel = preset.defaultModel
+    ? resolveModelIdByKey(models, preset.defaultModel) ?? preset.defaultModel
+    : undefined
+
   return {
     id: nanoid(),
     name: preset.name.trim(),
@@ -30,13 +276,13 @@ function createProviderFromPreset(preset: BuiltinProviderPreset): AIProvider {
     apiKey: '',
     baseUrl: preset.defaultBaseUrl.trim(),
     enabled: preset.defaultEnabled ?? false,
-    models: [...preset.defaultModels],
+    models,
     builtinId: preset.builtinId,
     createdAt: Date.now(),
     requiresApiKey: preset.requiresApiKey ?? true,
     ...(preset.useSystemProxy !== undefined ? { useSystemProxy: preset.useSystemProxy } : {}),
     ...(preset.userAgent ? { userAgent: preset.userAgent } : {}),
-    ...(preset.defaultModel ? { defaultModel: preset.defaultModel } : {}),
+    ...(defaultModel ? { defaultModel } : {}),
     authMode: preset.authMode ?? 'apiKey',
     ...(preset.oauthConfig ? { oauthConfig: { ...preset.oauthConfig } } : {}),
     ...(preset.channelConfig ? { channelConfig: { ...preset.channelConfig } } : {}),
@@ -202,39 +448,26 @@ function resolveServiceTier(
 function mergeBuiltinModels(
   existingModels: AIModelConfig[],
   presetModels: AIModelConfig[],
+  managedModels: ManagedModelConfig[],
   deprecatedModelIds: string[] = []
 ): AIModelConfig[] {
-  const existingById = new Map(existingModels.map((model) => [model.id, model]))
-  const presetIds = new Set(presetModels.map((model) => model.id))
-  const deprecatedIds = new Set([...deprecatedModelIds])
+  const existingByKey = new Map(
+    existingModels.map((model) => [normalizeModelKey(model.id), model] as const)
+  )
+  const presetKeys = new Set(presetModels.map((model) => normalizeModelKey(model.id)))
+  const deprecatedKeys = new Set(deprecatedModelIds.map((modelId) => normalizeModelKey(modelId)))
 
-  // Keep preset order for builtin models; preserve user's enabled state and capability overrides.
-  const capabilityKeys: (keyof AIModelConfig)[] = [
-    'supportsVision',
-    'supportsFunctionCall',
-    'supportsComputerUse',
-    'enableComputerUse'
-  ]
   const merged = presetModels.map((presetModel) => {
-    const existingModel = existingById.get(presetModel.id)
-    if (!existingModel) return { ...presetModel }
-    const capabilityOverrides: Partial<AIModelConfig> = {}
-    for (const key of capabilityKeys) {
-      if (existingModel[key] !== undefined) {
-        ;(capabilityOverrides as Record<string, unknown>)[key] = existingModel[key]
-      }
-    }
-    return {
-      ...existingModel,
-      ...presetModel,
-      ...capabilityOverrides,
-      enabled: existingModel.enabled
-    }
+    const modelKey = normalizeModelKey(presetModel.id)
+    return buildProviderModelSnapshot(presetModel, {
+      managedModel: getManagedModelFromCollection(managedModels, presetModel.id) ?? null,
+      existingModel: existingByKey.get(modelKey) ?? null
+    })
   })
 
-  // Keep user-added custom models that are not part of builtin preset.
   for (const existingModel of existingModels) {
-    if (!presetIds.has(existingModel.id) && !deprecatedIds.has(existingModel.id)) {
+    const modelKey = normalizeModelKey(existingModel.id)
+    if (!presetKeys.has(modelKey) && !deprecatedKeys.has(modelKey)) {
       merged.push(existingModel)
     }
   }
@@ -243,8 +476,11 @@ function mergeBuiltinModels(
 }
 
 function resolveProviderDefaultModelId(provider: AIProvider): string {
-  const defaultModel = provider.defaultModel
-    ? provider.models.find((model) => model.id === provider.defaultModel)
+  const defaultModelId = provider.defaultModel
+    ? resolveModelIdByKey(provider.models, provider.defaultModel)
+    : undefined
+  const defaultModel = defaultModelId
+    ? provider.models.find((model) => model.id === defaultModelId)
     : null
   if (defaultModel?.enabled) return defaultModel.id
 
@@ -258,8 +494,11 @@ function resolveProviderDefaultModelIdByCategory(
   provider: AIProvider,
   category: ModelCategory
 ): string {
-  const defaultModel = provider.defaultModel
-    ? provider.models.find((model) => model.id === provider.defaultModel)
+  const defaultModelId = provider.defaultModel
+    ? resolveModelIdByKey(provider.models, provider.defaultModel)
+    : undefined
+  const defaultModel = defaultModelId
+    ? provider.models.find((model) => model.id === defaultModelId)
     : null
   if (defaultModel?.enabled && (defaultModel.category ?? 'chat') === category) {
     return defaultModel.id
@@ -328,7 +567,10 @@ function resolveValidModelIdByCategory(
   modelId: string,
   category: ModelCategory
 ): string {
-  const current = provider.models.find((model) => model.id === modelId)
+  const currentModelId = resolveModelIdByKey(provider.models, modelId)
+  const current = currentModelId
+    ? provider.models.find((model) => model.id === currentModelId)
+    : null
   if (current && current.enabled && (current.category ?? 'chat') === category) {
     return current.id
   }
@@ -339,6 +581,8 @@ function resolveValidModelIdByCategory(
 
 interface ProviderStore {
   providers: AIProvider[]
+  managedModels: ManagedModelConfig[]
+  managedModelTombstones: string[]
   activeProviderId: string | null
   activeModelId: string
   activeFastProviderId: string | null
@@ -358,6 +602,10 @@ interface ProviderStore {
   toggleProviderEnabled: (id: string) => void
 
   // Model management
+  addManagedModel: (model: AIModelConfig) => void
+  updateManagedModel: (modelId: string, model: AIModelConfig) => void
+  removeManagedModel: (modelId: string) => void
+  getManagedModelById: (modelId: string) => ManagedModelConfig | null
   addModel: (providerId: string, model: AIModelConfig) => void
   updateModel: (providerId: string, modelId: string, patch: Partial<AIModelConfig>) => void
   removeModel: (providerId: string, modelId: string) => void
@@ -467,10 +715,11 @@ function buildNormalizedProviderState(
     'chat'
   )
 
-  const explicitFastSelection = state.activeFastProviderId
+  const hasExplicitFastSelection = Boolean(state.activeFastProviderId || state.activeFastModelId)
+  const explicitFastSelection = hasExplicitFastSelection
     ? resolveProviderSelectionByCategory(
         providers,
-        state.activeFastProviderId,
+        state.activeFastProviderId ?? mainSelection.providerId,
         state.activeFastModelId,
         'chat'
       )
@@ -482,7 +731,7 @@ function buildNormalizedProviderState(
         resolveProviderSelectionByCategory(
           providers,
           mainSelection.providerId,
-          state.activeFastModelId || mainSelection.modelId,
+          mainSelection.modelId,
           'chat'
         ))
 
@@ -527,6 +776,8 @@ export const useProviderStore = create<ProviderStore>()(
   persist(
     (set, get) => ({
       providers: [],
+      managedModels: [],
+      managedModelTombstones: [],
       activeProviderId: null,
       activeModelId: '',
       activeFastProviderId: null,
@@ -618,6 +869,63 @@ export const useProviderStore = create<ProviderStore>()(
             ...buildNormalizedProviderState(state, providers)
           }
         }),
+
+      addManagedModel: (model) =>
+        set((state) => {
+          const nextModel = toManagedModelConfig(model)
+          const managedModels = sortManagedModels([
+            ...state.managedModels.filter((item) => item.normalizedKey !== nextModel.normalizedKey),
+            nextModel
+          ])
+          return {
+            managedModels,
+            managedModelTombstones: state.managedModelTombstones.filter(
+              (item) => item !== nextModel.normalizedKey
+            )
+          }
+        }),
+
+      updateManagedModel: (modelId, model) =>
+        set((state) => {
+          const previousKey = normalizeModelKey(modelId)
+          const nextModel = toManagedModelConfig(model)
+          const managedModels = sortManagedModels([
+            ...state.managedModels.filter(
+              (item) =>
+                item.normalizedKey !== previousKey && item.normalizedKey !== nextModel.normalizedKey
+            ),
+            nextModel
+          ])
+          const tombstones = new Set(state.managedModelTombstones)
+          tombstones.delete(nextModel.normalizedKey)
+          if (previousKey !== nextModel.normalizedKey) {
+            tombstones.add(previousKey)
+          }
+          return {
+            managedModels,
+            managedModelTombstones: Array.from(tombstones)
+          }
+        }),
+
+      removeManagedModel: (modelId) =>
+        set((state) => {
+          const modelKey = normalizeModelKey(modelId)
+          const managedModels = state.managedModels.filter((model) => model.normalizedKey !== modelKey)
+          if (managedModels.length === state.managedModels.length) {
+            return state
+          }
+          const tombstones = new Set(state.managedModelTombstones)
+          tombstones.add(modelKey)
+          return {
+            managedModels,
+            managedModelTombstones: Array.from(tombstones)
+          }
+        }),
+
+      getManagedModelById: (modelId) => {
+        const modelKey = normalizeModelKey(modelId)
+        return get().managedModels.find((model) => model.normalizedKey === modelKey) ?? null
+      },
 
       addModel: (providerId, model) =>
         set((state) => {
@@ -992,10 +1300,11 @@ export const useProviderStore = create<ProviderStore>()(
           activeFastProviderId,
           activeFastModelId
         } = get()
-        const explicitFastSelection = activeFastProviderId
+        const hasExplicitFastSelection = Boolean(activeFastProviderId || activeFastModelId)
+        const explicitFastSelection = hasExplicitFastSelection
           ? resolveProviderSelectionByCategory(
               providers,
-              activeFastProviderId,
+              activeFastProviderId ?? activeProviderId,
               activeFastModelId,
               'chat'
             )
@@ -1007,7 +1316,7 @@ export const useProviderStore = create<ProviderStore>()(
               resolveProviderSelectionByCategory(
                 providers,
                 activeProviderId,
-                activeFastModelId || activeModelId,
+                activeModelId,
                 'chat'
               ))
         if (!resolvedFastSelection.providerId || !resolvedFastSelection.modelId) return null
@@ -1096,6 +1405,8 @@ export const useProviderStore = create<ProviderStore>()(
       storage: createJSONStorage(() => configStorage),
       partialize: (state) => ({
         providers: state.providers,
+        managedModels: state.managedModels,
+        managedModelTombstones: state.managedModelTombstones,
         activeProviderId: state.activeProviderId,
         activeModelId: state.activeModelId,
         activeFastProviderId: state.activeFastProviderId,
@@ -1112,11 +1423,49 @@ export const useProviderStore = create<ProviderStore>()(
   )
 )
 
+function syncManagedModelsWithBuiltins(): void {
+  const state = useProviderStore.getState()
+  const builtinModels = collectBuiltinManagedModels()
+  if (builtinModels.length === 0) return
+
+  const tombstones = new Set(state.managedModelTombstones)
+  const managedModels = state.managedModels.map((model) => cloneManagedModelConfig(model))
+  const managedIndexes = new Map(
+    managedModels.map((model, index) => [model.normalizedKey, index] as const)
+  )
+  let changed = false
+
+  for (const builtinModel of builtinModels) {
+    if (tombstones.has(builtinModel.normalizedKey)) {
+      continue
+    }
+
+    const existingIndex = managedIndexes.get(builtinModel.normalizedKey)
+    if (existingIndex === undefined) {
+      managedIndexes.set(builtinModel.normalizedKey, managedModels.length)
+      managedModels.push(cloneManagedModelConfig(builtinModel))
+      changed = true
+      continue
+    }
+
+    const result = mergeManagedModelMissingFields(managedModels[existingIndex], builtinModel)
+    if (result.changed) {
+      managedModels[existingIndex] = result.model
+      changed = true
+    }
+  }
+
+  if (changed) {
+    useProviderStore.setState({ managedModels: sortManagedModels(managedModels) })
+  }
+}
+
 /**
  * Ensure built-in presets exist and pick a default active provider.
  * Safe to call multiple times — idempotent.
  */
 function ensureBuiltinPresets(): void {
+  syncManagedModelsWithBuiltins()
   for (const preset of builtinProviderPresets) {
     const existing = useProviderStore
       .getState()
@@ -1136,9 +1485,6 @@ function ensureBuiltinPresets(): void {
       }
       if (existing.userAgent !== preset.userAgent) {
         patch.userAgent = preset.userAgent
-      }
-      if (existing.defaultModel !== preset.defaultModel) {
-        patch.defaultModel = preset.defaultModel
       }
       if (preset.instructionsPrompt && existing.instructionsPrompt !== preset.instructionsPrompt) {
         patch.instructionsPrompt = preset.instructionsPrompt
@@ -1385,15 +1731,22 @@ function ensureBuiltinPresets(): void {
           }
         }
       }
+      const updatedModels = mergeBuiltinModels(
+        existing.models,
+        preset.defaultModels,
+        useProviderStore.getState().managedModels,
+        preset.deprecatedModelIds
+      )
+      const resolvedDefaultModel = preset.defaultModel
+        ? resolveModelIdByKey(updatedModels, preset.defaultModel) ?? preset.defaultModel
+        : undefined
+      if (existing.defaultModel !== resolvedDefaultModel) {
+        patch.defaultModel = resolvedDefaultModel
+      }
       if (Object.keys(patch).length > 0) {
         useProviderStore.getState().updateProvider(existing.id, patch)
       }
 
-      const updatedModels = mergeBuiltinModels(
-        existing.models,
-        preset.defaultModels,
-        preset.deprecatedModelIds
-      )
       if (JSON.stringify(updatedModels) !== JSON.stringify(existing.models)) {
         useProviderStore.getState().setProviderModels(existing.id, updatedModels)
       }
@@ -1411,10 +1764,7 @@ function ensureBuiltinPresets(): void {
   const state = useProviderStore.getState()
   const defaultFastSelection = resolveDefaultFastSelection(state.providers)
   const shouldAdoptDefaultFastSelection =
-    Boolean(defaultFastSelection) &&
-    (!state.activeFastProviderId ||
-      (state.activeFastProviderId === state.activeProviderId &&
-        state.activeFastModelId === state.activeModelId))
+    Boolean(defaultFastSelection) && !state.activeFastProviderId && !state.activeFastModelId
   const activeProvider = state.activeProviderId
     ? state.providers.find((provider) => provider.id === state.activeProviderId)
     : null
@@ -1468,6 +1818,9 @@ function ensureBuiltinPresets(): void {
           state.setActiveFastModel(preferredFastModelId)
         }
       } else {
+        if (!state.activeFastProviderId && state.activeFastModelId) {
+          useProviderStore.setState({ activeFastProviderId: fastProvider.id })
+        }
         const nextFastModelId = resolveValidModelIdByCategory(
           fastProvider,
           state.activeFastModelId,

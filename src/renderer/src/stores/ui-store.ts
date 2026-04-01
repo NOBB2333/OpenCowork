@@ -66,6 +66,7 @@ export type SettingsTab =
   | 'memory'
   | 'analytics'
   | 'provider'
+  | 'modelManagement'
   | 'model'
   | 'plugin'
   | 'channel'
