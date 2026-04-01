@@ -348,6 +348,7 @@
   "todo": {
     "tasksDone": "{{completed}} / {{total}} 个任务完成",
     "moreTasks": "还有 {{count}} 个任务...",
+    "showEarlierTasks": "展开前面的 {{count}} 个任务",
     "showLess": "收起"
   },
   "thinking": {

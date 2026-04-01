@@ -348,6 +348,7 @@
   "todo": {
     "tasksDone": "{{completed}} / {{total}} tasks done",
     "moreTasks": "{{count}} more tasks...",
+    "showEarlierTasks": "Show {{count}} earlier tasks",
     "showLess": "Show less"
   },
   "thinking": {

@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@renderer/lib/utils'
 import type { ToolResultContent } from '@renderer/lib/api/types'
@@ -35,6 +36,8 @@ interface TaskCardProps {
   input: Record<string, unknown>
   output?: ToolResultContent
 }
+
+const COLLAPSED_VISIBLE_RECENT_TASK_COUNT = 3
 
 function outputAsString(output: ToolResultContent | undefined): string | undefined {
   if (output === undefined) return undefined
@@ -88,6 +91,7 @@ function parseTaskSnapshot(output: ToolResultContent | undefined): {
 export function TaskCard({ name, input, output }: TaskCardProps): React.JSX.Element {
   const { t } = useTranslation('chat')
   const liveTasks = useTaskStore((s) => s.tasks)
+  const [expanded, setExpanded] = React.useState(false)
   const snapshot = React.useMemo(() => parseTaskSnapshot(output), [output])
   const tasks: TaskItem[] = snapshot?.tasks ?? liveTasks
   const focusedTaskId =
@@ -96,6 +100,31 @@ export function TaskCard({ name, input, output }: TaskCardProps): React.JSX.Elem
   const total = tasks.length || (name === 'TaskCreate' && input.subject ? 1 : 0)
   const completed = tasks.filter((t) => t.status === 'completed').length
 
+  const { hiddenCount, visibleTasks } = React.useMemo(() => {
+    if (tasks.length <= COLLAPSED_VISIBLE_RECENT_TASK_COUNT) {
+      return { hiddenCount: 0, visibleTasks: tasks }
+    }
+
+    const recentTaskIds = new Set(
+      tasks.slice(-COLLAPSED_VISIBLE_RECENT_TASK_COUNT).map((task) => task.id)
+    )
+    const nextVisibleTasks = tasks.filter(
+      (task) => task.status !== 'completed' || recentTaskIds.has(task.id)
+    )
+
+    return {
+      hiddenCount: Math.max(0, tasks.length - nextVisibleTasks.length),
+      visibleTasks: nextVisibleTasks
+    }
+  }, [tasks])
+
+  React.useEffect(() => {
+    if (hiddenCount === 0) {
+      setExpanded(false)
+    }
+  }, [hiddenCount])
+
+  const displayTasks = hiddenCount > 0 && !expanded ? visibleTasks : tasks
   const pendingSubject = name === 'TaskCreate' && input.subject ? String(input.subject) : null
 
   if (total === 0 && !pendingSubject) {
@@ -109,7 +138,19 @@ export function TaskCard({ name, input, output }: TaskCardProps): React.JSX.Elem
       </div>
 
       <div className="mt-1.5 space-y-0.5 pl-1">
-        {tasks.map((task) => (
+        {hiddenCount > 0 && (
+          <button
+            type="button"
+            className="flex w-full items-center gap-1 rounded-md px-1.5 py-1 text-left text-[11px] text-muted-foreground/80 transition-colors hover:bg-muted/40 hover:text-foreground/80"
+            onClick={() => setExpanded((prev) => !prev)}
+          >
+            {expanded ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
+            <span>
+              {expanded ? t('todo.showLess') : t('todo.showEarlierTasks', { count: hiddenCount })}
+            </span>
+          </button>
+        )}
+        {displayTasks.map((task) => (
           <div
             key={task.id}
             className={cn(
