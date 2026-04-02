@@ -15,8 +15,10 @@ import {
   createSshConnection,
   updateSshConnection,
   deleteSshConnection,
+  getOpenSshHostConfig,
   type SshConfigGroup,
-  type SshConfigConnection
+  type SshConfigConnection,
+  type OpenSshHostConfig
 } from '../ssh/ssh-config'
 import {
   applySshImport,
@@ -49,6 +51,19 @@ interface SshSession {
   outputSeq: number
   outputBuffer: { seq: number; data: Buffer }[]
   outputBufferSize: number
+  jumpClient?: Client
+}
+
+interface ResolvedJumpTarget {
+  source: 'alias' | 'connectionId' | 'string'
+  label: string
+  connection: SshConfigConnection
+}
+
+interface LayeredSshError {
+  stage: 'jump_connect' | 'jump_auth' | 'target_connect' | 'target_auth' | 'config'
+  message: string
+  cause?: unknown
 }
 
 const sshSessions = new Map<string, SshSession>()
@@ -72,6 +87,7 @@ interface FileSession {
   homeDir?: string
   lastUsedAt: number
   connectPromise?: Promise<FileSession>
+  jumpClient?: Client
 }
 
 type SshLikeSession = {
@@ -489,6 +505,184 @@ function buildConnectConfig(connection: SshConfigConnection): ConnectConfig {
   return config
 }
 
+function toLayeredError(stage: LayeredSshError['stage'], message: string, cause?: unknown): LayeredSshError {
+  return { stage, message, cause }
+}
+
+function isAuthFailureMessage(message: string): boolean {
+  return message.includes('All configured authentication methods failed')
+}
+
+function formatLayeredError(err: unknown, fallbackAuthType?: SshConfigConnection['authType']): string {
+  if (err && typeof err === 'object' && 'stage' in err && 'message' in err) {
+    const layered = err as LayeredSshError
+    const raw = layered.message || ''
+    if (layered.stage === 'jump_auth') {
+      return `跳板机认证失败：${raw}`
+    }
+    if (layered.stage === 'jump_connect') {
+      return `跳板机连接失败：${raw}`
+    }
+    if (layered.stage === 'target_auth') {
+      if (fallbackAuthType === 'password') return '目标主机密码认证失败，请检查密码。'
+      if (fallbackAuthType === 'privateKey') return '目标主机私钥认证失败，请检查密钥或口令。'
+      if (fallbackAuthType === 'agent') return '目标主机 SSH Agent 认证失败，请检查 Agent 状态。'
+      return `目标主机认证失败：${raw}`
+    }
+    if (layered.stage === 'target_connect') {
+      return `目标主机连接失败：${raw}`
+    }
+    return raw
+  }
+
+  const message = err instanceof Error ? err.message : String(err)
+  if (message.includes('ECONNREFUSED')) return '连接被拒绝，请检查主机和端口。'
+  if (message.includes('ETIMEDOUT') || message.includes('timeout')) return '连接超时，请检查网络可达性。'
+  if (message.includes('ENOTFOUND') || message.includes('getaddrinfo')) return '主机不可解析，请检查主机名或 IP。'
+  if (isAuthFailureMessage(message)) {
+    if (fallbackAuthType === 'password') return '密码认证失败，请检查密码。'
+    if (fallbackAuthType === 'privateKey') return '私钥认证失败，请检查密钥文件和口令。'
+    if (fallbackAuthType === 'agent') return 'SSH Agent 认证失败，请检查 Agent 是否可用。'
+  }
+  return message
+}
+
+function createDerivedConnection(base: SshConfigConnection, patch: Partial<SshConfigConnection>): SshConfigConnection {
+  return {
+    ...base,
+    ...patch,
+    id: patch.id ?? base.id,
+    name: patch.name ?? base.name,
+    host: patch.host ?? base.host,
+    port: patch.port ?? base.port,
+    username: patch.username ?? base.username,
+    authType: patch.authType ?? base.authType,
+    password: patch.password ?? base.password,
+    privateKeyPath: patch.privateKeyPath ?? base.privateKeyPath,
+    passphrase: patch.passphrase ?? base.passphrase,
+    keepAliveInterval: patch.keepAliveInterval ?? base.keepAliveInterval,
+    proxyJump: patch.proxyJump ?? base.proxyJump
+  }
+}
+
+function parseOpenSshJumpString(raw: string): { username?: string; host: string; port?: number } | null {
+  const value = raw.trim()
+  if (!value) return null
+  const match = value.match(/^(?:(?<username>[^@]+)@)?(?<host>[^:]+?)(?::(?<port>\d+))?$/)
+  if (!match?.groups?.host) return null
+  const port = match.groups.port ? Number.parseInt(match.groups.port, 10) : undefined
+  return {
+    username: match.groups.username,
+    host: match.groups.host,
+    port: Number.isFinite(port) ? port : undefined
+  }
+}
+
+function openSshHostToConnection(alias: string, hostConfig: OpenSshHostConfig, target: SshConfigConnection): SshConfigConnection {
+  return createDerivedConnection(target, {
+    id: `alias:${alias}`,
+    name: alias,
+    host: hostConfig.hostName ?? alias,
+    port: hostConfig.port ?? 22,
+    username: hostConfig.user ?? target.username,
+    authType: hostConfig.identityFile ? 'privateKey' : target.authType,
+    privateKeyPath: hostConfig.identityFile ?? target.privateKeyPath,
+    password: hostConfig.identityFile ? null : target.password,
+    passphrase: hostConfig.identityFile ? target.passphrase : target.passphrase,
+    proxyJump: null
+  })
+}
+
+function resolveProxyJumpTarget(target: SshConfigConnection): ResolvedJumpTarget | null {
+  const raw = target.proxyJump?.trim()
+  if (!raw) return null
+
+  const aliasConfig = getOpenSshHostConfig(raw)
+  if (aliasConfig) {
+    return {
+      source: 'alias',
+      label: raw,
+      connection: openSshHostToConnection(raw, aliasConfig, target)
+    }
+  }
+
+  const saved = getSshConnection(raw)
+  if (saved) {
+    return {
+      source: 'connectionId',
+      label: saved.name || saved.id,
+      connection: createDerivedConnection(saved, { proxyJump: null })
+    }
+  }
+
+  const parsed = parseOpenSshJumpString(raw)
+  if (!parsed) return null
+  return {
+    source: 'string',
+    label: raw,
+    connection: createDerivedConnection(target, {
+      id: `jump:${raw}`,
+      name: raw,
+      host: parsed.host,
+      port: parsed.port ?? 22,
+      username: parsed.username ?? target.username,
+      proxyJump: null
+    })
+  }
+}
+
+async function connectClient(client: Client, config: ConnectConfig): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    client
+      .once('ready', () => resolve())
+      .once('error', (err) => reject(err))
+      .connect(config)
+  })
+}
+
+async function connectWithProxyJump(connection: SshConfigConnection): Promise<{ client: Client; jumpClient?: Client }> {
+  const targetConfig = buildConnectConfig(connection)
+  const jumpTarget = resolveProxyJumpTarget(connection)
+  if (!jumpTarget) {
+    const client = new Client()
+    await connectClient(client, targetConfig)
+    return { client }
+  }
+
+  const jumpClient = new Client()
+  try {
+    await connectClient(jumpClient, buildConnectConfig(jumpTarget.connection))
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    throw isAuthFailureMessage(message)
+      ? toLayeredError('jump_auth', message, err)
+      : toLayeredError('jump_connect', message, err)
+  }
+
+  const targetClient = new Client()
+  try {
+    const stream = await new Promise<ClientChannel>((resolve, reject) => {
+      jumpClient.forwardOut('127.0.0.1', 0, connection.host, connection.port, (err, channel) => {
+        if (err) return reject(err)
+        resolve(channel)
+      })
+    })
+
+    await connectClient(targetClient, { ...targetConfig, sock: stream })
+    return { client: targetClient, jumpClient }
+  } catch (err) {
+    try {
+      jumpClient.end()
+    } catch {
+      // ignore
+    }
+    const message = err instanceof Error ? err.message : String(err)
+    throw isAuthFailureMessage(message)
+      ? toLayeredError('target_auth', message, err)
+      : toLayeredError('target_connect', message, err)
+  }
+}
+
 function touchFileSession(session: FileSession): void {
   session.lastUsedAt = Date.now()
 }
@@ -498,6 +692,14 @@ function closeFileSession(session: FileSession): void {
     session.client.end()
   } catch {
     // ignore
+  }
+  const jumpClient = session.jumpClient
+  if (jumpClient) {
+    try {
+      jumpClient.end()
+    } catch {
+      // ignore
+    }
   }
   session.sftp = null
 }
@@ -527,11 +729,10 @@ async function ensureFileSession(connectionId: string): Promise<FileSession> {
   const connection = getSshConnection(connectionId)
   if (!connection) throw new Error('Connection not found')
 
-  const config = buildConnectConfig(connection)
-  const client = new Client()
+  const placeholderClient = new Client()
   const session: FileSession = {
     connectionId,
-    client,
+    client: placeholderClient,
     sftp: null,
     status: 'connecting',
     lastUsedAt: Date.now()
@@ -542,7 +743,7 @@ async function ensureFileSession(connectionId: string): Promise<FileSession> {
       session.status = 'error'
       session.error = 'File session connection timeout (30s)'
       try {
-        client.end()
+        session.client.end()
       } catch {
         // ignore
       }
@@ -550,28 +751,30 @@ async function ensureFileSession(connectionId: string): Promise<FileSession> {
       reject(new TimeoutError(session.error))
     }, FILE_SESSION_CONNECT_TIMEOUT_MS)
 
-    client
-      .on('ready', () => {
+    void (async () => {
+      try {
+        const connected = await connectWithProxyJump(connection)
         clearTimeout(timeout)
+        session.client = connected.client
+        session.jumpClient = connected.jumpClient
         session.status = 'connected'
+        session.client.on('close', () => {
+          fileSessions.delete(connectionId)
+        })
         resolve(session)
-      })
-      .on('error', (err) => {
+      } catch (err) {
         clearTimeout(timeout)
         session.status = 'error'
-        session.error = err.message
+        session.error = formatLayeredError(err, connection.authType)
         try {
-          client.end()
+          session.client.end()
         } catch {
           // ignore
         }
         fileSessions.delete(connectionId)
-        reject(err)
-      })
-      .on('close', () => {
-        fileSessions.delete(connectionId)
-      })
-      .connect(config)
+        reject(new Error(session.error))
+      }
+    })()
   })
 
   session.connectPromise = connectPromise
@@ -1468,26 +1671,23 @@ export function registerSshHandlers(): void {
       const connection = getSshConnection(args.id)
       if (!connection) return { error: 'Connection not found' }
 
-      const config = buildConnectConfig(connection)
-      const client = new Client()
-
       return new Promise((resolve) => {
         const timeout = setTimeout(() => {
-          client.end()
           resolve({ success: false, error: 'Connection timeout (30s)' })
         }, 30000)
 
-        client
-          .on('ready', () => {
+        void (async () => {
+          try {
+            const connected = await connectWithProxyJump(connection)
             clearTimeout(timeout)
-            client.end()
+            connected.client.end()
+            connected.jumpClient?.end()
             resolve({ success: true })
-          })
-          .on('error', (err) => {
+          } catch (err) {
             clearTimeout(timeout)
-            resolve({ success: false, error: err.message })
-          })
-          .connect(config)
+            resolve({ success: false, error: formatLayeredError(err, connection.authType) })
+          }
+        })()
       })
     } catch (err) {
       return { success: false, error: String(err) }
@@ -1542,14 +1742,12 @@ export function registerSshHandlers(): void {
       const connection = getSshConnection(args.connectionId)
       if (!connection) return { error: 'Connection not found' }
 
-      const config = buildConnectConfig(connection)
-      const client = new Client()
       const sessionId = `ssh-${nextSessionId++}`
 
       const session: SshSession = {
         id: sessionId,
         connectionId: args.connectionId,
-        client,
+        client: new Client(),
         shell: null,
         sftp: null,
         status: 'connecting',
@@ -1569,7 +1767,7 @@ export function registerSshHandlers(): void {
         const connectTimeout = setTimeout(() => {
           session.status = 'error'
           session.error = 'Connection timeout (30s)'
-          client.end()
+          session.client.end()
           sshSessions.delete(sessionId)
           broadcastToRenderer('ssh:status', {
             sessionId,
@@ -1580,19 +1778,44 @@ export function registerSshHandlers(): void {
           resolve({ error: 'Connection timeout (30s)' })
         }, 30000)
 
-        client
-          .on('ready', () => {
+        void (async () => {
+          try {
+            const connected = await connectWithProxyJump(connection)
             clearTimeout(connectTimeout)
+            session.client = connected.client
+            session.jumpClient = connected.jumpClient
             session.status = 'connected'
 
-            // Update last connected time
+            session.client.on('error', (err) => {
+              session.status = 'error'
+              session.error = formatLayeredError(err, connection.authType)
+              broadcastToRenderer('ssh:status', {
+                sessionId,
+                connectionId: args.connectionId,
+                status: 'error',
+                error: session.error
+              })
+            })
+
+            session.client.on('close', () => {
+              if (session.status === 'connected' || session.status === 'connecting') {
+                session.status = 'disconnected'
+                broadcastToRenderer('ssh:status', {
+                  sessionId,
+                  connectionId: args.connectionId,
+                  status: 'disconnected'
+                })
+              }
+              session.jumpClient?.end()
+              sshSessions.delete(sessionId)
+            })
+
             updateSshConnection(args.connectionId, {
               lastConnectedAt: Date.now(),
               updatedAt: Date.now()
             })
 
-            // Open shell with PTY
-            client.shell(
+            session.client.shell(
               {
                 term: 'xterm-256color',
                 cols: 120,
@@ -1630,7 +1853,8 @@ export function registerSshHandlers(): void {
                     connectionId: args.connectionId,
                     status: 'disconnected'
                   })
-                  client.end()
+                  session.client.end()
+                  session.jumpClient?.end()
                   sshSessions.delete(sessionId)
                 })
 
@@ -1640,11 +1864,9 @@ export function registerSshHandlers(): void {
                   status: 'connected'
                 })
 
-                // Execute startup command if configured
                 if (connection.startupCommand) {
                   stream.write(connection.startupCommand + '\n')
                 }
-                // cd to default directory if configured
                 if (connection.defaultDirectory) {
                   stream.write(`cd ${connection.defaultDirectory}\n`)
                 }
@@ -1652,51 +1874,20 @@ export function registerSshHandlers(): void {
                 resolve({ sessionId })
               }
             )
-          })
-          .on('error', (err) => {
+          } catch (err) {
             clearTimeout(connectTimeout)
             session.status = 'error'
-            // Provide more user-friendly error messages
-            let errorMessage = err.message
-            if (errorMessage.includes('All configured authentication methods failed')) {
-              if (connection.authType === 'password') {
-                errorMessage = 'Password authentication failed. Please check your password.'
-              } else if (connection.authType === 'privateKey') {
-                errorMessage =
-                  'Private key authentication failed. Please check your key file and passphrase.'
-              } else if (connection.authType === 'agent') {
-                errorMessage =
-                  'SSH agent authentication failed. Please check your SSH agent is running.'
-              }
-            } else if (errorMessage.includes('ECONNREFUSED')) {
-              errorMessage = 'Connection refused. Please check the host and port.'
-            } else if (errorMessage.includes('ETIMEDOUT') || errorMessage.includes('timeout')) {
-              errorMessage = 'Connection timeout. Please check the host is reachable.'
-            } else if (errorMessage.includes('ENOTFOUND') || errorMessage.includes('getaddrinfo')) {
-              errorMessage = 'Host not found. Please check the hostname or IP address.'
-            }
-            session.error = errorMessage
+            session.error = formatLayeredError(err, connection.authType)
             sshSessions.delete(sessionId)
             broadcastToRenderer('ssh:status', {
               sessionId,
               connectionId: args.connectionId,
               status: 'error',
-              error: errorMessage
+              error: session.error
             })
-            resolve({ error: errorMessage })
-          })
-          .on('close', () => {
-            if (session.status === 'connected' || session.status === 'connecting') {
-              session.status = 'disconnected'
-              broadcastToRenderer('ssh:status', {
-                sessionId,
-                connectionId: args.connectionId,
-                status: 'disconnected'
-              })
-            }
-            sshSessions.delete(sessionId)
-          })
-          .connect(config)
+            resolve({ error: session.error })
+          }
+        })()
       })
     } catch (err) {
       return { error: String(err) }

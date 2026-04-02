@@ -1008,36 +1008,38 @@ export const useChatStore = create<ChatStore>()(
 
     deleteSession: (id) => {
       const deletedSession = get().sessions.find((session) => session.id === id)
+      const wasActiveSession = get().activeSessionId === id
+      const fallbackProjectId = deletedSession?.projectId ?? get().activeProjectId ?? null
+      const fallbackMode = deletedSession?.mode ?? 'chat'
       let nextActiveId: string | null = null
+      let shouldCreateReplacementSession = false
+
       set((state) => {
         const idx = state.sessions.findIndex((s) => s.id === id)
-        const deletedProjectId = idx >= 0 ? state.sessions[idx].projectId : undefined
+        const deletedSessionInState = idx >= 0 ? state.sessions[idx] : undefined
+        const deletedProjectId = deletedSessionInState?.projectId ?? fallbackProjectId
         if (idx !== -1) state.sessions.splice(idx, 1)
 
-        if (state.activeSessionId === id) {
-          state.activeSessionId = state.sessions[0]?.id ?? null
+        if (wasActiveSession) {
+          const sameProjectSessions = deletedProjectId
+            ? state.sessions
+                .filter((session) => session.projectId === deletedProjectId)
+                .sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))
+            : []
+
+          state.activeSessionId = sameProjectSessions[0]?.id ?? null
+          if (deletedProjectId) {
+            state.activeProjectId = deletedProjectId
+          }
+          if (!state.activeSessionId) {
+            shouldCreateReplacementSession = true
+          }
         }
 
         nextActiveId = state.activeSessionId
-        const activeSession = state.sessions.find((session) => session.id === nextActiveId)
-        if (activeSession?.projectId) {
-          state.activeProjectId = activeSession.projectId
-        } else if (deletedProjectId) {
-          state.activeProjectId = deletedProjectId
-        }
-
         delete state.streamingMessages[id]
       })
-      if (nextActiveId) {
-        void get().loadRecentSessionMessages(nextActiveId)
-        void useTaskStore.getState().loadTasksForSession(nextActiveId)
-        const activePlan = usePlanStore.getState().getPlanBySession(nextActiveId)
-        usePlanStore.getState().setActivePlan(activePlan?.id ?? null)
-      } else {
-        useTaskStore.getState().clearTasks()
-        usePlanStore.getState().setActivePlan(null)
-      }
-      useUIStore.getState().syncSessionScopedState(nextActiveId)
+
       const agentState = useAgentStore.getState()
       agentState.setSessionStatus(id, null)
       agentState.clearSessionData(id)
@@ -1048,6 +1050,21 @@ export const useChatStore = create<ChatStore>()(
       useTaskStore.getState().deleteSessionTasks(id)
       clearPendingMessageFlushes(deletedSession?.messages.map((message) => message.id) ?? [])
       dbDeleteSession(id)
+
+      if (shouldCreateReplacementSession) {
+        nextActiveId = get().createSession(fallbackMode, fallbackProjectId ?? undefined)
+      }
+
+      if (nextActiveId) {
+        void get().loadRecentSessionMessages(nextActiveId)
+        void useTaskStore.getState().loadTasksForSession(nextActiveId)
+        const activePlan = usePlanStore.getState().getPlanBySession(nextActiveId)
+        usePlanStore.getState().setActivePlan(activePlan?.id ?? null)
+      } else {
+        useTaskStore.getState().clearTasks()
+        usePlanStore.getState().setActivePlan(null)
+      }
+      useUIStore.getState().syncSessionScopedState(nextActiveId)
     },
 
     setActiveSession: (id) => {
