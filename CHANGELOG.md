@@ -3,6 +3,28 @@
 All notable changes to **OpenCowork** will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com).
 
+## [0.7.14] - 2026-04-07
+
+### Added
+
+- Added a clearer comparison-style preview flow for `AskUserQuestion`, including safer single-select preview handling and improved option presentation across chat surfaces.
+- Added stronger OpenAI chat provider payload typing and indexing support in the `.NET` sidecar to better preserve structured tool and streaming data.
+
+### Changed
+
+- Bumped the app version to `v0.7.14`.
+- Updated the docs homepage release badge from `v0.7.13` to `v0.7.14`.
+- Refined task, teammate, and follow-up interaction flow across renderer and main-process team runtime paths.
+
+### Fixed
+
+- Improved ask-user interaction stability in chat, settings, and workspace flows to reduce edge-case state mismatches.
+- Improved tool-call handling and replay consistency in the agent runtime and OpenAI provider integration.
+
+### Notes
+
+- This release focuses on agent interaction flow polish, ask-user UX reliability, and provider/runtime consistency updates.
+
 ## [0.7.13] - 2026-04-06
 
 ### Added
