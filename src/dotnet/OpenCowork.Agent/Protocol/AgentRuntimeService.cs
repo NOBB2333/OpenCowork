@@ -26,6 +26,7 @@ public sealed class AgentRuntimeService
         "tool.Read",
         "tool.Write",
         "tool.Edit",
+        "tool.PatchEdit",
         "tool.Bash",
         "tool.Delete",
         "tool.Move",
@@ -177,37 +178,7 @@ public sealed class AgentRuntimeService
 
     private void RegisterBuiltinTools()
     {
-        _toolRegistry.Register(new ToolHandler
-        {
-            Definition = new ToolDefinition
-            {
-                Name = "Read",
-                Description = "Read a file from the filesystem",
-                InputSchema = ParseSchema("""
-                {
-                  "type": "object",
-                  "properties": {
-                    "file_path": { "type": "string", "description": "Absolute path or relative to the working folder" },
-                    "offset": { "type": "number", "description": "Start line (1-indexed)" },
-                    "limit": { "type": "number", "description": "Number of lines to read" }
-                  },
-                  "required": ["file_path"]
-                }
-                """)
-            },
-            Execute = async (input, ctx, token) =>
-            {
-                Console.Error.WriteLine($"[{DateTimeOffset.Now:HH:mm:ss.fff}] [BuiltinTool:Read] inputKeys={string.Join(",", input.Keys)} payload={JsonSerializer.Serialize(input, AppJsonContext.Default.DictionaryStringJsonElement)}");
-                var path = ResolvePath(GetFilePath(input, required: true), ctx.WorkingFolder);
-                var offset = GetOptionalInt(input, "offset");
-                var limit = GetOptionalInt(input, "limit");
-                var rawContent = FsOperations.ReadFileRaw(path);
-                var formatted = FsOperations.FormatReadOutput(rawContent, offset, limit);
-                FsOperations.RecordRead(path, ctx.ReadFileHistory);
-                return new ToolResultContent { Content = formatted };
-            },
-            RequiresApproval = (_, _) => false
-        });
+        RegisterRendererBridgedTool("Read", "Read a file from the filesystem", ParseSchema("""{"type":"object","properties":{"file_path":{"type":"string","description":"Absolute path or relative to the working folder"},"offset":{"type":"number","description":"Start line (1-indexed)"},"limit":{"type":"number","description":"Number of lines to read"}},"required":["file_path"]}"""));
 
         _toolRegistry.Register(new ToolHandler
         {
@@ -243,64 +214,9 @@ public sealed class AgentRuntimeService
             RequiresApproval = (input, ctx) => !IsWithinWorkingFolder(ResolvePath(GetFilePath(input, required: true), ctx.WorkingFolder), ctx.WorkingFolder)
         });
 
-        _toolRegistry.Register(new ToolHandler
-        {
-            Definition = new ToolDefinition
-            {
-                Name = "Edit",
-                Description = "Perform exact string replacements in files",
-                InputSchema = ParseSchema("""
-                {
-                  "type": "object",
-                  "properties": {
-                    "file_path": { "type": "string", "description": "Absolute path or relative to the working folder" },
-                    "old_string": { "type": "string", "description": "The text to replace" },
-                    "new_string": { "type": "string", "description": "The text to replace it with" },
-                    "replace_all": { "type": "boolean", "description": "Replace all occurrences of old_string" }
-                  },
-                  "required": ["file_path", "old_string", "new_string"]
-                }
-                """)
-            },
-            Execute = async (input, ctx, token) =>
-            {
-                Console.Error.WriteLine($"[{DateTimeOffset.Now:HH:mm:ss.fff}] [BuiltinTool:Edit] inputKeys={string.Join(",", input.Keys)} payload={JsonSerializer.Serialize(input, AppJsonContext.Default.DictionaryStringJsonElement)}");
-                var path = ResolvePath(GetFilePath(input, required: true), ctx.WorkingFolder);
-                var oldString = GetString(input, "old_string", required: true);
-                var newString = GetString(input, "new_string", required: true);
-                var replaceAll = GetOptionalBool(input, "replace_all") ?? false;
+        RegisterRendererBridgedTool("Edit", "Perform exact string replacements in files", ParseSchema("""{"type":"object","properties":{"file_path":{"type":"string","description":"Absolute path or relative to the working folder"},"old_string":{"type":"string","description":"The text to replace"},"new_string":{"type":"string","description":"The text to replace it with"},"replace_all":{"type":"boolean","description":"Replace all occurrences of old_string"}},"required":["file_path","old_string","new_string"]}"""));
 
-
-                if (string.IsNullOrEmpty(oldString))
-                    throw new InvalidOperationException("old_string must be non-empty");
-
-                if (string.Equals(oldString, newString, StringComparison.Ordinal))
-                    throw new InvalidOperationException("new_string must be different from old_string");
-
-                var content = FsOperations.ReadFileRaw(path);
-                var matchedVariant = FsOperations.BuildOldStringVariants(oldString, content)
-                    .FirstOrDefault(variant => !string.IsNullOrEmpty(variant.Text) && content.Contains(variant.Text, StringComparison.Ordinal));
-
-                if (string.IsNullOrEmpty(matchedVariant.Text))
-                    throw new InvalidOperationException(BuildEditNotFoundMessage(content, oldString));
-
-                var replacement = FsOperations.ApplyEolStyle(newString, matchedVariant.Eol);
-                var updated = FsOperations.ReplaceExact(content, matchedVariant.Text, replacement, replaceAll);
-                await FsOperations.WriteFileAsync(path, updated, token);
-                FsOperations.RecordRead(path, ctx.ReadFileHistory);
-
-                return new ToolResultContent
-                {
-                    Content = BuildJsonObject(new Dictionary<string, JsonNode?>
-                    {
-                        ["success"] = JsonValue.Create(true),
-                        ["path"] = JsonValue.Create(path),
-                        ["replaceAll"] = JsonValue.Create(replaceAll)
-                    })
-                };
-            },
-            RequiresApproval = (input, ctx) => !IsWithinWorkingFolder(ResolvePath(GetFilePath(input, required: true), ctx.WorkingFolder), ctx.WorkingFolder)
-        });
+        RegisterRendererBridgedTool("PatchEdit", "Apply a unified diff patch to an existing file", ParseSchema("""{"type":"object","properties":{"file_path":{"type":"string","description":"Absolute path or relative to the working folder"},"patch":{"type":"string","description":"Unified diff patch content for a single file"}},"required":["file_path","patch"]}"""));
 
         _toolRegistry.Register(new ToolHandler
         {
@@ -870,12 +786,32 @@ public sealed class AgentRuntimeService
 
     private static string BuildEditNotFoundMessage(string content, string oldString)
     {
-        var normalizedContent = content.Replace("\r\n", "\n", StringComparison.Ordinal);
-        var normalizedOld = oldString.Replace("\r\n", "\n", StringComparison.Ordinal);
+        var normalizedContent = FsOperations.NormalizeToLf(content);
+        var normalizedOld = FsOperations.NormalizeToLf(oldString);
 
         if (normalizedContent.Contains(normalizedOld, StringComparison.Ordinal))
         {
             return "old_string not found in file (line endings differ; try using the exact text from Read output)";
+        }
+
+        var trailingWhitespaceMatches = FsOperations.FindNormalizedLineBlockMatches(content, oldString, indentationMode: false);
+        if (trailingWhitespaceMatches.Count == 1)
+        {
+            return $"old_string not found in file (trailing whitespace differs near line {trailingWhitespaceMatches[0].StartLine + 1}; try using the exact text from Read output)";
+        }
+        if (trailingWhitespaceMatches.Count > 1)
+        {
+            return $"old_string not found in file (multiple matches found after trailing whitespace normalization: {trailingWhitespaceMatches.Count}; provide more surrounding context)";
+        }
+
+        var indentationMatches = FsOperations.FindNormalizedLineBlockMatches(content, oldString, indentationMode: true);
+        if (indentationMatches.Count == 1)
+        {
+            return $"old_string not found in file (indentation differs near line {indentationMatches[0].StartLine + 1}; try using the exact text from Read output)";
+        }
+        if (indentationMatches.Count > 1)
+        {
+            return $"old_string not found in file (multiple matches found after indentation normalization: {indentationMatches.Count}; provide more surrounding context)";
         }
 
         var lineIndex = FindBestMatchingLineIndex(normalizedContent, normalizedOld);

@@ -1974,7 +1974,7 @@ export function registerSshHandlers(): void {
     'ssh:fs:read-file',
     async (
       _event,
-      args: { connectionId: string; path: string; offset?: number; limit?: number }
+      args: { connectionId: string; path: string; offset?: number; limit?: number; raw?: boolean }
     ) => {
       try {
         const content = await withFileSession(args.connectionId, async (session) => {
@@ -1991,6 +1991,11 @@ export function registerSshHandlers(): void {
             'SFTP read-file timeout'
           )
         })
+
+        // Default to raw; only format with line numbers when raw is explicitly false
+        if (args.raw !== false) {
+          return content
+        }
 
         const normalized = content.replace(/\r\n/g, '\n')
         const lines = normalized.split('\n')

@@ -7,6 +7,7 @@ const RENDERER_BRIDGED_TOOL_NAMES = new Set([
   'Read',
   'Write',
   'Edit',
+  'PatchEdit',
   'LS',
   'Glob',
   'Grep',

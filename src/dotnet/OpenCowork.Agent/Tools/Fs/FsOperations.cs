@@ -98,6 +98,180 @@ public static class FsOperations
         return variants;
     }
 
+    public static int CountOccurrences(string content, string value)
+    {
+        if (string.IsNullOrEmpty(value)) return 0;
+
+        var count = 0;
+        var index = 0;
+        while (true)
+        {
+            index = content.IndexOf(value, index, StringComparison.Ordinal);
+            if (index < 0) break;
+            count++;
+            index += value.Length;
+        }
+
+        return count;
+    }
+
+    public static string NormalizeToLf(string value) =>
+        value.Replace("\r\n", "\n", StringComparison.Ordinal).Replace("\r", "\n", StringComparison.Ordinal);
+
+    public static string TrimLineTrailingWhitespace(string line) =>
+        line.TrimEnd(' ', '\t');
+
+    public static string GetLeadingWhitespace(string line)
+    {
+        var length = 0;
+        while (length < line.Length && (line[length] == ' ' || line[length] == '\t'))
+            length++;
+        return line[..length];
+    }
+
+    public static string GetCommonIndent(IReadOnlyList<string> lines)
+    {
+        string? commonIndent = null;
+        foreach (var line in lines)
+        {
+            if (string.IsNullOrWhiteSpace(line)) continue;
+            var indent = GetLeadingWhitespace(line);
+            if (commonIndent is null)
+            {
+                commonIndent = indent;
+                continue;
+            }
+
+            var sharedLength = 0;
+            var limit = Math.Min(commonIndent.Length, indent.Length);
+            while (sharedLength < limit && commonIndent[sharedLength] == indent[sharedLength])
+                sharedLength++;
+            commonIndent = commonIndent[..sharedLength];
+            if (commonIndent.Length == 0) break;
+        }
+
+        return commonIndent ?? string.Empty;
+    }
+
+    public static string[] StripCommonIndent(IReadOnlyList<string> lines)
+    {
+        var commonIndent = GetCommonIndent(lines);
+        if (string.IsNullOrEmpty(commonIndent))
+            return lines.ToArray();
+
+        var result = new string[lines.Count];
+        for (var i = 0; i < lines.Count; i++)
+        {
+            var line = lines[i];
+            result[i] = line.StartsWith(commonIndent, StringComparison.Ordinal)
+                ? line[commonIndent.Length..]
+                : line;
+        }
+
+        return result;
+    }
+
+    public static string[] ApplyCommonIndent(IReadOnlyList<string> lines, string indent)
+    {
+        if (string.IsNullOrEmpty(indent))
+            return lines.ToArray();
+
+        var result = new string[lines.Count];
+        for (var i = 0; i < lines.Count; i++)
+        {
+            var line = lines[i];
+            result[i] = line.Length > 0 ? indent + line : line;
+        }
+
+        return result;
+    }
+
+    public static IReadOnlyList<(int StartLine, int EndLine, string CommonIndent)> FindNormalizedLineBlockMatches(
+        string content,
+        string oldString,
+        bool indentationMode)
+    {
+        var contentLines = NormalizeToLf(content).Split('\n');
+        var oldLines = NormalizeToLf(oldString).Split('\n');
+        if (oldLines.Length == 0 || contentLines.Length < oldLines.Length)
+            return Array.Empty<(int StartLine, int EndLine, string CommonIndent)>();
+
+        var normalizedOldLines = (indentationMode ? StripCommonIndent(oldLines) : oldLines.ToArray())
+            .Select(TrimLineTrailingWhitespace)
+            .ToArray();
+
+        var matches = new List<(int StartLine, int EndLine, string CommonIndent)>();
+        for (var startLine = 0; startLine <= contentLines.Length - oldLines.Length; startLine++)
+        {
+            var slice = contentLines.Skip(startLine).Take(oldLines.Length).ToArray();
+            var normalizedSlice = (indentationMode ? StripCommonIndent(slice) : slice)
+                .Select(TrimLineTrailingWhitespace)
+                .ToArray();
+            var isMatch = true;
+            for (var i = 0; i < normalizedSlice.Length; i++)
+            {
+                if (!string.Equals(normalizedSlice[i], normalizedOldLines[i], StringComparison.Ordinal))
+                {
+                    isMatch = false;
+                    break;
+                }
+            }
+
+            if (isMatch)
+            {
+                matches.Add((startLine, startLine + oldLines.Length - 1, GetCommonIndent(slice)));
+            }
+        }
+
+        return matches;
+    }
+
+    public static IReadOnlyList<(int StartLine, int EndLine, string CommonIndent)> SelectNonOverlappingLineMatches(
+        IReadOnlyList<(int StartLine, int EndLine, string CommonIndent)> matches)
+    {
+        var selected = new List<(int StartLine, int EndLine, string CommonIndent)>();
+        var lastEndLine = -1;
+        foreach (var match in matches)
+        {
+            if (match.StartLine <= lastEndLine) continue;
+            selected.Add(match);
+            lastEndLine = match.EndLine;
+        }
+
+        return selected;
+    }
+
+    public static string ApplyNormalizedLineBlockMatches(
+        string content,
+        string newString,
+        IReadOnlyList<(int StartLine, int EndLine, string CommonIndent)> matches,
+        bool indentationMode)
+    {
+        var contentLines = NormalizeToLf(content).Split('\n');
+        var newLines = NormalizeToLf(newString).Split('\n');
+        var baseReplacementLines = indentationMode ? StripCommonIndent(newLines) : newLines.ToArray();
+        var eol = DetectEolStyle(content);
+        var result = new List<string>(contentLines.Length + newLines.Length);
+        var cursor = 0;
+
+        foreach (var match in matches)
+        {
+            for (var i = cursor; i < match.StartLine; i++)
+                result.Add(contentLines[i]);
+
+            var replacementLines = indentationMode
+                ? ApplyCommonIndent(baseReplacementLines, match.CommonIndent)
+                : baseReplacementLines;
+            result.AddRange(replacementLines);
+            cursor = match.EndLine + 1;
+        }
+
+        for (var i = cursor; i < contentLines.Length; i++)
+            result.Add(contentLines[i]);
+
+        return ApplyEolStyle(string.Join("\n", result), eol);
+    }
+
     public static string DetectEolStyle(string value)
     {
         if (value.Contains("\r\n", StringComparison.Ordinal)) return "\r\n";
@@ -110,6 +284,371 @@ public static class FsOperations
         var normalized = value.Replace("\r\n", "\n", StringComparison.Ordinal)
             .Replace("\r", "\n", StringComparison.Ordinal);
         return eol == "\n" ? normalized : normalized.Replace("\n", eol, StringComparison.Ordinal);
+    }
+
+    // ── Quote normalization (ported from Claude Code) ──
+
+    public static string NormalizeQuotes(string str)
+    {
+        return str
+            .Replace("\u2018", "'", StringComparison.Ordinal)  // left single curly
+            .Replace("\u2019", "'", StringComparison.Ordinal)  // right single curly
+            .Replace("\u201C", "\"", StringComparison.Ordinal) // left double curly
+            .Replace("\u201D", "\"", StringComparison.Ordinal); // right double curly
+    }
+
+    /// <summary>
+    /// Finds the actual string in file content that matches the search string,
+    /// accounting for curly/straight quote normalization.
+    /// Returns the actual substring from fileContent, or null if not found.
+    /// </summary>
+    public static string? FindActualString(string fileContent, string searchString)
+    {
+        if (fileContent.Contains(searchString, StringComparison.Ordinal))
+            return searchString;
+
+        var normalizedSearch = NormalizeQuotes(searchString);
+        var normalizedFile = NormalizeQuotes(fileContent);
+        var searchIndex = normalizedFile.IndexOf(normalizedSearch, StringComparison.Ordinal);
+        if (searchIndex >= 0)
+            return fileContent.Substring(searchIndex, searchString.Length);
+
+        return null;
+    }
+
+    /// <summary>
+    /// When old_string matched via quote normalization, apply the same curly quote
+    /// style to new_string so the edit preserves the file's typography.
+    /// </summary>
+    public static string PreserveQuoteStyle(string oldString, string actualOldString, string newString)
+    {
+        if (string.Equals(oldString, actualOldString, StringComparison.Ordinal))
+            return newString;
+
+        var hasDoubleQuotes = actualOldString.Contains('\u201C') || actualOldString.Contains('\u201D');
+        var hasSingleQuotes = actualOldString.Contains('\u2018') || actualOldString.Contains('\u2019');
+
+        if (!hasDoubleQuotes && !hasSingleQuotes)
+            return newString;
+
+        var result = newString;
+        if (hasDoubleQuotes) result = ApplyCurlyDoubleQuotes(result);
+        if (hasSingleQuotes) result = ApplyCurlySingleQuotes(result);
+        return result;
+    }
+
+    private static bool IsOpeningContext(char[] chars, int index)
+    {
+        if (index == 0) return true;
+        var prev = chars[index - 1];
+        return prev is ' ' or '\t' or '\n' or '\r' or '(' or '[' or '{' or '\u2014' or '\u2013';
+    }
+
+    private static string ApplyCurlyDoubleQuotes(string str)
+    {
+        var chars = str.ToCharArray();
+        var sb = new StringBuilder(chars.Length);
+        for (var i = 0; i < chars.Length; i++)
+        {
+            if (chars[i] == '"')
+                sb.Append(IsOpeningContext(chars, i) ? '\u201C' : '\u201D');
+            else
+                sb.Append(chars[i]);
+        }
+        return sb.ToString();
+    }
+
+    private static string ApplyCurlySingleQuotes(string str)
+    {
+        var chars = str.ToCharArray();
+        var sb = new StringBuilder(chars.Length);
+        for (var i = 0; i < chars.Length; i++)
+        {
+            if (chars[i] == '\'')
+            {
+                var prevIsLetter = i > 0 && char.IsLetter(chars[i - 1]);
+                var nextIsLetter = i < chars.Length - 1 && char.IsLetter(chars[i + 1]);
+                if (prevIsLetter && nextIsLetter)
+                    sb.Append('\u2019'); // apostrophe in contraction
+                else
+                    sb.Append(IsOpeningContext(chars, i) ? '\u2018' : '\u2019');
+            }
+            else
+            {
+                sb.Append(chars[i]);
+            }
+        }
+        return sb.ToString();
+    }
+
+    // ── Desanitization (handles API-sanitized XML tags) ──
+
+    private static readonly (string From, string To)[] Desanitizations =
+    [
+        ("<fnr>", "<function_results>"),
+        ("<n>", "<name>"),
+        ("</n>", "</name>"),
+        ("<o>", "<output>"),
+        ("</o>", "</output>"),
+        ("<e>", "<error>"),
+        ("</e>", "</error>"),
+        ("<s>", "<system>"),
+        ("</s>", "</system>"),
+        ("<r>", "<result>"),
+        ("</r>", "</result>"),
+        ("\n\nH:", "\n\nHuman:"),
+        ("\n\nA:", "\n\nAssistant:")
+    ];
+
+    public static (string Result, IReadOnlyList<(string From, string To)> AppliedReplacements) DesanitizeMatchString(string matchString)
+    {
+        var result = matchString;
+        var applied = new List<(string From, string To)>();
+        foreach (var (from, to) in Desanitizations)
+        {
+            var before = result;
+            result = result.Replace(from, to, StringComparison.Ordinal);
+            if (!string.Equals(before, result, StringComparison.Ordinal))
+                applied.Add((from, to));
+        }
+        return (result, applied);
+    }
+
+    /// <summary>
+    /// Strip trailing whitespace from each line in a string (preserves line endings).
+    /// Useful for normalizing new_string before applying edits.
+    /// </summary>
+    public static string StripTrailingWhitespaceLines(string str)
+    {
+        var lines = str.Split('\n');
+        for (var i = 0; i < lines.Length; i++)
+        {
+            if (lines[i].EndsWith('\r'))
+                lines[i] = lines[i].TrimEnd(' ', '\t', '\r') + "\r";
+            else
+                lines[i] = lines[i].TrimEnd(' ', '\t');
+        }
+        return string.Join("\n", lines);
+    }
+
+    /// <summary>
+    /// Detect and strip line number prefixes from Read tool output.
+    /// Read output format: "  &lt;lineNo&gt;\t&lt;content&gt;" per line.
+    /// Returns stripped string if prefixes detected on all non-empty lines, null otherwise.
+    /// </summary>
+    public static string? StripLineNumberPrefixes(string str)
+    {
+        var lines = str.Split('\n');
+        if (lines.Length == 0) return null;
+
+        var hasAnyNonEmpty = false;
+        foreach (var line in lines)
+        {
+            if (line.Length == 0) continue;
+            hasAnyNonEmpty = true;
+            // Check pattern: optional spaces, digits, tab
+            var j = 0;
+            while (j < line.Length && (line[j] == ' ' || line[j] == '\t')) j++;
+            if (j >= line.Length) continue;
+            var digitStart = j;
+            while (j < line.Length && char.IsDigit(line[j])) j++;
+            if (j == digitStart || j >= line.Length || line[j] != '\t')
+                return null; // Not a line number prefix
+        }
+
+        if (!hasAnyNonEmpty) return null;
+
+        var sb = new StringBuilder();
+        for (var i = 0; i < lines.Length; i++)
+        {
+            if (i > 0) sb.Append('\n');
+            var line = lines[i];
+            if (line.Length == 0) continue;
+            var tabIndex = line.IndexOf('\t');
+            sb.Append(tabIndex >= 0 ? line[(tabIndex + 1)..] : line);
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Smart replacement that auto-strips trailing newline when deleting text
+    /// (new_string is empty) to avoid leaving blank lines.
+    /// </summary>
+    public static string ReplaceWithSmartDeletion(
+        string content, string oldString, string newString, bool replaceAll)
+    {
+        if (newString.Length > 0 || oldString.EndsWith('\n'))
+            return replaceAll
+                ? content.Replace(oldString, newString, StringComparison.Ordinal)
+                : ReplaceFirst(content, oldString, newString);
+
+        // Deletion: try to include trailing newline to avoid blank lines
+        var withNewline = oldString + "\n";
+        if (content.Contains(withNewline, StringComparison.Ordinal))
+        {
+            var occurrences = CountOccurrences(content, withNewline);
+            if (!replaceAll && occurrences > 1)
+                throw new InvalidOperationException("old_string is not unique in file");
+            return replaceAll
+                ? content.Replace(withNewline, "", StringComparison.Ordinal)
+                : ReplaceFirst(content, withNewline, "");
+        }
+
+        return replaceAll
+            ? content.Replace(oldString, newString, StringComparison.Ordinal)
+            : ReplaceFirst(content, oldString, newString);
+    }
+
+    public static IReadOnlyList<(int OldStart, int OldCount, int NewStart, int NewCount, string[] OldLines, string[] NewLines)> ParseUnifiedDiff(string diff)
+    {
+        var lines = NormalizeToLf(diff)
+            .Split('\n')
+            .Where(static line => !line.StartsWith("diff --git ", StringComparison.Ordinal)
+                && !line.StartsWith("index ", StringComparison.Ordinal))
+            .ToArray();
+
+        var hunks = new List<(int OldStart, int OldCount, int NewStart, int NewCount, string[] OldLines, string[] NewLines)>();
+        var index = 0;
+        while (index < lines.Length)
+        {
+            var line = lines[index];
+            if (line.StartsWith("--- ", StringComparison.Ordinal) || line.StartsWith("+++ ", StringComparison.Ordinal))
+            {
+                index++;
+                continue;
+            }
+
+            var match = System.Text.RegularExpressions.Regex.Match(line, "^@@ -(\\d+)(?:,(\\d+))? \\+(\\d+)(?:,(\\d+))? @@");
+            if (!match.Success)
+            {
+                index++;
+                continue;
+            }
+
+            var oldLines = new List<string>();
+            var newLines = new List<string>();
+            index++;
+
+            while (index < lines.Length)
+            {
+                var current = lines[index];
+                if (current.StartsWith("@@ ", StringComparison.Ordinal)
+                    || current.StartsWith("--- ", StringComparison.Ordinal)
+                    || current.StartsWith("+++ ", StringComparison.Ordinal))
+                    break;
+                if (current == "\\ No newline at end of file")
+                {
+                    index++;
+                    continue;
+                }
+                if (current.Length == 0)
+                {
+                    oldLines.Add(string.Empty);
+                    newLines.Add(string.Empty);
+                    index++;
+                    continue;
+                }
+
+                var marker = current[0];
+                var text = current[1..];
+                if (marker is ' ' or '-') oldLines.Add(text);
+                if (marker is ' ' or '+') newLines.Add(text);
+                if (marker is not (' ' or '+' or '-'))
+                    throw new InvalidOperationException($"Invalid unified diff line: {current}");
+                index++;
+            }
+
+            hunks.Add((
+                int.Parse(match.Groups[1].Value),
+                string.IsNullOrEmpty(match.Groups[2].Value) ? 1 : int.Parse(match.Groups[2].Value),
+                int.Parse(match.Groups[3].Value),
+                string.IsNullOrEmpty(match.Groups[4].Value) ? 1 : int.Parse(match.Groups[4].Value),
+                oldLines.ToArray(),
+                newLines.ToArray()));
+        }
+
+        if (hunks.Count == 0)
+        {
+            var normalized = NormalizeToLf(diff);
+            var hasHunkHeader = normalized.Contains("@@ ", StringComparison.Ordinal);
+            var hasDiffMarkers = normalized.Split('\n').Any(l => l.StartsWith('+') || l.StartsWith('-'));
+            if (!hasHunkHeader && !hasDiffMarkers)
+                throw new InvalidOperationException(
+                    "patch does not appear to be a unified diff (no @@ hunk headers or +/- markers found). Use the Edit tool for plain text replacements instead of PatchEdit.");
+            throw new InvalidOperationException(
+                "patch must contain at least one valid unified diff hunk (expected @@ -N,N +N,N @@ header). Check that the diff format is correct.");
+        }
+
+        return hunks;
+    }
+
+    public static (string Updated, string MatchMode, int HunkCount) ApplyPatchEdit(string content, string patch)
+    {
+        var hunks = ParseUnifiedDiff(patch);
+        var contentLines = NormalizeToLf(content).Split('\n');
+        var eol = DetectEolStyle(content);
+        var result = new List<string>(contentLines.Length);
+        var cursor = 0;
+        var matchMode = "exact";
+
+        foreach (var hunk in hunks)
+        {
+            var oldNormalized = string.Join("\n", hunk.OldLines.Select(TrimLineTrailingWhitespace));
+            var expectedIndex = Math.Max(0, hunk.OldStart - 1);
+            var matchedIndex = -1;
+            var currentMode = "exact";
+
+            for (var start = cursor; start <= contentLines.Length - hunk.OldLines.Length; start++)
+            {
+                var slice = contentLines.Skip(start).Take(hunk.OldLines.Length).ToArray();
+                var exact = true;
+                for (var i = 0; i < slice.Length; i++)
+                {
+                    if (!string.Equals(slice[i], hunk.OldLines[i], StringComparison.Ordinal))
+                    {
+                        exact = false;
+                        break;
+                    }
+                }
+
+                if (exact)
+                {
+                    matchedIndex = start;
+                    currentMode = start == expectedIndex ? "exact" : "mixed";
+                    break;
+                }
+
+                var normalized = string.Join("\n", slice.Select(TrimLineTrailingWhitespace));
+                if (string.Equals(normalized, oldNormalized, StringComparison.Ordinal))
+                {
+                    matchedIndex = start;
+                    currentMode = "trailing_whitespace";
+                    break;
+                }
+            }
+
+            if (matchedIndex < 0)
+                throw new InvalidOperationException($"patch hunk not found in file near line {hunk.OldStart}; ensure unified diff context matches current file contents");
+
+            for (var i = cursor; i < matchedIndex; i++)
+                result.Add(contentLines[i]);
+            result.AddRange(hunk.NewLines);
+            cursor = matchedIndex + hunk.OldLines.Length;
+
+            if (string.Equals(matchMode, "exact", StringComparison.Ordinal))
+            {
+                matchMode = currentMode;
+            }
+            else if (!string.Equals(matchMode, currentMode, StringComparison.Ordinal))
+            {
+                matchMode = "mixed";
+            }
+        }
+
+        for (var i = cursor; i < contentLines.Length; i++)
+            result.Add(contentLines[i]);
+
+        return (ApplyEolStyle(string.Join("\n", result), eol), matchMode, hunks.Count);
     }
 
     public static JsonObject BuildReadMetadata(string path, string content, int? offset = null, int? limit = null)
@@ -140,23 +679,6 @@ public static class FsOperations
             Directory.CreateDirectory(dir);
 
         await File.WriteAllTextAsync(path, content, ct);
-    }
-
-    private static int CountOccurrences(string content, string value)
-    {
-        if (string.IsNullOrEmpty(value)) return 0;
-
-        var count = 0;
-        var index = 0;
-        while (true)
-        {
-            index = content.IndexOf(value, index, StringComparison.Ordinal);
-            if (index < 0) break;
-            count++;
-            index += value.Length;
-        }
-
-        return count;
     }
 
     private static string ReplaceFirst(string content, string oldString, string newString)

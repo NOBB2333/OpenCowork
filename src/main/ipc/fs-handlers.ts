@@ -625,7 +625,7 @@ async function runRipgrepSearch(args: {
 export function registerFsHandlers(): void {
   ipcMain.handle(
     'fs:read-file',
-    async (_event, args: { path: string; offset?: number; limit?: number }) => {
+    async (_event, args: { path: string; offset?: number; limit?: number; raw?: boolean }) => {
       try {
         const ext = path.extname(args.path).toLowerCase()
         if (IMAGE_EXTENSIONS.has(ext)) {
@@ -639,6 +639,12 @@ export function registerFsHandlers(): void {
         }
         await assertFileSize(args.path, MAX_FILE_READ_BYTES)
         const content = await fs.promises.readFile(args.path, 'utf-8')
+
+        // Default to raw; only format with line numbers when raw is explicitly false
+        if (args.raw !== false) {
+          return content
+        }
+
         const normalized = content.replace(/\r\n/g, '\n')
         const lines = normalized.split('\n')
         const MAX_READ_LINES = 2000
