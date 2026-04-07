@@ -35,6 +35,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useShallow } from 'zustand/react/shallow'
 import { WindowControls } from './WindowControls'
+import { RunningAgentSessionsPopover } from './RunningAgentSessionsPopover'
 
 interface TitleBarUpdateInfo {
   newVersion: string
@@ -380,6 +381,8 @@ export function TitleBar({ updateInfo, onOpenUpdateDialog }: TitleBarProps): Rea
           </Tooltip>
         )}
 
+        <RunningAgentSessionsPopover />
+
         {/* Auto-approve toggle */}
         <Tooltip>
           <TooltipTrigger asChild>
@@ -534,6 +537,7 @@ export function TitleBar({ updateInfo, onOpenUpdateDialog }: TitleBarProps): Rea
         <div className="absolute right-0 top-0 z-10">
           <WindowControls />
         </div>
+
       )}
     </header>
   )

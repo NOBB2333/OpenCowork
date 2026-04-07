@@ -159,8 +159,12 @@ function resolveScopedSessionId(
 
 interface UIStore {
   mode: AppMode
+  miniSessionWindowSessionId: string | null
+  miniSessionWindowOpen: boolean
 
   setMode: (mode: AppMode) => void
+  openMiniSessionWindow: (sessionId: string) => void
+  closeMiniSessionWindow: () => void
 
   activeNavItem: NavItem
   setActiveNavItem: (item: NavItem) => void
@@ -324,6 +328,12 @@ interface UIStore {
 
 export const useUIStore = create<UIStore>((set, get) => ({
   mode: 'cowork',
+  miniSessionWindowSessionId: null,
+  miniSessionWindowOpen: false,
+  openMiniSessionWindow: (sessionId) =>
+    set({ miniSessionWindowSessionId: sessionId, miniSessionWindowOpen: true }),
+  closeMiniSessionWindow: () =>
+    set({ miniSessionWindowSessionId: null, miniSessionWindowOpen: false }),
 
   setMode: (mode) =>
     set((state) => ({

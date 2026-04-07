@@ -52,6 +52,7 @@ const modeHints = {
 }
 
 interface MessageListProps {
+  sessionId?: string | null
   onRetry?: () => void
   onContinue?: () => void
   onEditUserMessage?: (messageId: string, draft: EditableUserMessageDraft) => void
@@ -81,6 +82,8 @@ type VirtualRow =
   | { type: 'load-more'; key: string }
   | { type: 'message'; key: string; data: RenderableMessage }
 
+type AutoScrollMode = 'off' | 'user' | 'stream'
+
 interface VirtualMessageRowProps {
   rowIndex: number
   message: UnifiedMessage
@@ -90,6 +93,7 @@ interface VirtualMessageRowProps {
   showContinue: boolean
   disableAnimation: boolean
   toolResults?: ToolResultsLookup
+  anchorMessageId?: string | null
   onRetry?: () => void
   onContinue?: () => void
   onEditUserMessage?: (messageId: string, draft: EditableUserMessageDraft) => void
@@ -148,16 +152,16 @@ function areStringArraysEqual(left: string[], right: string[]): boolean {
 
 const EMPTY_MESSAGES: UnifiedMessage[] = []
 const LOAD_MORE_MESSAGE_STEP = 160
-const AUTO_SCROLL_BOTTOM_THRESHOLD = 80
-const STREAMING_AUTO_SCROLL_BOTTOM_THRESHOLD = 150
+const AUTO_SCROLL_BOTTOM_THRESHOLD = 24
+const STREAMING_AUTO_SCROLL_BOTTOM_THRESHOLD = 40
 const LOAD_MORE_ROW_KEY = '__load_more__'
 const TAIL_STATIC_MESSAGE_COUNT = 4
-const INITIAL_SCROLL_SETTLE_FRAMES = 6
-const USER_SEND_SCROLL_SETTLE_FRAMES = 4
+const INITIAL_SCROLL_SETTLE_FRAMES = 1
 const FOLLOW_BOTTOM_SETTLE_FRAMES = 1
 const BOTTOM_SCROLL_CORRECTION_EPSILON = 2
 const TOP_AUTO_LOAD_THRESHOLD = 24
 const INITIAL_MESSAGE_ESTIMATED_HEIGHT = 120
+const PROGRAMMATIC_SCROLL_GUARD_MS = 160
 
 function isToolResultOnlyUserMessage(message: UnifiedMessage): boolean {
   return (
@@ -242,13 +246,19 @@ const VirtualMessageRow = React.memo(function VirtualMessageRow({
   showContinue,
   disableAnimation,
   toolResults,
+  anchorMessageId,
   onRetry,
   onContinue,
   onEditUserMessage,
   onDeleteMessage
 }: VirtualMessageRowProps): React.JSX.Element {
   return (
-    <div data-index={rowIndex} className="mx-auto max-w-3xl px-4 pb-6">
+    <div
+      data-index={rowIndex}
+      data-message-id={message.id}
+      data-anchor={anchorMessageId === message.id ? 'true' : undefined}
+      className="mx-auto max-w-3xl px-4 pb-6"
+    >
       <MessageItem
         message={message}
         messageId={message.id}
@@ -268,6 +278,7 @@ const VirtualMessageRow = React.memo(function VirtualMessageRow({
 })
 
 export function MessageList({
+  sessionId,
   onRetry,
   onContinue,
   onEditUserMessage,
@@ -284,15 +295,16 @@ export function MessageList({
     messages
   } = useChatStore(
     useShallow((s) => {
-      const activeSession = s.sessions.find((session) => session.id === s.activeSessionId)
+      const targetSessionId = sessionId ?? s.activeSessionId
+      const targetSession = s.sessions.find((session) => session.id === targetSessionId)
       return {
-        activeSessionId: s.activeSessionId,
-        streamingMessageId: s.streamingMessageId,
-        activeSessionLoaded: activeSession?.messagesLoaded ?? true,
-        activeSessionMessageCount: activeSession?.messageCount ?? 0,
-        activeWorkingFolder: activeSession?.workingFolder,
-        loadedRangeStart: activeSession?.loadedRangeStart ?? 0,
-        messages: activeSession?.messages ?? EMPTY_MESSAGES
+        activeSessionId: targetSessionId,
+        streamingMessageId: targetSessionId ? (s.streamingMessages[targetSessionId] ?? null) : null,
+        activeSessionLoaded: targetSession?.messagesLoaded ?? true,
+        activeSessionMessageCount: targetSession?.messageCount ?? 0,
+        activeWorkingFolder: targetSession?.workingFolder,
+        loadedRangeStart: targetSession?.loadedRangeStart ?? 0,
+        messages: targetSession?.messages ?? EMPTY_MESSAGES
       }
     })
   )
@@ -306,11 +318,18 @@ export function MessageList({
   const containerRef = React.useRef<HTMLDivElement | null>(null)
   const [isAtBottom, setIsAtBottom] = React.useState(true)
   const pendingInitialScrollSessionIdRef = React.useRef<string | null>(null)
-  const shouldStickToBottomRef = React.useRef(true)
-  const latestRealUserCreatedAtRef = React.useRef(0)
-  const preserveScrollOnPrependRef = React.useRef<{ offset: number; size: number } | null>(null)
+  const autoScrollModeRef = React.useRef<AutoScrollMode>('off')
+  const preserveScrollOnPrependRef = React.useRef<{
+    offset: number
+    size: number
+    anchorMessageId: string | null
+    anchorTop: number | null
+  } | null>(null)
   const scheduledScrollFrameRef = React.useRef<number | null>(null)
   const isAutoLoadingOlderRef = React.useRef(false)
+  const lastScrollOffsetRef = React.useRef(0)
+  const programmaticScrollUntilRef = React.useRef(0)
+  const wasSessionRunningRef = React.useRef(isSessionRunning)
   const messageCount = messages.length
 
   const renderableMeta = React.useMemo(
@@ -338,7 +357,15 @@ export function MessageList({
   const loadOlderMessages = React.useCallback(async (): Promise<number> => {
     if (!activeSessionId || olderUnloadedMessageCount === 0 || isAutoLoadingOlderRef.current) return 0
     const ref = listRef.current
-    preserveScrollOnPrependRef.current = ref ? { offset: ref.scrollOffset, size: ref.scrollSize } : null
+    const anchorElement = containerRef.current?.querySelector<HTMLElement>('[data-message-id]') ?? null
+    preserveScrollOnPrependRef.current = ref
+      ? {
+          offset: ref.scrollOffset,
+          size: ref.scrollSize,
+          anchorMessageId: anchorElement?.dataset.messageId ?? null,
+          anchorTop: anchorElement?.getBoundingClientRect().top ?? null
+        }
+      : null
     isAutoLoadingOlderRef.current = true
     try {
       const loaded = await useChatStore
@@ -405,35 +432,47 @@ export function MessageList({
     return getMessageTailSignal(messageLookup.get(streamingMessageId))
   }, [messageLookup, streamingMessageId])
 
-  const latestRealUserCreatedAt = React.useMemo(() => {
-    for (let index = messages.length - 1; index >= 0; index -= 1) {
-      const message = messages[index]
-      if (isRealUserMessage(message)) {
-        return message.createdAt
-      }
-    }
-    return 0
-  }, [messages])
+  const markProgrammaticScroll = React.useCallback(() => {
+    programmaticScrollUntilRef.current = window.performance.now() + PROGRAMMATIC_SCROLL_GUARD_MS
+  }, [])
 
   const scrollToBottomImmediate = React.useCallback(
     (behavior: ScrollBehavior = 'auto') => {
       const ref = listRef.current
       const lastIndex = virtualRowKeys.length - 1
       if (!ref || lastIndex < 0) return
+      markProgrammaticScroll()
       ref.scrollToIndex(lastIndex, { align: 'end', smooth: behavior === 'smooth' })
     },
-    [virtualRowKeys.length]
+    [markProgrammaticScroll, virtualRowKeys.length]
   )
+
+  const canAutoScroll = React.useCallback(() => {
+    const mode = autoScrollModeRef.current
+    return mode === 'user' || (mode === 'stream' && isSessionRunning)
+  }, [isSessionRunning])
 
   const syncBottomState = React.useCallback(() => {
     const ref = listRef.current
     if (!ref) return
 
-    const threshold = streamingMessageId
+    const threshold = isSessionRunning
       ? STREAMING_AUTO_SCROLL_BOTTOM_THRESHOLD
       : AUTO_SCROLL_BOTTOM_THRESHOLD
     const nextAtBottom = getDistanceToBottom(ref) <= threshold
-    shouldStickToBottomRef.current = nextAtBottom
+    const previousOffset = lastScrollOffsetRef.current
+    const currentOffset = ref.scrollOffset
+    const scrolledUp = currentOffset < previousOffset - BOTTOM_SCROLL_CORRECTION_EPSILON
+    const isProgrammaticScroll = window.performance.now() < programmaticScrollUntilRef.current
+
+    lastScrollOffsetRef.current = currentOffset
+
+    if (!nextAtBottom && scrolledUp && !isProgrammaticScroll) {
+      autoScrollModeRef.current = 'off'
+    } else if (nextAtBottom && isSessionRunning && autoScrollModeRef.current === 'off') {
+      autoScrollModeRef.current = 'stream'
+    }
+
     setIsAtBottom((prev) => (prev === nextAtBottom ? prev : nextAtBottom))
 
     if (
@@ -443,7 +482,7 @@ export function MessageList({
     ) {
       void loadOlderMessages()
     }
-  }, [loadOlderMessages, olderUnloadedMessageCount, streamingMessageId])
+  }, [isSessionRunning, loadOlderMessages, olderUnloadedMessageCount])
 
   const requestScrollToBottom = React.useCallback(
     ({
@@ -466,7 +505,7 @@ export function MessageList({
         scheduledScrollFrameRef.current = null
         const ref = listRef.current
         if (!ref) return
-        if (!force && !shouldStickToBottomRef.current) return
+        if (!force && !canAutoScroll()) return
 
         if (force || getDistanceToBottom(ref) > BOTTOM_SCROLL_CORRECTION_EPSILON) {
           scrollToBottomImmediate(behavior)
@@ -478,7 +517,7 @@ export function MessageList({
           framesLeft > 0 &&
           !!nextRef &&
           getDistanceToBottom(nextRef) > BOTTOM_SCROLL_CORRECTION_EPSILON &&
-          (force || shouldStickToBottomRef.current)
+          (force || canAutoScroll())
 
         if (needsAnotherFrame) {
           scheduledScrollFrameRef.current = window.requestAnimationFrame(run)
@@ -490,7 +529,7 @@ export function MessageList({
 
       scheduledScrollFrameRef.current = window.requestAnimationFrame(run)
     },
-    [scrollToBottomImmediate, syncBottomState]
+    [canAutoScroll, scrollToBottomImmediate, syncBottomState]
   )
 
   React.useEffect(() => {
@@ -504,74 +543,106 @@ export function MessageList({
   React.useLayoutEffect(() => {
     setIsAtBottom(true)
     pendingInitialScrollSessionIdRef.current = activeSessionId ?? null
-    shouldStickToBottomRef.current = true
-    latestRealUserCreatedAtRef.current = 0
+    autoScrollModeRef.current = isSessionRunning ? 'stream' : 'off'
     preserveScrollOnPrependRef.current = null
-  }, [activeSessionId])
+    lastScrollOffsetRef.current = 0
+    programmaticScrollUntilRef.current = 0
+  }, [activeSessionId, isSessionRunning])
 
   React.useLayoutEffect(() => {
     if (!activeSessionId) return
     if (pendingInitialScrollSessionIdRef.current !== activeSessionId) return
+    if (!(messageCount > 0 || streamingMessageId)) return
 
-    requestScrollToBottom({ force: true, maxFrames: INITIAL_SCROLL_SETTLE_FRAMES })
-    const timer = window.setTimeout(() => {
+    if (isSessionRunning) {
+      autoScrollModeRef.current = 'stream'
       requestScrollToBottom({ force: true, maxFrames: INITIAL_SCROLL_SETTLE_FRAMES })
-    }, 180)
-
-    if (messageCount > 0 || streamingMessageId) {
-      pendingInitialScrollSessionIdRef.current = null
+    } else {
+      syncBottomState()
     }
 
-    return () => window.clearTimeout(timer)
-  }, [activeSessionId, messageCount, requestScrollToBottom, streamingMessageId])
-
-  React.useLayoutEffect(() => {
-    if (!activeSessionId || latestRealUserCreatedAt === 0) return
-
-    const previousCreatedAt = latestRealUserCreatedAtRef.current
-    latestRealUserCreatedAtRef.current = latestRealUserCreatedAt
-
-    if (latestRealUserCreatedAt <= previousCreatedAt) return
-
-    shouldStickToBottomRef.current = true
-    setIsAtBottom(true)
-    requestScrollToBottom({ force: true, maxFrames: USER_SEND_SCROLL_SETTLE_FRAMES })
-  }, [activeSessionId, latestRealUserCreatedAt, requestScrollToBottom])
+    pendingInitialScrollSessionIdRef.current = null
+  }, [activeSessionId, isSessionRunning, messageCount, requestScrollToBottom, streamingMessageId, syncBottomState])
 
   React.useLayoutEffect(() => {
     const pending = preserveScrollOnPrependRef.current
     if (!pending) return
 
-    const frame = window.requestAnimationFrame(() => {
+    const restoreScrollPosition = (): void => {
       const ref = listRef.current
       if (!ref) return
-      preserveScrollOnPrependRef.current = null
-      const delta = ref.scrollSize - pending.size
-      if (delta > 0) {
-        ref.scrollTo(pending.offset + delta)
+
+      let restored = false
+      if (pending.anchorMessageId && pending.anchorTop !== null) {
+        const anchorElement = containerRef.current?.querySelector<HTMLElement>(
+          `[data-message-id="${pending.anchorMessageId}"]`
+        )
+        if (anchorElement) {
+          const nextTop = anchorElement.getBoundingClientRect().top
+          const delta = nextTop - pending.anchorTop
+          if (Math.abs(delta) > BOTTOM_SCROLL_CORRECTION_EPSILON) {
+            markProgrammaticScroll()
+            ref.scrollTo(ref.scrollOffset + delta)
+          }
+          restored = true
+        }
       }
+
+      if (!restored) {
+        const delta = ref.scrollSize - pending.size
+        if (delta > 0) {
+          markProgrammaticScroll()
+          ref.scrollTo(pending.offset + delta)
+        }
+      }
+
       syncBottomState()
+    }
+
+    const firstFrame = window.requestAnimationFrame(() => {
+      restoreScrollPosition()
+      const secondFrame = window.requestAnimationFrame(() => {
+        restoreScrollPosition()
+        preserveScrollOnPrependRef.current = null
+      })
+      scheduledScrollFrameRef.current = secondFrame
     })
 
-    return () => window.cancelAnimationFrame(frame)
-  }, [syncBottomState, virtualRowKeys.length])
+    return () => {
+      window.cancelAnimationFrame(firstFrame)
+      if (scheduledScrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(scheduledScrollFrameRef.current)
+        scheduledScrollFrameRef.current = null
+      }
+    }
+  }, [markProgrammaticScroll, syncBottomState, virtualRowKeys.length])
+
+  React.useEffect(() => {
+    const wasRunning = wasSessionRunningRef.current
+    if (!wasRunning && isSessionRunning && isAtBottom) {
+      autoScrollModeRef.current = 'stream'
+    } else if (wasRunning && !isSessionRunning && autoScrollModeRef.current === 'stream') {
+      autoScrollModeRef.current = 'off'
+    }
+    wasSessionRunningRef.current = isSessionRunning
+  }, [isAtBottom, isSessionRunning])
 
   React.useEffect(() => {
     syncBottomState()
   }, [syncBottomState, virtualRowKeys.length])
 
   React.useEffect(() => {
-    if (!shouldStickToBottomRef.current) return
+    if (!canAutoScroll()) return
     requestScrollToBottom({ maxFrames: FOLLOW_BOTTOM_SETTLE_FRAMES })
-  }, [requestScrollToBottom, virtualRowKeys.length])
+  }, [canAutoScroll, requestScrollToBottom, virtualRowKeys.length])
 
   React.useEffect(() => {
-    if (!streamingMessageId || !shouldStickToBottomRef.current) return
+    if (!streamingMessageId || !canAutoScroll()) return
     requestScrollToBottom({ maxFrames: FOLLOW_BOTTOM_SETTLE_FRAMES })
-  }, [requestScrollToBottom, streamingMessageId, streamingMessageSignal])
+  }, [canAutoScroll, requestScrollToBottom, streamingMessageId, streamingMessageSignal])
 
   const scrollToBottom = React.useCallback(() => {
-    shouldStickToBottomRef.current = true
+    autoScrollModeRef.current = 'user'
     setIsAtBottom(true)
     requestScrollToBottom({ behavior: 'smooth', force: true })
   }, [requestScrollToBottom])
@@ -773,6 +844,7 @@ export function MessageList({
                 showContinue={showContinue}
                 disableAnimation={disableAnimation}
                 toolResults={toolResultsLookup.get(messageId)}
+                anchorMessageId={preserveScrollOnPrependRef.current?.anchorMessageId ?? null}
                 onRetry={onRetry}
                 onContinue={onContinue}
                 onEditUserMessage={onEditUserMessage}

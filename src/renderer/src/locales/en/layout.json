@@ -169,7 +169,12 @@
     "help": "Onboarding",
     "clickToRename": "Click to rename",
     "renameSession": "Rename session:",
-    "modelLabel": "Model: {{model}}"
+    "modelLabel": "Model: {{model}}",
+    "runningSessionsCount": "{{count}} sessions / {{tasks}} agents",
+    "runningSessionsTooltip": "View running agent sessions across projects",
+    "runningSessionsTitle": "Running agent sessions ({{count}} sessions / {{tasks}} agents)",
+    "sessionTaskCount": "{{count}} agents",
+    "openMiniWindow": "Mini window"
   },
   "commandPalette": {
     "placeholder": "Type a command or search sessions...",

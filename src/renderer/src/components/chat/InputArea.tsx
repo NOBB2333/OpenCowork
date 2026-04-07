@@ -298,6 +298,7 @@ function summarizeQueuedMessage(text: string): string {
 }
 
 interface InputAreaProps {
+  sessionId?: string | null
   onSend: (
     text: string,
     images?: ImageAttachment[],
@@ -312,6 +313,7 @@ interface InputAreaProps {
 }
 
 export function InputArea({
+  sessionId,
   onSend,
   onStop,
   onSelectFolder,
@@ -550,12 +552,17 @@ export function InputArea({
   const setSettingsOpen = useUIStore((s) => s.setSettingsOpen)
   const openFilePreview = useUIStore((s) => s.openFilePreview)
   const mode = useUIStore((s) => s.mode)
-  const activeProjectId = useChatStore((s) => s.activeProjectId)
+  const activeProjectId = useChatStore((s) => {
+    const targetSessionId = sessionId ?? s.activeSessionId
+    const targetSession = s.sessions.find((session) => session.id === targetSessionId)
+    return targetSession?.projectId ?? s.activeProjectId
+  })
   const activeSshConnectionId = useChatStore((s) => {
-    const activeSession = s.sessions.find((session) => session.id === s.activeSessionId)
-    const projectId = activeSession?.projectId ?? s.activeProjectId
+    const targetSessionId = sessionId ?? s.activeSessionId
+    const targetSession = s.sessions.find((session) => session.id === targetSessionId)
+    const projectId = targetSession?.projectId ?? s.activeProjectId
     const activeProject = s.projects.find((project) => project.id === projectId)
-    return activeSession?.sshConnectionId ?? activeProject?.sshConnectionId ?? null
+    return targetSession?.sshConnectionId ?? activeProject?.sshConnectionId ?? null
   })
   const [homeLongRunningMode, setHomeLongRunningMode] = useLocalState(false)
   const {
@@ -567,13 +574,14 @@ export function InputArea({
     setSessionLongRunningMode
   } = useChatStore(
     useShallow((s) => {
-      const activeSession = s.sessions.find((sess) => sess.id === s.activeSessionId)
+      const targetSessionId = sessionId ?? s.activeSessionId
+      const targetSession = s.sessions.find((sess) => sess.id === targetSessionId)
       return {
-        activeSessionId: s.activeSessionId,
-        hasMessages: (activeSession?.messageCount ?? 0) > 0,
+        activeSessionId: targetSessionId,
+        hasMessages: (targetSession?.messageCount ?? 0) > 0,
         clearSessionMessages: s.clearSessionMessages,
-        sessionMessages: activeSession?.messages ?? EMPTY_SESSION_MESSAGES,
-        longRunningMode: activeSession?.longRunningMode ?? false,
+        sessionMessages: targetSession?.messages ?? EMPTY_SESSION_MESSAGES,
+        longRunningMode: targetSession?.longRunningMode ?? false,
         setSessionLongRunningMode: s.setSessionLongRunningMode
       }
     })

@@ -36,6 +36,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useShallow } from 'zustand/react/shallow'
 import { WindowControls } from './WindowControls'
+import { RunningAgentSessionsPopover } from './RunningAgentSessionsPopover'
 
 const modes: { value: AppMode; labelKey: string; icon: React.ReactNode }[] = [
   { value: 'clarify', labelKey: 'mode.clarify', icon: <CircleHelp className="size-4" /> },
@@ -220,6 +221,8 @@ export function TopBar(): React.JSX.Element {
             </Select>
           </>
         )}
+
+        <RunningAgentSessionsPopover />
 
         {/* Auto-approve toggle */}
         <Tooltip>

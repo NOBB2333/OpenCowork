@@ -9,7 +9,8 @@ import {
   ImageDown,
   Loader2,
   PanelLeftOpen,
-  ExternalLink
+  ExternalLink,
+  Minimize2
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useTheme } from 'next-themes'
@@ -155,6 +156,9 @@ export function Layout({ updateInfo, onOpenUpdateDialog }: LayoutProps): React.J
   const subAgentExecutionDetailToolUseId = useUIStore((s) => s.subAgentExecutionDetailToolUseId)
   const subAgentExecutionDetailInlineText = useUIStore((s) => s.subAgentExecutionDetailInlineText)
   const closeSubAgentExecutionDetail = useUIStore((s) => s.closeSubAgentExecutionDetail)
+  const miniSessionWindowOpen = useUIStore((s) => s.miniSessionWindowOpen)
+  const miniSessionWindowSessionId = useUIStore((s) => s.miniSessionWindowSessionId)
+  const closeMiniSessionWindow = useUIStore((s) => s.closeMiniSessionWindow)
   const toolbarCollapsedByDefault = useSettingsStore((s) => s.toolbarCollapsedByDefault)
   const chatView = useUIStore((s) => s.chatView)
   const activeSessionView = useChatStore(
@@ -175,6 +179,11 @@ export function Layout({ updateInfo, onOpenUpdateDialog }: LayoutProps): React.J
   )
   const { activeProjectId, activeSessionTitle, activeSessionMode, activeWorkingFolder } =
     activeSessionView
+  const miniWindowSession = useChatStore((s) =>
+    miniSessionWindowSessionId
+      ? s.sessions.find((session) => session.id === miniSessionWindowSessionId)
+      : undefined
+  )
   const activeSessionId = useChatStore((s) => s.activeSessionId)
   const updateSessionMode = useChatStore((s) => s.updateSessionMode)
   const streamingMessageId = useChatStore((s) => s.streamingMessageId)
@@ -1164,6 +1173,67 @@ export function Layout({ updateInfo, onOpenUpdateDialog }: LayoutProps): React.J
             </DialogTitle>
           </DialogHeader>
           <PreviewPanel embedded />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={miniSessionWindowOpen}
+        onOpenChange={(open) => {
+          if (!open) closeMiniSessionWindow()
+        }}
+      >
+        <DialogContent
+          className="h-[calc(100vh-5rem)] w-[min(48rem,calc(100vw-2rem))] max-w-[min(48rem,calc(100vw-2rem))] overflow-hidden p-0"
+        >
+          <DialogHeader className="border-b px-4 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <DialogTitle className="truncate text-sm">
+                  {miniWindowSession?.title ?? t('topbar.openSession')}
+                </DialogTitle>
+                <div className="mt-1 truncate text-xs text-muted-foreground">
+                  {miniWindowSession?.workingFolder || miniWindowSession?.mode || ''}
+                </div>
+              </div>
+              {miniSessionWindowSessionId && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1.5"
+                  onClick={() => {
+                    useChatStore.getState().setActiveSession(miniSessionWindowSessionId)
+                    useUIStore.getState().navigateToSession()
+                    closeMiniSessionWindow()
+                  }}
+                >
+                  <Minimize2 className="size-3.5" />
+                  {t('topbar.openSession')}
+                </Button>
+              )}
+            </div>
+          </DialogHeader>
+          {miniSessionWindowSessionId && (
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-gradient-to-b from-background to-muted/20">
+              <MessageList
+                sessionId={miniSessionWindowSessionId}
+                onRetry={retryLastMessage}
+                onContinue={continueLastToolExecution}
+                onEditUserMessage={editAndResend}
+                onDeleteMessage={deleteMessage}
+              />
+              <InputArea
+                sessionId={miniSessionWindowSessionId}
+                onSend={(text, images) => void sendMessage(text, images, undefined, miniSessionWindowSessionId)}
+                onStop={stopStreaming}
+                workingFolder={miniWindowSession?.workingFolder}
+                hideWorkingFolderIndicator
+                isStreaming={Boolean(
+                  miniSessionWindowSessionId &&
+                    useChatStore.getState().streamingMessages[miniSessionWindowSessionId]
+                )}
+              />
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

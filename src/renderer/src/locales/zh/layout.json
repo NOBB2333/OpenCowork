@@ -169,7 +169,12 @@
     "help": "新人引导",
     "clickToRename": "点击重命名",
     "renameSession": "重命名会话：",
-    "modelLabel": "模型：{{model}}"
+    "modelLabel": "模型：{{model}}",
+    "runningSessionsCount": "{{count}} 会话 / {{tasks}} Agent",
+    "runningSessionsTooltip": "查看跨项目运行中的 Agent 会话",
+    "runningSessionsTitle": "运行中的 Agent 会话（{{count}} 个会话 / {{tasks}} 个 Agent）",
+    "sessionTaskCount": "{{count}} 个 Agent",
+    "openMiniWindow": "小窗"
   },
   "commandPalette": {
     "placeholder": "输入命令或搜索会话...",
