@@ -125,8 +125,13 @@ async function configureSystemProxy(): Promise<void> {
     const saved = readSettings().systemProxyUrl
     const proxyUrl = (typeof saved === 'string' && saved.trim()) ? saved.trim() : getEnvProxyUrl()
 
-    await session.defaultSession.setProxy({ proxyRules: proxyUrl || '' })
-    console.log(proxyUrl ? `[Main] System proxy configured: ${proxyUrl}` : '[Main] No system proxy')
+    if (proxyUrl) {
+      await session.defaultSession.setProxy({ mode: 'fixed_servers', proxyRules: proxyUrl })
+      console.log(`[Main] System proxy configured: ${proxyUrl}`)
+    } else {
+      await session.defaultSession.setProxy({ mode: 'system' })
+      console.log('[Main] Using system proxy settings')
+    }
   } catch (err) {
     console.error('[Main] Failed to configure system proxy:', err)
   }

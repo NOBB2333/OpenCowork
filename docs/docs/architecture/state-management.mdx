@@ -5,64 +5,72 @@ description: OpenCowork 基于 Zustand + Immer 的状态管理架构。
 
 # 状态管理 / State Management
 
-OpenCowork 使用 Zustand + Immer 进行状态管理，所有 store 位于 `src/renderer/src/stores/`。
+OpenCowork 使用 Zustand + Immer 组织渲染进程状态，但当前已经不是“少数几个 UI store”，而是一套围绕 Agent、项目、团队、平台与运行时编排的状态网络。所有 store 位于 `src/renderer/src/stores/`。
 
 ## 核心 Store / Core Stores
 
-| Store            | 职责                        |
-| ---------------- | --------------------------- |
-| `chat-store`     | 会话和消息，持久化到 SQLite |
-| `agent-store`    | Agent 循环运行时状态        |
-| `plugin-store`   | 插件实例和状态              |
-| `settings-store` | 用户偏好设置                |
-| `provider-store` | AI 提供商配置               |
-| `task-store`     | 任务列表（计划模式）        |
-| `plan-store`     | 计划数据                    |
-| `team-store`     | Agent 团队状态              |
-| `cron-store`     | 定时任务                    |
-| `mcp-store`      | MCP 服务器                  |
-| `ui-store`       | UI 状态（侧边栏、主题等）   |
+| Store | 职责 |
+| --- | --- |
+| `chat-store` | 项目、会话、消息、会话切换与数据库同步 |
+| `agent-store` | Agent 主循环、工具调用、审批、子代理、后台进程输出、使用量聚合 |
+| `task-store` | 当前 session 下的任务管理与步骤面板 |
+| `plan-store` | Plan Mode 产物与计划状态 |
+| `team-store` | Agent 团队、成员、后台 teammate 运行时 |
+| `provider-store` | 模型提供商、模型列表与认证配置 |
+| `settings-store` | 全局设置、默认目录、代理等偏好 |
+| `app-plugin-store` | 应用插件配置与连接状态 |
+| `channel-store` | 消息平台连接、消息路由与自动回复状态 |
+| `mcp-store` | MCP Server 注册、连接与工具可用性 |
+| `cron-store` | 定时任务、运行历史与调度状态 |
+| `ssh-store` | SSH 连接与远程上下文 |
+| `resources-store` | agents / prompts / commands / skills 等资源清单 |
+| `notify-store` / `ui-store` | 通知窗口与界面状态 |
 
 ## Store 模式 / Store Pattern
 
-所有 store 使用 Zustand + Immer 中间件：
+多数复杂 store 采用 `create + immer + persist` 组合，并根据数据类型选择不同存储后端：
 
 ```typescript
-import { create } from 'zustand'
-import { immer } from 'zustand/middleware/immer'
-import { persist } from 'zustand/middleware'
-
-export const useChatStore = create<ChatStore>()(
+create<State>()(
   persist(
     immer((set, get) => ({
-      sessions: [],
-      addSession: (session) =>
-        set((state) => {
-          state.sessions.push(session)
-        })
+      // state + actions
     })),
-    { name: 'chat-store' }
+    {
+      name: 'agent-store',
+      storage: createJSONStorage(() => ipcStorage)
+    }
   )
 )
 ```
 
-## 持久化策略 / Persistence
+其中 `agent-store`、`settings-store`、`team-store` 会使用 `ipcStorage`，把持久化落到 Electron 可控存储层，而不是浏览器原生 `localStorage`。
 
-| Store            | 持久化方式                         |
-| ---------------- | ---------------------------------- |
-| `chat-store`     | SQLite（via IPC，fire-and-forget） |
-| `settings-store` | localStorage（Zustand persist）    |
-| `provider-store` | localStorage（Zustand persist）    |
-| `agent-store`    | IPC storage                        |
+## 分层状态原则 / State Boundaries
 
-## Immer 的使用 / Using Immer
+- **会话与业务实体**：优先由 `chat-store`、`task-store`、`plan-store` 与 SQLite 对齐。
+- **运行时瞬时状态**：由 `agent-store` 承载，如流式文本、工具调用、审批、sub-agent transcript。
+- **系统配置**：由 `settings-store`、`provider-store`、`app-plugin-store` 管理。
+- **外部连接状态**：由 `channel-store`、`mcp-store`、`ssh-store` 管理。
+- **界面状态**：由 `ui-store`、`notify-store` 管理。
 
-Immer 允许直接修改 state（内部转换为不可变更新）：
+## 持久化策略 / Persistence Strategy
 
-```typescript
-// 直接修改，无需展开
-set((state) => {
-  state.messages[sessionId].push(newMessage)
-  state.sessions.find((s) => s.id === sessionId).updatedAt = Date.now()
-})
-```
+| Store | 持久化方式 |
+| --- | --- |
+| `chat-store` | SQLite（通过 IPC 调 DAO） |
+| `task-store` / `plan-store` / `cron-store` | SQLite（主进程 DB） |
+| `agent-store` | `persist + ipcStorage` |
+| `settings-store` | `persist + ipcStorage` |
+| `team-store` | `persist + ipcStorage` |
+| `provider-store` / `app-plugin-store` | 配置存储层（`configStorage`） |
+| `ui-store` / `notify-store` | 内存或轻量本地持久化 |
+
+## 当前演进特点 / Current Evolution
+
+相较早期版本，状态管理有几个明显变化：
+
+- 已从单 session 聊天扩展为 **project -> session** 工作流。
+- `agent-store` 变成高复杂度运行时 store，负责工具执行轨迹与子代理 transcript 裁剪。
+- 团队协作、计划模式、cron、SSH、Wiki 等能力各自拥有独立状态域，避免一个超级 store 承担全部职责。
+- 持久化策略按“配置 / 运行时 / 业务实体”拆分，而不是统一塞进浏览器存储。
